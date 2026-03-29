@@ -116,10 +116,9 @@ class APIClient:
             if GUARDIAN_API_KEY == "YOUR_GUARDIAN_KEY_HERE":
                 return pd.DataFrame()
             
-            url = "https://open-platform.theguardian.com/search"
+            url = "https://content.guardianapis.com/search"
             params = {
                 'q': keywords,
-                'section': 'business',
                 'page-size': 50,
                 'api-key': GUARDIAN_API_KEY
             }
@@ -145,11 +144,13 @@ class APIClient:
                 return 78.45  # Mock WTI price
             
             # WTI Oil prices - try FRED API
-            url = "https://api.stlouisfed.org/fred/series/DCOILWTICO/observations"
+            url = "https://api.stlouisfed.org/fred/series/observations"
             params = {
+                'series_id': 'DCOILWTICO',
                 'api_key': FRED_API_KEY,
                 'file_type': 'json',
-                'limit': 1
+                'limit': 5,
+                'sort_order': 'desc',
             }
             
             response = requests.get(url, params=params, timeout=5)
@@ -157,8 +158,9 @@ class APIClient:
                 data = response.json()
                 observations = data.get('observations', [])
                 if observations:
-                    latest = observations[-1]
-                    return float(latest.get('value', 0))
+                    value_str = next((o['value'] for o in observations if o['value'] != '.'), None)
+                    if value_str:
+                        return float(value_str)
             
             # If FRED fails, return realistic market price
             return 78.45
@@ -173,19 +175,23 @@ class APIClient:
             if FRED_API_KEY == "YOUR_FRED_KEY_HERE":
                 return 1200  # Mock BDI
             
-            url = "https://api.stlouisfed.org/fred/series/BALTICEXU/observations"
+            url = "https://api.stlouisfed.org/fred/series/observations"
             params = {
+                'series_id': 'TSIFRGHT',  # Freight Transportation Services Index
                 'api_key': FRED_API_KEY,
                 'file_type': 'json',
-                'limit': 1
+                'limit': 5,
+                'sort_order': 'desc',
             }
-            
+
             response = requests.get(url, params=params, timeout=5)
             if response.status_code == 200:
                 data = response.json()
                 observations = data.get('observations', [])
                 if observations:
-                    return float(observations[-1].get('value', 1200))
+                    value_str = next((o['value'] for o in observations if o['value'] != '.'), None)
+                    if value_str:
+                        return float(value_str)
             
             return 1200  # Mock BDI fallback
         except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, Exception):
@@ -223,17 +229,17 @@ class APIClient:
     def get_world_bank_trade(country_code):
         """Get trade data from World Bank API (completely free)"""
         try:
-            url = f"{WORLD_BANK_BASE_URL}/country/{country_code}/indicator"
+            url = f"{WORLD_BANK_BASE_URL}/country/{country_code}/indicator/NE.EXP.GNFS.CD"
             params = {
-                'indicators': 'NE.EXP.GNFS.CD,NE.IMP.GNFS.CD',
-                'format': 'json'
+                'format': 'json',
+                'per_page': 10,
             }
-            
+
             response = requests.get(url, params=params, timeout=5)
             response.raise_for_status()
-            
+
             data = response.json()
-            if len(data) > 1:
+            if len(data) > 1 and isinstance(data[1], list):
                 return data[1]
             return []
         except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, Exception):
