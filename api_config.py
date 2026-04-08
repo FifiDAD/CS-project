@@ -1,20 +1,17 @@
 """API Configuration"""
 
+import os
+
 # ============================================
-# FREE API KEYS 
+# FREE API KEYS
 # ============================================
 
-# NewsAPI - https://newsapi.org/ (free signup, 500 requests/day)
-NEWSAPI_KEY = "82ffc7cbf56f471a967475a85fb48316"
-
-# FRED (Federal Reserve) - https://fred.stlouisfed.org/docs/api/fred-api.html
-FRED_API_KEY = "c2f3fe9e461b3cf4575193da337d8ff2"
-
-# OpenWeather - https://openweathermap.org/api (free tier)
-OPENWEATHER_KEY = "27616ee5c23d8fa0fc3b462365972af5"
-
-# Guardian - https://open-platform.theguardian.com/ (completely free)
-GUARDIAN_API_KEY = "1c657aa6-af8d-40d6-9ad7-984b8a497a23"
+# Supported API keys can be loaded from environment variables first,
+# with local defaults used as fallbacks for current development.
+NEWSAPI_KEY = os.getenv("NEWSAPI_KEY", "82ffc7cbf56f471a967475a85fb48316")
+FRED_API_KEY = os.getenv("FRED_API_KEY", "c2f3fe9e461b3cf4575193da337d8ff2")
+OPENWEATHER_KEY = os.getenv("OPENWEATHER_KEY", "27616ee5c23d8fa0fc3b462365972af5")
+GUARDIAN_API_KEY = os.getenv("GUARDIAN_API_KEY", "1c657aa6-af8d-40d6-9ad7-984b8a497a23")
 
 # ============================================
 # API ENDPOINTS (No keys needed)
@@ -46,14 +43,12 @@ KEY_REGIONS = {
     "Strait of Malaysia": {"lat": 2, "lon": 104, "radius": 200},
 }
 
-# Countries to monitor for trade impact
 TRADE_MONITOR_COUNTRIES = [
     "China", "United States", "Germany", "Japan", "India",
     "United Kingdom", "France", "Italy", "Netherlands", "Canada",
     "Russia", "Iran", "North Korea", "Venezuela", "Syria"
 ]
 
-# Important ports
 CRITICAL_PORTS = {
     "Singapore": {"lat": 1.35, "lon": 103.82},
     "Shanghai": {"lat": 30.96, "lon": 121.56},
@@ -64,3 +59,10 @@ CRITICAL_PORTS = {
     "Hamburg": {"lat": 53.55, "lon": 10.01},
     "Port Said": {"lat": 31.26, "lon": 32.30},
 }
+
+# ============================================
+# Usage notes
+# ============================================
+# You can still configure keys with environment variables if needed,
+# or use the values above directly for local development.
+

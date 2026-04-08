@@ -199,13 +199,14 @@ st.write("---")
 # Tabs for different views
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["🗺️ Map", "📋 Events", "🚢 Shipping", "📈 Analytics", "💰 Impact"])
 
-# Tab 1: Interactive Map
+# Tab 1: Interactive Globe
 with tab1:
-    st.subheader("Global Events Map")
-    
+    st.subheader("Global Events — 3D Globe")
+    st.caption("Drag to rotate · Scroll to zoom · Hover for details · ☀️ subsolar point · shaded = night side (real-time UTC)")
+
     if len(filtered_events) > 0:
-        map_obj = create_dashboard_map(filtered_events, show_routes=True)
-        st.components.v1.html(map_obj._repr_html_(), height=600)
+        globe_fig = create_dashboard_map(filtered_events, show_routes=True)
+        st.plotly_chart(globe_fig, use_container_width=True)
     else:
         st.info("No events to display with current filters")
 
