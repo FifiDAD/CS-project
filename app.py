@@ -7,7 +7,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from streamlit_autorefresh import st_autorefresh
 
-from config import EVENT_TYPES
+from config import EVENT_TYPES, MAJOR_SHIPPING_ROUTES
 from sample_data import get_events_data
 from api_integrations import APIClient
 from analytics import RiskAnalytics
@@ -326,11 +326,12 @@ st.write("---")
 # SECONDARY TABS
 # ═══════════════════════════════════════════════════════════════════════════════
 
-tab1, tab2, tab3, tab4 = st.tabs([
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📋 Events",
     "🚢 Shipping & Ports",
     "📈 Analytics",
     "💰 Impact",
+    "⛽ Fuel Calculator",
 ])
 
 # ── Tab 1: Events list ────────────────────────────────────────────────────────
@@ -543,6 +544,201 @@ with tab4:
     with fc2:
         st.write(f"⚠️ Event Risk Multiplier: **{cost_impact['event_risk_multiplier']}x**")
         st.write(f"Events affecting costs: {analytics['critical_events'] + analytics['high_events']}")
+
+# ── Tab 5: Fuel Calculator ────────────────────────────────────────────────────
+with tab5:
+    st.subheader("⛽ Voyage Fuel Cost Estimator")
+    st.caption("Estimates fuel cost based on live WTI crude oil price + route risk surcharge")
+
+    # Bunker price estimate from WTI crude
+    # Rule of thumb: bunker HFO ≈ crude * 6.35 ($/ton)
+    wti = oil_price if oil_price else 78.45
+    bunker_price_per_ton = wti * 6.35
+
+    st.info(f"🛢 Live WTI Crude: **${wti:.2f}/bbl** → Estimated Bunker (HFO): **${bunker_price_per_ton:.0f}/ton**")
+
+    st.write("---")
+
+    # ── Input form ────────────────────────────────────────────────────────────
+    inp1, inp2 = st.columns(2, gap="large")
+
+    with inp1:
+        st.write("**Vessel Parameters**")
+
+        vessel_preset = st.selectbox(
+            "Vessel Type (preset)",
+            options=[
+                "Custom",
+                "Small Feeder (600 TEU) — 18 t/day",
+                "Medium Feeder (1,500 TEU) — 30 t/day",
+                "Panamax (4,500 TEU) — 55 t/day",
+                "Post-Panamax (8,000 TEU) — 80 t/day",
+                "ULCS (20,000+ TEU) — 130 t/day",
+                "Suezmax Tanker — 65 t/day",
+                "VLCC Tanker — 90 t/day",
+                "Capesize Bulk — 50 t/day",
+            ],
+            key="vessel_preset",
+        )
+
+        # Parse preset consumption
+        preset_consumption = {
+            "Small Feeder (600 TEU) — 18 t/day": 18,
+            "Medium Feeder (1,500 TEU) — 30 t/day": 30,
+            "Panamax (4,500 TEU) — 55 t/day": 55,
+            "Post-Panamax (8,000 TEU) — 80 t/day": 80,
+            "ULCS (20,000+ TEU) — 130 t/day": 130,
+            "Suezmax Tanker — 65 t/day": 65,
+            "VLCC Tanker — 90 t/day": 90,
+            "Capesize Bulk — 50 t/day": 50,
+        }
+        default_cons = preset_consumption.get(vessel_preset, 50)
+
+        consumption = st.number_input(
+            "Fuel Consumption (tons/day)",
+            min_value=1.0,
+            max_value=500.0,
+            value=float(default_cons),
+            step=1.0,
+            key="consumption",
+        )
+
+        voyage_days = st.number_input(
+            "Voyage Duration (days)",
+            min_value=1,
+            max_value=120,
+            value=14,
+            step=1,
+            key="voyage_days",
+        )
+
+    with inp2:
+        st.write("**Route & Risk**")
+
+        route_options = ["No specific route"] + list(MAJOR_SHIPPING_ROUTES.keys())
+        selected_route = st.selectbox(
+            "Shipping Route",
+            options=route_options,
+            key="calc_route",
+        )
+
+        # Route risk surcharge from live shipping_df
+        route_risk_surcharge = 0.0
+        route_status_label = "N/A"
+        if selected_route != "No specific route" and len(shipping_df) > 0:
+            route_row = shipping_df[shipping_df["Route"] == selected_route]
+            if len(route_row) > 0:
+                risk_score = route_row.iloc[0]["Risk Score"]
+                route_status_label = route_row.iloc[0]["Status"]
+                cost_impact_str = route_row.iloc[0]["Cost Impact"]
+                # Parse "+15%" → 0.15
+                try:
+                    route_risk_surcharge = float(cost_impact_str.replace("%", "").replace("+", "")) / 100
+                except Exception:
+                    route_risk_surcharge = risk_score / 400  # fallback
+
+        speed_reduction = st.slider(
+            "Speed Reduction due to conditions (%)",
+            min_value=0,
+            max_value=30,
+            value=0,
+            step=5,
+            key="speed_reduction",
+            help="Rough seas, heavy weather or security routing can increase voyage duration",
+        )
+
+        cargo_value = st.number_input(
+            "Cargo Value (USD, optional — for insurance estimate)",
+            min_value=0,
+            max_value=500_000_000,
+            value=0,
+            step=100_000,
+            format="%d",
+            key="cargo_value",
+        )
+
+    st.write("---")
+
+    # ── Calculations ──────────────────────────────────────────────────────────
+    # Adjust voyage days for speed reduction
+    effective_days = voyage_days * (1 + speed_reduction / 100)
+
+    # Base fuel cost
+    total_fuel_tons = consumption * effective_days
+    base_fuel_cost  = total_fuel_tons * bunker_price_per_ton
+
+    # Route risk surcharge
+    risk_surcharge_usd = base_fuel_cost * route_risk_surcharge
+
+    # Total fuel cost
+    total_cost = base_fuel_cost + risk_surcharge_usd
+
+    # Insurance estimate (rough: 0.05–0.15% of cargo value per voyage)
+    insurance_estimate = 0.0
+    if cargo_value > 0:
+        base_insurance_pct = 0.001  # 0.1% baseline
+        # Bump up for risky routes
+        if route_risk_surcharge > 0.15:
+            base_insurance_pct = 0.003
+        elif route_risk_surcharge > 0.05:
+            base_insurance_pct = 0.0015
+        insurance_estimate = cargo_value * base_insurance_pct
+
+    # ── Results ───────────────────────────────────────────────────────────────
+    st.subheader("📊 Estimate Results")
+
+    r1, r2, r3, r4 = st.columns(4)
+    r1.metric("Total Fuel (tons)",     f"{total_fuel_tons:,.0f} t")
+    r2.metric("Base Fuel Cost",        f"${base_fuel_cost:,.0f}")
+    r3.metric("Route Risk Surcharge",  f"${risk_surcharge_usd:,.0f}",
+              delta=f"+{route_risk_surcharge*100:.0f}%" if route_risk_surcharge > 0 else "No surcharge",
+              delta_color="inverse")
+    r4.metric("Total Estimated Cost",  f"${total_cost:,.0f}")
+
+    if cargo_value > 0:
+        st.metric("Insurance Estimate", f"${insurance_estimate:,.0f}",
+                  help="Rough estimate only — consult your broker for accurate war risk premiums")
+
+    st.write("---")
+
+    # Cost breakdown bar chart
+    breakdown_items = {"Base Fuel": base_fuel_cost}
+    if risk_surcharge_usd > 0:
+        breakdown_items["Route Surcharge"] = risk_surcharge_usd
+    if insurance_estimate > 0:
+        breakdown_items["Insurance (est.)"] = insurance_estimate
+
+    fig_breakdown = go.Figure(go.Bar(
+        x=list(breakdown_items.keys()),
+        y=list(breakdown_items.values()),
+        marker_color=["#4a9eff", "#FF4500", "#FFD700"],
+        text=[f"${v:,.0f}" for v in breakdown_items.values()],
+        textposition="outside",
+        textfont=dict(color="#d0e8ff"),
+    ))
+    fig_breakdown.update_layout(
+        paper_bgcolor="#000510",
+        plot_bgcolor="#040e22",
+        font_color="#d0e8ff",
+        yaxis_title="USD",
+        margin=dict(t=20, b=0),
+        height=300,
+        showlegend=False,
+    )
+    st.plotly_chart(fig_breakdown, use_container_width=True)
+
+    # Route risk context
+    if selected_route != "No specific route":
+        st.write("---")
+        st.write(f"**Route Context — {selected_route}**")
+        rc1, rc2 = st.columns(2)
+        with rc1:
+            st.write(f"Status: **{route_status_label}**")
+            st.write(f"Cost surcharge applied: **+{route_risk_surcharge*100:.0f}%**")
+        with rc2:
+            if speed_reduction > 0:
+                st.write(f"Speed reduction: **{speed_reduction}%** → effective days: **{effective_days:.1f}**")
+            st.write(f"Bunker price used: **${bunker_price_per_ton:.0f}/ton** (from live WTI)")
 
 
 # ── Footer ────────────────────────────────────────────────────────────────────
