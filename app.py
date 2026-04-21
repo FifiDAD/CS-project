@@ -25,6 +25,12 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Session state for settings
+if "auto_refresh" not in st.session_state:
+    st.session_state.auto_refresh = True
+if "email_notifications" not in st.session_state:
+    st.session_state.email_notifications = False
+
 # Custom CSS
 st.markdown("""
     <style>
@@ -132,16 +138,6 @@ filtered_events = filter_events(events_df, event_type_filter, impact_filter, sea
 
 st.sidebar.write("---")
 
-# Data export
-if st.sidebar.button("📥 Export Events (CSV)"):
-    csv = filtered_events.to_csv(index=False)
-    st.sidebar.download_button(
-        label="Download CSV",
-        data=csv,
-        file_name=f"events_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-        mime="text/csv"
-    )
-
 st.sidebar.write("---")
 st.sidebar.subheader("📊 Market Data")
 
@@ -153,9 +149,25 @@ else:
 if shipping_index:
     st.sidebar.metric("⚓ Baltic Dry Index", f"{shipping_index:.0f}")
 
+st.sidebar.write("---")
+_sidebar_csv = filtered_events.to_csv(index=False)
+st.sidebar.download_button(
+    "📥 Export CSV",
+    data=_sidebar_csv,
+    file_name=f"events_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+    mime="text/csv"
+)
+with st.sidebar.expander("⚙️ Settings"):
+    st.button("Login")
+    st.session_state.email_notifications = st.toggle("Email notifications", value=st.session_state.email_notifications)
+    st.session_state.auto_refresh = st.toggle("Auto-refresh", value=st.session_state.auto_refresh)
+
 # Main content
 st.title("🌍 Global Events Dashboard")
 st.write("Real-time tracking of military strikes, shipping disruptions, and geopolitical conflicts affecting business.")
+
+# Top navigation bar
+selected_tab = st.radio("", ["Map", "Events", "Shipping", "Analytics", "Impact"], horizontal=True, label_visibility="collapsed")
 
 st.write("---")
 
@@ -197,10 +209,8 @@ with col5:
 st.write("---")
 
 # Tabs for different views
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["🗺️ Map", "📋 Events", "🚢 Shipping", "📈 Analytics", "💰 Impact"])
-
 # Tab 1: Interactive Map
-with tab1:
+if selected_tab == "Map":
     st.subheader("Global Events Map")
     
     if len(filtered_events) > 0:
@@ -210,7 +220,7 @@ with tab1:
         st.info("No events to display with current filters")
 
 # Tab 2: Events List
-with tab2:
+elif selected_tab == "Events":
     st.subheader("Active Events")
     
     if len(filtered_events) == 0:
@@ -222,7 +232,7 @@ with tab2:
         render_event_list(filtered_events_sorted)
 
 # Tab 3: Shipping Routes
-with tab3:
+elif selected_tab == "Shipping":
     st.subheader("🚢 Shipping Route Status")
     st.dataframe(shipping_df, use_container_width=True, hide_index=True)
     
@@ -255,7 +265,7 @@ with tab3:
         """)
 
 # Tab 4: Analytics & Risk
-with tab4:
+elif selected_tab == "Analytics":
     st.subheader("📈 Detailed Risk Analysis")
     
     col1, col2 = st.columns(2)
@@ -316,7 +326,7 @@ with tab4:
         st.plotly_chart(fig, use_container_width=True)
 
 # Tab 5: Financial Impact
-with tab5:
+elif selected_tab == "Impact":
     st.subheader("💰 Business Impact Assessment")
     
     # Calculate costs
