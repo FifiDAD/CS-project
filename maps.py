@@ -1,102 +1,406 @@
 """Map visualization functions for the Global Events Dashboard"""
 
-import folium
-from folium import plugins
+import numpy as np
 import pandas as pd
-from config import EVENT_TYPES, MAJOR_SHIPPING_ROUTES, DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM
+import plotly.graph_objects as go
+import plotly.io as pio
+import streamlit.components.v1 as components
+from datetime import datetime, timezone
+from config import EVENT_TYPES, MAJOR_SHIPPING_ROUTES, IMPACT_LEVELS, ROUTE_STATUS_COLORS
 
-def create_base_map(center=None, zoom=None):
-    """Create base folium map"""
-    
-    if center is None:
-        center = DEFAULT_MAP_CENTER
-    if zoom is None:
-        zoom = DEFAULT_MAP_ZOOM
-    
-    m = folium.Map(
-        location=center,
-        zoom_start=zoom,
-        tiles="OpenStreetMap"
-    )
-    
-    return m
+# Map event type to a color string for Plotly
+EVENT_COLORS = {
+    "Military Strike":      "#FF2222",
+    "Port Disruption":      "#FF8C00",
+    "Terrorist Activity":   "#8B0000",
+    "Political Instability":"#9B59B6",
+    "Supply Chain Alert":   "#3498DB",
+    "Weather Hazard":       "#1A5276",
+}
 
-def add_events_to_map(map_obj, events_df):
-    """Add conflict events as markers to the map"""
-    
-    for idx, row in events_df.iterrows():
-        event_type = row["type"]
-        
-        # Get color and icon from config
-        color = EVENT_TYPES.get(event_type, {}).get("color", "gray")
-        icon_text = EVENT_TYPES.get(event_type, {}).get("icon", "📍")
-        
-        # Create popup text
-        popup_text = f"""
-        <b>{row['type']}</b><br>
-        Location: {row['location']}<br>
-        Time: {row['date'].strftime('%Y-%m-%d %H:%M')}<br>
-        Impact: {row['impact']}<br>
-        Description: {row['description']}<br>
-        Business Impact: {row['business_impact']}
-        """
-        
-        # Add marker
-        folium.Marker(
-            location=[row["latitude"], row["longitude"]],
-            popup=folium.Popup(popup_text, max_width=300),
-            icon=folium.Icon(color=color, icon="warning"),
-            tooltip=f"{row['type']} - {row['location']}"
-        ).add_to(map_obj)
-    
-    return map_obj
+TRAFFIC_COLORS = {
+    "Critical":  "red",
+    "Very High": "orange",
+    "High":      "yellow",
+    "Medium":    "royalblue",
+    "Low":       "limegreen",
+}
 
-def add_shipping_routes_to_map(map_obj, routes_dict):
-    """Add shipping routes to the map"""
-    
-    for route_name, route_info in routes_dict.items():
-        coords = route_info["coords"]
-        status = route_info["status"]
-        traffic = route_info["traffic"]
-        
-        # Determine color based on traffic
-        traffic_color = {
-            "Critical": "red",
-            "Very High": "orange",
-            "High": "yellow",
-            "Medium": "blue",
-            "Low": "green"
-        }
-        
-        color = traffic_color.get(traffic, "blue")
-        weight = {"Critical": 5, "Very High": 4, "High": 3, "Medium": 2, "Low": 1}.get(traffic, 2)
-        
-        # Add route line
-        folium.PolyLine(
-            locations=coords,
-            color=color,
-            weight=weight,
-            opacity=0.8,
-            popup=f"{route_name}<br>Traffic: {traffic}<br>Status: {status}",
-            tooltip=f"{route_name} ({traffic})"
-        ).add_to(map_obj)
-    
-    return map_obj
+CONGESTION_COLORS = {
+    "Critical": "#FF2222",
+    "High":     "#FF8C00",
+    "Medium":   "#FFD700",
+    "Low":      "#00CC44",
+}
 
-def create_dashboard_map(events_df, show_routes=True):
-    """Create complete dashboard map with all elements"""
-    
-    # Create base map
-    m = create_base_map()
-    
-    # Add events
-    m = add_events_to_map(m, events_df)
-    
-    # Add shipping routes
+
+def _get_subsolar_point():
+    """Return (lat, lon) of the point on Earth directly under the sun (UTC now)."""
+    now = datetime.now(timezone.utc)
+    doy = now.timetuple().tm_yday
+
+    decl_deg = 23.45 * np.sin(np.radians(360 / 365 * (doy - 81)))
+
+    utc_hours = now.hour + now.minute / 60 + now.second / 3600
+    lon_sun = (12 - utc_hours) * 15
+
+    return decl_deg, lon_sun
+
+
+def _compute_terminator(lat_s_deg, lon_s_deg, n=360):
+    lat_s = np.radians(lat_s_deg)
+    lon_s = np.radians(lon_s_deg)
+
+    sx = np.cos(lat_s) * np.cos(lon_s)
+    sy = np.cos(lat_s) * np.sin(lon_s)
+    sz = np.sin(lat_s)
+
+    cos_lat = np.cos(lat_s)
+    if abs(cos_lat) > 1e-6:
+        v1 = np.array([np.sin(lon_s), -np.cos(lon_s), 0.0])
+    else:
+        v1 = np.array([1.0, 0.0, 0.0])
+
+    v2 = np.cross([sx, sy, sz], v1)
+    v2 = v2 / np.linalg.norm(v2)
+
+    t = np.linspace(0, 2 * np.pi, n, endpoint=False)
+    px = np.cos(t) * v1[0] + np.sin(t) * v2[0]
+    py = np.cos(t) * v1[1] + np.sin(t) * v2[1]
+    pz = np.cos(t) * v1[2] + np.sin(t) * v2[2]
+
+    lats = np.degrees(np.arcsin(np.clip(pz, -1, 1)))
+    lons = np.degrees(np.arctan2(py, px))
+    return lats, lons
+
+
+def _build_night_polygon(lat_s_deg, lon_s_deg, n=360):
+    lats, lons = _compute_terminator(lat_s_deg, lon_s_deg, n)
+
+    pole_lat = -90.0 if lat_s_deg >= 0 else 90.0
+
+    half = n // 2
+
+    poly_lats = list(lats[:half])
+    poly_lons = list(lons[:half])
+
+    sweep_lons = np.linspace(lons[half - 1], lons[half], 30)
+    poly_lats += [pole_lat] * 30
+    poly_lons += list(sweep_lons)
+
+    poly_lats += list(lats[half:])
+    poly_lons += list(lons[half:])
+
+    sweep_lons2 = np.linspace(lons[-1], lons[0], 30)
+    poly_lats += [pole_lat] * 30
+    poly_lons += list(sweep_lons2)
+
+    return poly_lats, poly_lons
+
+
+def _add_day_night(fig, lat_s, lon_s):
+    """Add night hemisphere fill and terminator line to the figure."""
+    poly_lats, poly_lons = _build_night_polygon(lat_s, lon_s)
+    fig.add_trace(go.Scattergeo(
+        lat=poly_lats,
+        lon=poly_lons,
+        mode="lines",
+        fill="toself",
+        fillcolor="rgba(0, 0, 20, 0.55)",
+        line=dict(width=0),
+        hoverinfo="skip",
+        showlegend=False,
+        name="Night",
+    ))
+
+    term_lats, term_lons = _compute_terminator(lat_s, lon_s)
+    term_lats = np.append(term_lats, term_lats[0])
+    term_lons = np.append(term_lons, term_lons[0])
+
+    fig.add_trace(go.Scattergeo(
+        lat=term_lats,
+        lon=term_lons,
+        mode="lines",
+        line=dict(width=1.5, color="rgba(255, 200, 50, 0.75)", dash="dot"),
+        hoverinfo="skip",
+        showlegend=False,
+        name="Terminator",
+    ))
+
+    fig.add_trace(go.Scattergeo(
+        lat=[lat_s],
+        lon=[lon_s],
+        mode="markers+text",
+        marker=dict(size=14, color="gold", symbol="star",
+                    line=dict(width=1, color="white")),
+        text=["☀️"],
+        textposition="top center",
+        textfont=dict(size=14),
+        hovertemplate=(
+            f"<b>☀️ Subsolar Point</b><br>"
+            f"Lat: {lat_s:.1f}°  Lon: {lon_s:.1f}°<extra></extra>"
+        ),
+        showlegend=True,
+        name="☀️ Subsolar Point",
+        legendgroup="daynight",
+        legendgrouptitle_text="Day / Night",
+    ))
+
+
+def create_dashboard_map(
+    events_df,
+    show_routes=True,
+    route_statuses=None,
+    port_congestion_df=None,
+):
+    """
+    Create a 3D orthographic globe with events and shipping routes.
+
+    Args:
+        events_df: DataFrame of geopolitical events
+        show_routes: Whether to draw shipping route lines
+        route_statuses: dict {route_name: status_string} for dynamic coloring
+        port_congestion_df: DataFrame from compute_port_congestion() for port markers
+    """
+
+    fig = go.Figure()
+
+    # ── Day / Night overlay ───────────────────────────────────────────────────
+    lat_sun, lon_sun = _get_subsolar_point()
+    _add_day_night(fig, lat_sun, lon_sun)
+
+    # ── Shipping routes ───────────────────────────────────────────────────────
     if show_routes:
-        m = add_shipping_routes_to_map(m, MAJOR_SHIPPING_ROUTES)
-    
-    # Add layer control
-    folium.LayerControl().add_to(m)
-    
-    return m
+        first_route = True
+        for route_name, route_info in MAJOR_SHIPPING_ROUTES.items():
+            coords  = route_info["coords"]
+            traffic = route_info["traffic"]
+
+            # Dynamic color from computed status; fall back to traffic-based color
+            if route_statuses and route_name in route_statuses:
+                color = ROUTE_STATUS_COLORS.get(route_statuses[route_name], "royalblue")
+                status_label = route_statuses[route_name]
+            else:
+                color = TRAFFIC_COLORS.get(traffic, "royalblue")
+                status_label = route_info.get("status", "operational").title()
+
+            lats = [c[0] for c in coords]
+            lons = [c[1] for c in coords]
+
+            fig.add_trace(go.Scattergeo(
+                lat=lats,
+                lon=lons,
+                mode="lines",
+                line=dict(width=3, color=color),
+                name=route_name,
+                hovertemplate=(
+                    f"<b>{route_name}</b><br>"
+                    f"Status: {status_label}<br>"
+                    f"Traffic: {traffic}<extra></extra>"
+                ),
+                legendgroup="routes",
+                legendgrouptitle_text="Shipping Routes" if first_route else None,
+            ))
+            first_route = False
+
+    # ── Port congestion markers ───────────────────────────────────────────────
+    if port_congestion_df is not None and len(port_congestion_df) > 0:
+        first_port = True
+        for _, port_row in port_congestion_df.iterrows():
+            cong_color = CONGESTION_COLORS.get(port_row["Congestion"], "#888888")
+            fig.add_trace(go.Scattergeo(
+                lat=[port_row["Lat"]],
+                lon=[port_row["Lon"]],
+                mode="markers+text",
+                marker=dict(
+                    size=12,
+                    color=cong_color,
+                    symbol="square",
+                    line=dict(width=1.5, color="white"),
+                    opacity=0.9,
+                ),
+                text=[port_row["Port"][:3].upper()],
+                textposition="top center",
+                textfont=dict(size=8, color="white"),
+                name=f"⚓ {port_row['Port']}",
+                hovertemplate=(
+                    f"<b>⚓ {port_row['Port']}</b><br>"
+                    f"Congestion: <b>{port_row['Congestion']}</b><br>"
+                    f"Score: {port_row['Score']}/100<br>"
+                    f"Events nearby: {port_row['ACLED Events']}<br>"
+                    f"News signals: {port_row['News Articles']}<br>"
+                    f"Weather: {port_row['Weather']}<extra></extra>"
+                ),
+                showlegend=first_port,
+                legendgroup="ports",
+                legendgrouptitle_text="Ports" if first_port else None,
+            ))
+            first_port = False
+
+    # ── Critical event threat rings (radar ping effect) ───────────────────────
+    if len(events_df) > 0:
+        critical_events = events_df[events_df["impact"] == "Critical"] if "impact" in events_df.columns else pd.DataFrame()
+        if len(critical_events) > 0:
+            fig.add_trace(go.Scattergeo(
+                lat=critical_events["latitude"],
+                lon=critical_events["longitude"],
+                mode="markers",
+                marker=dict(
+                    size=32,
+                    color="rgba(255, 0, 0, 0.08)",
+                    symbol="circle",
+                    line=dict(width=1.5, color="rgba(255, 50, 50, 0.5)"),
+                ),
+                hoverinfo="skip",
+                showlegend=False,
+                name="Critical Threat Ring",
+            ))
+
+    # ── Event markers (grouped by type) ──────────────────────────────────────
+    if len(events_df) > 0:
+        first_event_type = True
+        for event_type, group in events_df.groupby("type"):
+            color = EVENT_COLORS.get(event_type, "#AAAAAA")
+            icon  = EVENT_TYPES.get(event_type, {}).get("icon", "📍")
+
+            sizes = group["impact"].map({
+                "Critical": 18,
+                "High":     13,
+                "Medium":   9,
+                "Low":      6,
+            }).fillna(9)
+
+            hover_texts = [
+                f"<b>{icon} {row['type']}</b><br>"
+                f"📍 {row['location']}<br>"
+                f"🗓 {row['date'].strftime('%Y-%m-%d %H:%M')}<br>"
+                f"⚡ Impact: <b>{row['impact']}</b><br>"
+                f"{row['description']}<br>"
+                f"📦 {row['business_impact']}"
+                for _, row in group.iterrows()
+            ]
+
+            fig.add_trace(go.Scattergeo(
+                lat=group["latitude"],
+                lon=group["longitude"],
+                mode="markers",
+                marker=dict(
+                    size=sizes,
+                    color=color,
+                    opacity=0.9,
+                    line=dict(width=1, color="white"),
+                    symbol="circle",
+                ),
+                name=f"{icon} {event_type}",
+                hovertemplate="%{customdata}<extra></extra>",
+                customdata=hover_texts,
+                legendgroup="events",
+                legendgrouptitle_text="Events" if first_event_type else None,
+            ))
+            first_event_type = False
+
+    # ── Globe layout ──────────────────────────────────────────────────────────
+    fig.update_layout(
+        height=750,
+        margin=dict(l=0, r=0, t=0, b=0),
+        paper_bgcolor="#000510",
+        legend=dict(
+            bgcolor="rgba(0,5,16,0.85)",
+            bordercolor="#1a3a5c",
+            borderwidth=1,
+            font=dict(color="#d0e8ff", size=11),
+            x=0.01,
+            y=0.99,
+        ),
+        geo=dict(
+            projection_type="orthographic",
+            showland=True,
+            landcolor="#2d6a2d",
+            showocean=True,
+            oceancolor="#0a2a5e",
+            showlakes=True,
+            lakecolor="#1a5090",
+            showcountries=True,
+            countrycolor="rgba(255,255,255,0.35)",
+            showcoastlines=True,
+            coastlinecolor="rgba(255,255,255,0.7)",
+            showrivers=True,
+            rivercolor="#1a6aaa",
+            showframe=False,
+            bgcolor="#000510",
+            resolution=50,
+            projection_rotation=dict(lon=20, lat=20, roll=0),
+        ),
+    )
+
+    return fig
+
+
+def render_interactive_globe(fig, height=750, latitude_limit=60, key="dashboard-globe"):
+    """Render a Plotly orthographic globe with constrained vertical rotation."""
+    div_id = f"plotly-globe-{key}"
+    plot_html = pio.to_html(
+        fig,
+        include_plotlyjs=True,
+        full_html=False,
+        div_id=div_id,
+        config={
+            "responsive": True,
+            "scrollZoom": True,
+            "displayModeBar": False,
+            "displaylogo": False,
+        },
+        post_script=f"""
+        (function() {{
+            const gd = document.getElementById('{div_id}');
+            if (!gd || !window.Plotly) return;
+
+            const clampLat = (value) => {{
+                const numeric = Number(value);
+                if (!Number.isFinite(numeric)) return 0;
+                return Math.max(-{int(latitude_limit)}, Math.min({int(latitude_limit)}, numeric));
+            }};
+
+            let syncing = false;
+
+            const applyConstraints = (eventData) => {{
+                if (syncing) return;
+
+                const currentRotation = (((gd.layout || {{}}).geo || {{}}).projection || {{}}).rotation || {{}};
+                const latCandidate = eventData && Object.prototype.hasOwnProperty.call(eventData, 'geo.projection.rotation.lat')
+                    ? eventData['geo.projection.rotation.lat']
+                    : currentRotation.lat;
+                const rollCandidate = eventData && Object.prototype.hasOwnProperty.call(eventData, 'geo.projection.rotation.roll')
+                    ? eventData['geo.projection.rotation.roll']
+                    : currentRotation.roll;
+
+                const updates = {{}};
+                const clampedLat = clampLat(latCandidate);
+
+                if (Number.isFinite(Number(latCandidate)) && Number(latCandidate) !== clampedLat) {{
+                    updates['geo.projection.rotation.lat'] = clampedLat;
+                }}
+
+                if (Number.isFinite(Number(rollCandidate)) && Number(rollCandidate) !== 0) {{
+                    updates['geo.projection.rotation.roll'] = 0;
+                }}
+
+                if (!Object.keys(updates).length) return;
+
+                syncing = true;
+                window.Plotly.relayout(gd, updates)
+                    .catch(() => {{}})
+                    .finally(() => {{
+                        syncing = false;
+                    }});
+            }};
+
+            gd.on('plotly_relayout', applyConstraints);
+            applyConstraints();
+
+            window.addEventListener('resize', () => window.Plotly.Plots.resize(gd));
+        }})();
+        """,
+    )
+
+    components.html(plot_html, height=height, scrolling=False)

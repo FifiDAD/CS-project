@@ -187,7 +187,7 @@ class RiskAnalytics:
         elif summary['high_events'] > 3:
             summary['recommendation'] = '⚠️ HIGH RISK: Several high-impact events. Review shipping routes immediately.'
         elif summary['events_last_48h'] > 5:
-            summary['recommendation'] = '📍 ELEVATED: Recent activity uptick. Increase monitoring.'
+            summary['recommendation'] = 'ELEVATED: Recent activity uptick. Increase monitoring.'
         else:
             summary['recommendation'] = '✅ NORMAL: Situation stable, continue routine monitoring.'
         
