@@ -23,7 +23,7 @@ from api_config import CACHE_TTL_EVENTS
 
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Global Logistics War Room",
+    page_title="TradeWatch",
     page_icon="🌍",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -186,9 +186,9 @@ if st.sidebar.button("📥 Export Events (CSV)"):
 
 
 # ── Header ────────────────────────────────────────────────────────────────────
-st.title("🌍 Global Logistics War Room")
+st.title("🌍 TradeWatch")
 st.caption(
-    f"Real-time tracking · ACLED · GDELT · NewsAPI · Guardian · FRED · OpenWeather"
+    f"Real-time intelligence for global supply chain risk"
     f" · Updated: {datetime.now().strftime('%Y-%m-%d %H:%M')} UTC"
 )
 
