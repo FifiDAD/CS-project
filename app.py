@@ -23,7 +23,7 @@ from streamlit_autorefresh import st_autorefresh
 
 
 st.set_page_config(
-    page_title="Global Logistics War Room",
+    page_title="TradeWatch",
     page_icon="🌍",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -178,9 +178,10 @@ with st.sidebar.expander("⚙️ Settings"):
         value=st.session_state.get("email_notifications", False),
     )
 
-st.title("🌍 Global Logistics War Room")
+# ── Header ────────────────────────────────────────────────────────────────────
+st.title("🌍 TradeWatch")
 st.caption(
-    "Real-time tracking · ACLED · GDELT · NewsAPI · Guardian · FRED · OpenWeather"
+    f"Real-time intelligence for global supply chain risk"
     f" · Updated: {datetime.now().strftime('%Y-%m-%d %H:%M')} UTC"
 )
 
@@ -204,28 +205,25 @@ c5.metric("🌐 Worst Region", analytics["worst_affected_region"])
 
 st.write("---")
 
-globe_col, news_col = st.columns([2.5, 1], gap="medium")
+st.subheader("🗺 Global Threat Map")
+st.caption(
+    "Routes: 🟢 Operational · 🟡 Alert · 🟠 High Risk · 🔴 Critical  |  "
+    "⬛ Port squares colored by congestion  |  🔴 Rings = critical threat zones"
+)
 
-with globe_col:
-    st.subheader("🗺 Global Threat Map")
-    st.caption(
-        "Routes: 🟢 Operational · 🟡 Alert · 🟠 High Risk · 🔴 Critical"
-        " | Port squares show congestion | Rings mark critical threat zones"
-    )
+route_statuses = {}
+if len(shipping_df) > 0:
+    route_statuses = dict(zip(shipping_df["Route"], shipping_df["Status"]))
 
-    route_statuses = {}
-    if len(shipping_df) > 0:
-        route_statuses = dict(zip(shipping_df["Route"], shipping_df["Status"]))
+globe_fig = create_dashboard_map(
+    filtered_events,
+    show_routes=True,
+    route_statuses=route_statuses,
+    port_congestion_df=port_cong_df if len(port_cong_df) > 0 else None,
+)
+render_interactive_globe(globe_fig, height=750, latitude_limit=60, key="main-threat-map")
 
-    globe_fig = create_dashboard_map(
-        filtered_events,
-        show_routes=True,
-        route_statuses=route_statuses,
-        port_congestion_df=port_cong_df if len(port_cong_df) > 0 else None,
-    )
-    render_interactive_globe(globe_fig, height=750, latitude_limit=60, key="main-threat-map")
-
-with news_col:
+with st.expander("🔔 Live Intel Feed", expanded=False):
     st.subheader("📡 Live Intel Feed")
 
     topic_options = ["All", "conflict", "shipping", "trade", "weather", "other"]

@@ -362,6 +362,26 @@ def render_interactive_globe(fig, height=750, latitude_limit=60, key="dashboard-
             }};
 
             let syncing = false;
+            let pendingUpdate = null;
+            let pendingFrame = null;
+
+            const relayoutConstrained = (updates) => {{
+                pendingUpdate = Object.assign(pendingUpdate || {{}}, updates);
+                if (pendingFrame) return;
+
+                pendingFrame = window.requestAnimationFrame(() => {{
+                    const nextUpdate = pendingUpdate;
+                    pendingUpdate = null;
+                    pendingFrame = null;
+
+                    syncing = true;
+                    window.Plotly.relayout(gd, nextUpdate)
+                        .catch(() => {{}})
+                        .finally(() => {{
+                            syncing = false;
+                        }});
+                }});
+            }};
 
             const applyConstraints = (eventData) => {{
                 if (syncing) return;
@@ -387,14 +407,10 @@ def render_interactive_globe(fig, height=750, latitude_limit=60, key="dashboard-
 
                 if (!Object.keys(updates).length) return;
 
-                syncing = true;
-                window.Plotly.relayout(gd, updates)
-                    .catch(() => {{}})
-                    .finally(() => {{
-                        syncing = false;
-                    }});
+                relayoutConstrained(updates);
             }};
 
+            gd.on('plotly_relayouting', applyConstraints);
             gd.on('plotly_relayout', applyConstraints);
             applyConstraints();
 
