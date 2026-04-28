@@ -101,7 +101,7 @@ def _load_core_data():
 
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
-st.sidebar.title("🔍 War Room Controls")
+st.sidebar.title("TradeWatch Controls")
 st.sidebar.write("---")
 
 # Auto-refresh
