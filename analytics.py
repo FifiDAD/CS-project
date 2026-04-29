@@ -2,6 +2,7 @@
 
 import pandas as pd
 from datetime import datetime, timedelta
+from config import ROUTE_FLEET_SIZES
 
 class RiskAnalytics:
     """Calculate and analyze business risks"""
@@ -142,8 +143,14 @@ class RiskAnalytics:
         
         event_multiplier = 1 + (critical_events * 0.3) + (high_events * 0.15)
         
-        # Estimate fleet size in affected areas
-        affected_vessels = len(events_df) * 5  # rough estimate
+        # Fleet size based on affected routes (vessels/day reference sizes)
+        affected_route_names = []
+        if "affected_routes" in events_df.columns:
+            affected_route_names = events_df["affected_routes"].explode().dropna().unique().tolist()
+        if affected_route_names:
+            affected_vessels = max(ROUTE_FLEET_SIZES.get(r, 30) for r in affected_route_names)
+        else:
+            affected_vessels = 30
         
         daily_cost_increase = (
             (fuel_daily * oil_multiplier * affected_vessels) +

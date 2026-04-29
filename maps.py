@@ -5,6 +5,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from datetime import datetime, timezone
 from config import EVENT_TYPES, MAJOR_SHIPPING_ROUTES, IMPACT_LEVELS, ROUTE_STATUS_COLORS
+from api_config import CRITICAL_PORTS
 
 # Map event type to a color string for Plotly
 EVENT_COLORS = {
@@ -45,7 +46,7 @@ def _get_subsolar_point():
     return decl_deg, lon_sun
 
 
-def _compute_terminator(lat_s_deg, lon_s_deg, n=360):
+def _compute_terminator(lat_s_deg, lon_s_deg, n=180):
     lat_s = np.radians(lat_s_deg)
     lon_s = np.radians(lon_s_deg)
 
@@ -72,7 +73,7 @@ def _compute_terminator(lat_s_deg, lon_s_deg, n=360):
     return lats, lons
 
 
-def _build_night_polygon(lat_s_deg, lon_s_deg, n=360):
+def _build_night_polygon(lat_s_deg, lon_s_deg, n=180):
     lats, lons = _compute_terminator(lat_s_deg, lon_s_deg, n)
 
     pole_lat = -90.0 if lat_s_deg >= 0 else 90.0
@@ -185,6 +186,19 @@ def create_dashboard_map(
             lats = [c[0] for c in coords]
             lons = [c[1] for c in coords]
 
+            # Glow trace — wider, low-opacity trace drawn beneath main line
+            fig.add_trace(go.Scattergeo(
+                lat=lats,
+                lon=lons,
+                mode="lines",
+                line=dict(width=10, color=color),
+                opacity=0.18,
+                hoverinfo="skip",
+                showlegend=False,
+                name=f"{route_name}_glow",
+            ))
+
+            # Main route line
             fig.add_trace(go.Scattergeo(
                 lat=lats,
                 lon=lons,
@@ -203,37 +217,64 @@ def create_dashboard_map(
 
     # ── Port congestion markers ───────────────────────────────────────────────
     if port_congestion_df is not None and len(port_congestion_df) > 0:
-        first_port = True
-        for _, port_row in port_congestion_df.iterrows():
-            cong_color = CONGESTION_COLORS.get(port_row["Congestion"], "#888888")
-            fig.add_trace(go.Scattergeo(
-                lat=[port_row["Lat"]],
-                lon=[port_row["Lon"]],
-                mode="markers+text",
-                marker=dict(
-                    size=12,
-                    color=cong_color,
-                    symbol="square",
-                    line=dict(width=1.5, color="white"),
-                    opacity=0.9,
-                ),
-                text=[port_row["Port"][:3].upper()],
-                textposition="top center",
-                textfont=dict(size=8, color="white"),
-                name=f"⚓ {port_row['Port']}",
-                hovertemplate=(
-                    f"<b>⚓ {port_row['Port']}</b><br>"
-                    f"Congestion: <b>{port_row['Congestion']}</b><br>"
-                    f"Score: {port_row['Score']}/100<br>"
-                    f"Events nearby: {port_row['ACLED Events']}<br>"
-                    f"News signals: {port_row['News Articles']}<br>"
-                    f"Weather: {port_row['Weather']}<extra></extra>"
-                ),
-                showlegend=first_port,
-                legendgroup="ports",
-                legendgrouptitle_text="Ports" if first_port else None,
-            ))
-            first_port = False
+        port_colors = [CONGESTION_COLORS.get(c, "#888888") for c in port_congestion_df["Congestion"]]
+        port_hover = [
+            f"<b>⚓ {row['Port']}</b><br>"
+            f"Congestion: <b>{row['Congestion']}</b><br>"
+            f"Score: {row['Score']}/100<br>"
+            f"Events nearby: {row['ACLED Events']}<br>"
+            f"News signals: {row['News Articles']}<br>"
+            f"Weather: {row['Weather']}"
+            for _, row in port_congestion_df.iterrows()
+        ]
+        fig.add_trace(go.Scattergeo(
+            lat=port_congestion_df["Lat"].tolist(),
+            lon=port_congestion_df["Lon"].tolist(),
+            mode="markers+text",
+            marker=dict(
+                size=14,
+                color=port_colors,
+                symbol="square",
+                line=dict(width=1.5, color="white"),
+                opacity=0.95,
+            ),
+            text=[row["Port"][:3].upper() for _, row in port_congestion_df.iterrows()],
+            textposition="top center",
+            textfont=dict(size=8, color="white"),
+            name="⚓ Ports",
+            hovertemplate="%{customdata}<extra></extra>",
+            customdata=port_hover,
+            showlegend=True,
+            legendgroup="ports",
+            legendgrouptitle_text="Ports",
+        ))
+    else:
+        # Fallback: always show ports as grey markers when API data unavailable
+        fallback_lats  = [v["lat"]  for v in CRITICAL_PORTS.values()]
+        fallback_lons  = [v["lon"]  for v in CRITICAL_PORTS.values()]
+        fallback_names = list(CRITICAL_PORTS.keys())
+        fallback_hover = [f"<b>⚓ {n}</b><br>Congestion: Unknown" for n in fallback_names]
+        fig.add_trace(go.Scattergeo(
+            lat=fallback_lats,
+            lon=fallback_lons,
+            mode="markers+text",
+            marker=dict(
+                size=12,
+                color="#888888",
+                symbol="square",
+                line=dict(width=1.5, color="white"),
+                opacity=0.7,
+            ),
+            text=[n[:3].upper() for n in fallback_names],
+            textposition="top center",
+            textfont=dict(size=8, color="white"),
+            name="⚓ Ports",
+            hovertemplate="%{customdata}<extra></extra>",
+            customdata=fallback_hover,
+            showlegend=True,
+            legendgroup="ports",
+            legendgrouptitle_text="Ports",
+        ))
 
     # ── Critical event threat rings (radar ping effect) ───────────────────────
     if len(events_df) > 0:
@@ -299,7 +340,7 @@ def create_dashboard_map(
 
     # ── Globe layout ──────────────────────────────────────────────────────────
     fig.update_layout(
-        height=750,
+        height=600,
         margin=dict(l=0, r=0, t=0, b=0),
         paper_bgcolor="#000510",
         legend=dict(

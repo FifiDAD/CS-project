@@ -64,6 +64,25 @@ MAJOR_SHIPPING_ROUTES = {
         ],
         "status": "operational", "traffic": "Very High",
     },
+    "Cape of Good Hope": {
+        "coords": [
+            # Mediterranean/Europe → Atlantic coast of Africa → Cape → Indian Ocean
+            [35.0, 14.0], [20.0, 10.0], [5.0, 3.0], [-10.0, 2.0],
+            [-25.0, 8.0], [-34.4, 18.5], [-35.0, 24.0],
+            [-30.0, 32.0], [-20.0, 38.0], [-10.0, 42.0],
+        ],
+        "status": "operational", "traffic": "Medium",
+    },
+}
+
+# Reference fleet sizes per route (vessels/day) — used for cost impact calculations
+ROUTE_FLEET_SIZES = {
+    "Suez Canal":        55,   # ~20k vessels/year
+    "Strait of Hormuz":  35,
+    "Singapore Strait":  80,   # busiest strait by vessel count
+    "Panama Canal":      40,
+    "English Channel":   120,  # highest density corridor in the world
+    "Cape of Good Hope": 25,
 }
 
 # Status string → line color on the globe
