@@ -98,8 +98,8 @@ with map_col:
             border-left:3px solid #22c55e;border-radius:3px;padding:8px 12px;
             display:flex;justify-content:space-between;align-items:center">
   <span style="font-size:11px;color:#22c55e;font-weight:600">✓ RECOMMENDED ROUTE</span>
-  <span style="font-size:13px;font-weight:700;color:#e8e8e8">{best_route}</span>
-  <span style="font-size:11px;color:{rc}">Risk {best_score}/100</span>
+  <span style="font-size:13px;font-weight:700;color:#ffffff">{best_route}</span>
+  <span style="font-size:11px;color:#666">Risk <b style="color:#ffffff">{best_score}</b>/100</span>
   <span style="font-size:10px;color:#666">lowest risk + delay composite</span>
 </div>""", unsafe_allow_html=True)
 
@@ -121,7 +121,7 @@ with map_col:
             border-radius:3px;padding:7px 8px;text-align:center">
   <div style="font-size:9px;font-weight:700;color:{sc};text-transform:uppercase;
               letter-spacing:0.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{name}</div>
-  <div style="font-size:18px;font-weight:700;color:{rc_fill};line-height:1.2;margin-top:2px">{score}</div>
+  <div style="font-size:18px;font-weight:700;color:#ffffff;line-height:1.2;margin-top:2px">{score}</div>
   <div style="font-size:8px;color:#666">/100</div>
   <div class="tw-risk-bar-bg" style="margin-top:4px">
     <div class="tw-risk-bar-fill" style="width:{score}%;background:{rc_fill}"></div>
@@ -157,11 +157,11 @@ with panels_col:
             route_rows_html += f"""
 <div class="tw-route-row" style="{sel_bg}border-left-color:{sc}">
   <div>
-    <div style="font-size:11px;font-weight:600;color:#e8e8e8">{row['Route']}</div>
+    <div style="font-size:11px;font-weight:600;color:#ffffff">{row['Route']}</div>
     <div style="font-size:9px;color:#666;margin-top:1px">{row['Nearby Events']} events · {row['News Signals']} signals</div>
   </div>
   <div style="text-align:right">
-    <div style="font-size:15px;font-weight:700;color:{rc}">{score}</div>
+    <div style="font-size:15px;font-weight:700;color:#ffffff">{score}</div>
     <div style="font-size:8px;color:#555">/100</div>
   </div>
   <div>
