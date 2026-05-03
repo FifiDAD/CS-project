@@ -28,6 +28,9 @@ from marinav_router import (
     H3_AVAILABLE,
 )
 from config import MAJOR_SHIPPING_ROUTES
+from api_integrations import APIClient
+from vessels import VESSELS
+from canal_tolls import estimate_toll_usd
 
 st.set_page_config(
     page_title="TradeWatch — MariNav Router",
@@ -146,11 +149,28 @@ if compute or st.session_state.get("mnav_result"):
     dest_name        = result["destination"]
 
     # ── Build route risk profile ───────────────────────────────────────────────
-    KNOTS_SPEED   = 16  # average container ship speed
-    voyage_days   = round(total_dist_km / (KNOTS_SPEED * 1.852 * 24), 1)
-    wti           = oil_price if oil_price else 78.45
-    bunker        = wti * 6.35
-    fuel_cons_day = 55.0  # t/day (Panamax default)
+    # Vessel + speed selectors (sidebar) drive the cubic fuel-burn curve
+    with st.sidebar:
+        st.markdown("**Voyage parameters**")
+        vessel_class = st.selectbox("Vessel class", list(VESSELS.keys()), index=0,
+                                     key="mn_vessel")
+        vessel = VESSELS[vessel_class]
+        speed_kn = st.slider("Service speed (kn)", 8.0, 22.0,
+                              float(vessel.design_speed_kn), 0.5, key="mn_speed")
+        bunker_df = APIClient.get_bunker_prices()
+        bunker_ports = sorted(bunker_df["port"].unique()) if len(bunker_df) > 0 else ["Singapore"]
+        bunker_port = st.selectbox("Bunker port", bunker_ports,
+                                    index=bunker_ports.index("Singapore") if "Singapore" in bunker_ports else 0,
+                                    key="mn_bunker_port")
+
+    voyage_days   = round(total_dist_km / (speed_kn * 1.852 * 24), 1)
+    fuel_cons_day = vessel.fuel_tpd(speed_kn)
+    # Live VLSFO from Ship & Bunker; fall back if scrape failed
+    bunker = 600.0
+    if len(bunker_df) > 0:
+        match = bunker_df[(bunker_df["port"] == bunker_port) & (bunker_df["grade"] == vessel.fuel_grade)]
+        if len(match) > 0:
+            bunker = float(match.iloc[0]["price_usd_per_mt"])
     base_fuel_usd = fuel_cons_day * voyage_days * bunker
 
     max_risk = 0
@@ -158,6 +178,21 @@ if compute or st.session_state.get("mnav_result"):
         max_risk = max(max_risk, risk_scores.get(cp, 0))
     surcharge_pct = max_risk / 400.0
     risk_usd      = base_fuel_usd * surcharge_pct
+
+    # Canal tolls (Suez / Panama) if route uses them
+    toll_usd = 0
+    toll_lines = []
+    for cp in chokepoints_used:
+        canal = None
+        if "Suez" in cp:   canal = "suez"
+        elif "Panama" in cp: canal = "panama"
+        if canal:
+            t = estimate_toll_usd(canal, vessel_class)
+            if t is None:
+                toll_lines.append(f"⚠ {vessel_class} cannot transit {canal.title()}")
+            else:
+                toll_usd += t
+                toll_lines.append(f"{canal.title()} toll: ${t:,.0f}")
 
     # ══════════════════════════════════════════════════════════════════════════
     # LAYOUT: Globe (60%) │ Route Detail (40%)
@@ -369,10 +404,23 @@ if compute or st.session_state.get("mnav_result"):
         st.markdown('</div>', unsafe_allow_html=True)
 
         # Cost estimate
+        toll_html = ""
+        if toll_usd > 0:
+            toll_html = f"""
+    <div>
+      <div style="font-size:9px;color:#555;text-transform:uppercase;letter-spacing:0.4px">
+        Canal Toll
+      </div>
+      <div style="font-size:18px;font-weight:700;color:#9b59b6">
+        ${toll_usd:,.0f}
+      </div>
+    </div>"""
+        toll_warning = "<br>".join(toll_lines) if toll_lines else ""
+        total_estimate = base_fuel_usd + risk_usd + toll_usd
         st.markdown(f"""
 <div class="tw-panel">
   <div class="tw-panel-title">Voyage Cost Estimate
-    <span style="font-size:8px;color:#444">(Panamax, {fuel_cons_day:.0f}t/day)</span>
+    <span style="font-size:8px;color:#444">({vessel.name}, {fuel_cons_day:.1f}t/day @ {speed_kn:.0f} kn)</span>
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
     <div>
@@ -391,17 +439,19 @@ if compute or st.session_state.get("mnav_result"):
         ${risk_usd:,.0f}
       </div>
     </div>
+    {toll_html}
     <div style="grid-column:1/-1;border-top:1px solid var(--border);padding-top:8px;margin-top:4px">
       <div style="font-size:9px;color:#555;text-transform:uppercase;letter-spacing:0.4px">
         Total Estimate
       </div>
       <div style="font-size:22px;font-weight:700;color:#22c55e">
-        ${(base_fuel_usd + risk_usd):,.0f}
+        ${total_estimate:,.0f}
       </div>
     </div>
   </div>
   <div style="margin-top:6px;font-size:9px;color:#444">
-    WTI ${wti:.2f}/bbl → Bunker HFO ${bunker:.0f}/ton · +{surcharge_pct*100:.0f}% risk surcharge
+    {vessel.fuel_grade} ${bunker:.0f}/MT @ {bunker_port} · +{surcharge_pct*100:.0f}% risk surcharge
+    {f"<br>{toll_warning}" if toll_warning else ""}
   </div>
 </div>
 """, unsafe_allow_html=True)

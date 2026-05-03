@@ -1,29 +1,29 @@
-"""API Configuration"""
+"""API Configuration — endpoints + monitoring constants. Secrets live in secrets.py."""
 
-import os
-
-# ============================================
-# FREE API KEYS
-# ============================================
-
-# Supported API keys can be loaded from environment variables first,
-# with local defaults used as fallbacks for current development.
-NEWSAPI_KEY = os.getenv("NEWSAPI_KEY", "82ffc7cbf56f471a967475a85fb48316")
-FRED_API_KEY = os.getenv("FRED_API_KEY", "c2f3fe9e461b3cf4575193da337d8ff2")
-OPENWEATHER_KEY = os.getenv("OPENWEATHER_KEY", "27616ee5c23d8fa0fc3b462365972af5")
-GUARDIAN_API_KEY = os.getenv("GUARDIAN_API_KEY", "1c657aa6-af8d-40d6-9ad7-984b8a497a23")
+# Re-export keys for backwards compatibility with existing imports.
+from app_secrets import (
+    NEWSAPI_KEY,
+    FRED_API_KEY,
+    OPENWEATHER_KEY,
+    GUARDIAN_API_KEY,
+    AISSTREAM_KEY,
+)
 
 # ============================================
-# API ENDPOINTS (No keys needed)
+# API ENDPOINTS
 # ============================================
 
-ACLED_BASE_URL      = "https://api.acleddata.com/api/add/"
-GDELT_BASE_URL      = "https://api.gdeltproject.org/api/v2/search/tv"
-GDELT_DOC_URL       = "https://api.gdeltproject.org/api/v2/doc/doc"   # article search, free
+GDELT_BASE_URL      = "https://api.gdeltproject.org/api/v2/doc/doc"  # timeline modes too
+GDELT_DOC_URL       = "https://api.gdeltproject.org/api/v2/doc/doc"
 WORLD_BANK_BASE_URL = "https://api.worldbank.org/v2"
 NOAA_ALERTS_URL     = "https://api.weather.gov/alerts/active"
 UN_COMTRADE_URL     = "https://unstats.un.org/comtrade/api"
 OPENWEATHER_URL     = "https://api.openweathermap.org/data/2.5/weather"
+OPEN_METEO_MARINE   = "https://marine-api.open-meteo.com/v1/marine"
+SHIPANDBUNKER_URL   = "https://shipandbunker.com/prices"
+IMB_PIRACY_RSS      = "https://www.icc-ccs.org/piracy-reporting-centre/live-piracy-map"
+AISSTREAM_WS_URL    = "wss://stream.aisstream.io/v0/stream"
+GDELT_LASTUPDATE    = "http://data.gdeltproject.org/gdeltv2/lastupdate.txt"
 
 # ============================================
 # CACHE SETTINGS (to avoid rate limits)
@@ -67,13 +67,47 @@ CRITICAL_PORTS = {
     "Port Said":   {"lat": 31.26, "lon":  32.30,  "risk_weight": 1.0},
 }
 
-# Precise strait/chokepoint coordinates for proximity-based risk computation
+# Precise strait/chokepoint coordinates for proximity-based risk computation.
+# `aliases` are extra search terms fed into the GDELT query so we catch
+# articles that don't use the canonical strait name (e.g. "Persian Gulf
+# tensions" instead of "Strait of Hormuz blockade").
 STRAIT_COORDINATES = {
-    "Suez Canal":        {"lat": 30.42, "lon":  32.35, "radius_km": 200},
-    "Strait of Hormuz":  {"lat": 26.35, "lon":  56.40, "radius_km": 200},
-    "Singapore Strait":  {"lat":  1.25, "lon": 103.83, "radius_km": 150},
-    "Panama Canal":      {"lat":  9.08, "lon": -79.68, "radius_km": 150},
-    "English Channel":   {"lat": 50.55, "lon":  -1.20, "radius_km": 200},
+    "Suez Canal": {
+        "lat": 30.42, "lon": 32.35, "radius_km": 250,
+        "aliases": ['"Suez Canal"', '"Red Sea shipping"', '"Egypt canal"'],
+    },
+    "Bab el-Mandeb": {
+        "lat": 12.58, "lon": 43.33, "radius_km": 250,
+        "aliases": ['"Bab el-Mandeb"', '"Bab al-Mandab"', '"Red Sea"', '"Houthi"', '"Yemen"'],
+    },
+    "Strait of Hormuz": {
+        "lat": 26.35, "lon": 56.40, "radius_km": 300,
+        "aliases": ['"Strait of Hormuz"', '"Persian Gulf"', '"Iran tanker"', '"Hormuz blockade"', '"Iran navy"'],
+    },
+    "Bosphorus": {
+        "lat": 41.12, "lon": 29.07, "radius_km": 200,
+        "aliases": ['"Bosphorus"', '"Bosporus"', '"Istanbul strait"', '"Turkish straits"'],
+    },
+    "Strait of Malacca": {
+        "lat": 2.50, "lon": 101.50, "radius_km": 250,
+        "aliases": ['"Strait of Malacca"', '"Malacca strait"', '"Malacca shipping"'],
+    },
+    "Singapore Strait": {
+        "lat": 1.25, "lon": 103.83, "radius_km": 150,
+        "aliases": ['"Singapore Strait"', '"Singapore port"', '"Malacca"'],
+    },
+    "Taiwan Strait": {
+        "lat": 24.50, "lon": 119.50, "radius_km": 300,
+        "aliases": ['"Taiwan Strait"', '"Taiwan tensions"', '"PLA navy Taiwan"'],
+    },
+    "Panama Canal": {
+        "lat": 9.08, "lon": -79.68, "radius_km": 150,
+        "aliases": ['"Panama Canal"', '"Panama drought"', '"Gatun"'],
+    },
+    "English Channel": {
+        "lat": 50.55, "lon": -1.20, "radius_km": 200,
+        "aliases": ['"English Channel"', '"Dover Strait"', '"Channel shipping"'],
+    },
 }
 
 # ============================================

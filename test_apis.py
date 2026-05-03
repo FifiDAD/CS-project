@@ -2,19 +2,6 @@
 
 import sys
 
-# The project has a secrets.py that shadows Python's built-in secrets module.
-# numpy's bit_generator imports `randbits` from the real secrets module.
-# Fix: load the real secrets from the stdlib before the project root shadows it.
-_project_root = sys.path[0] if sys.path and sys.path[0] == "" or "Logistics" in (sys.path[0] if sys.path else "") else None
-_removed = False
-if sys.path and (sys.path[0] == "" or sys.path[0].endswith("Logistics_dashboard")):
-    _saved_path0 = sys.path.pop(0)
-    _removed = True
-import secrets as _real_secrets  # noqa: E402 — must load real secrets before project root
-if _removed:
-    sys.path.insert(0, _saved_path0)
-sys.modules["secrets"] = _real_secrets  # ensure numpy finds the real secrets module
-
 import requests
 import pandas as pd
 
@@ -27,8 +14,9 @@ st.warning = lambda *args, **kwargs: None
 from api_integrations import APIClient
 from api_config import (
     NEWSAPI_KEY, FRED_API_KEY, GUARDIAN_API_KEY,
-    ACLED_BASE_URL, GDELT_BASE_URL, WORLD_BANK_BASE_URL, NOAA_ALERTS_URL,
+    GDELT_BASE_URL, WORLD_BANK_BASE_URL, NOAA_ALERTS_URL,
 )
+from app_secrets import AISSTREAM_KEY
 
 # ---------------------------------------------------------------------------
 # Result tracking
@@ -54,24 +42,36 @@ def classify_http_error(response):
 # Individual API tests
 # ---------------------------------------------------------------------------
 
-def test_acled():
-    print("\n 1. ACLED (Armed Conflict Data)...")
+def test_gdelt_events_csv():
+    print("\n16. GDELT v2 raw events CSV...")
     try:
-        df = APIClient.get_acled_events(limit=5)
-        if not isinstance(df, pd.DataFrame):
-            record("ACLED", False, "INVALID_DATA - did not return a DataFrame")
+        df = APIClient.get_gdelt_events_csv(max_files=2)
+        if not isinstance(df, pd.DataFrame) or len(df) == 0:
+            record("GDELT-events-CSV", False, "EMPTY_RESPONSE")
             return
-        if len(df) == 0:
-            record("ACLED", False, "EMPTY_RESPONSE - no events returned")
+        required = {"date", "latitude", "longitude", "country", "event_type", "goldstein"}
+        missing = required - set(df.columns)
+        if missing:
+            record("GDELT-events-CSV", False, f"MISSING_COLS - {missing}")
             return
-        sample = df.iloc[0].get("country", df.iloc[0].get("event_date", "?"))
-        record("ACLED", True, f"Retrieved {len(df)} events. Sample: {sample}")
-    except requests.exceptions.ConnectionError:
-        record("ACLED", False, "CONNECTION_ERROR")
-    except requests.exceptions.Timeout:
-        record("ACLED", False, "TIMEOUT")
+        record("GDELT-events-CSV", True,
+               f"{len(df)} rows; impact mix {df['goldstein'].describe()['min']:.1f}..{df['goldstein'].describe()['max']:.1f}")
     except Exception as e:
-        record("ACLED", False, f"UNEXPECTED_ERROR - {e}")
+        record("GDELT-events-CSV", False, f"UNEXPECTED_ERROR - {e}")
+
+
+def test_events_aggregator():
+    print("\n17. Events aggregator (GDELT)...")
+    try:
+        from events_aggregator import get_combined_events
+        df = get_combined_events(days=30)
+        if not isinstance(df, pd.DataFrame) or len(df) == 0:
+            record("events_aggregator", False, "EMPTY_RESPONSE")
+            return
+        sources = df["source"].value_counts().to_dict()
+        record("events_aggregator", True, f"{len(df)} rows; sources={sources}")
+    except Exception as e:
+        record("events_aggregator", False, f"UNEXPECTED_ERROR - {e}")
 
 
 def test_gdelt():
@@ -304,6 +304,56 @@ def test_world_bank():
         record("World Bank", False, f"UNEXPECTED_ERROR - {e}")
 
 
+def test_open_meteo_marine():
+    print("\n12. Open-Meteo Marine API...")
+    try:
+        data = APIClient.get_marine_weather(lat=30.42, lon=32.35)  # Suez
+        if not isinstance(data, dict) or not data:
+            record("Open-Meteo Marine", False, "EMPTY_RESPONSE")
+            return
+        if data.get("wave_height_m") is None:
+            record("Open-Meteo Marine", False, f"INVALID_DATA - keys: {list(data.keys())}")
+            return
+        record("Open-Meteo Marine", True,
+               f"wave={data['wave_height_m']}m, current={data.get('current_speed_kn')}kn")
+    except Exception as e:
+        record("Open-Meteo Marine", False, f"UNEXPECTED_ERROR - {e}")
+
+
+def test_ship_and_bunker():
+    print("\n13. Ship & Bunker (bunker prices)...")
+    try:
+        df = APIClient.get_bunker_prices()
+        if not isinstance(df, pd.DataFrame) or len(df) == 0:
+            record("ShipAndBunker", False, "EMPTY_RESPONSE - scrape produced no rows")
+            return
+        ports = df["port"].nunique()
+        grades = df["grade"].nunique()
+        record("ShipAndBunker", True, f"{len(df)} rows across {ports} ports x {grades} grades")
+    except Exception as e:
+        record("ShipAndBunker", False, f"UNEXPECTED_ERROR - {e}")
+
+
+def test_piracy():
+    print("\n14. Piracy incidents (GDELT-derived)...")
+    try:
+        df = APIClient.get_piracy_incidents(days=90)
+        if not isinstance(df, pd.DataFrame):
+            record("Piracy", False, "INVALID_DATA - not a DataFrame")
+            return
+        record("Piracy", True, f"{len(df)} geocoded incidents in last 90d")
+    except Exception as e:
+        record("Piracy", False, f"UNEXPECTED_ERROR - {e}")
+
+
+def test_aisstream_key():
+    print("\n15. AISStream key configured...")
+    if AISSTREAM_KEY and len(AISSTREAM_KEY) >= 32:
+        record("AISStream", True, f"Key present ({AISSTREAM_KEY[:6]}...). Live test runs in app.")
+    else:
+        record("AISStream", False, "MISSING_KEY - set AISSTREAM_KEY in .env")
+
+
 def test_exchange_rates():
     print("\n11. Exchange Rates (FX)...")
     expected_keys = ["EUR", "GBP", "JPY", "CNY", "INR"]
@@ -339,7 +389,6 @@ def main():
     print(" LOGISTICS DASHBOARD - API CONNECTION TESTS")
     print("=" * 60)
 
-    test_acled()
     test_gdelt()
     test_newsapi()
     test_guardian()
@@ -356,6 +405,12 @@ def main():
     test_noaa()
     test_world_bank()
     test_exchange_rates()
+    test_open_meteo_marine()
+    test_ship_and_bunker()
+    test_piracy()
+    test_aisstream_key()
+    test_gdelt_events_csv()
+    test_events_aggregator()
 
     # Summary
     total = len(results)

@@ -9,6 +9,7 @@ from analytics import RiskAnalytics
 from components import filter_events
 from dynamic_status import compute_shipping_status, compute_port_congestion
 from data_loader import load_core_data
+from api_integrations import APIClient
 from ui_helpers import inject_css, render_header, render_nav, render_footer, SC, risk_col, CONG_COL
 
 st.set_page_config(
@@ -67,12 +68,14 @@ with top_left:
 </div>"""
 
     if shipping_index:
-        trend_sym = "▲" if shipping_index > 3500 else "▼" if shipping_index < 2500 else "─"
-        trend_col = "#ef4444" if shipping_index > 3500 else "#22c55e" if shipping_index < 2500 else "#666"
+        # IMF Global Freight Cost Index (TSIFRGHT, monthly, base=100). Typical
+        # range ~110-160 in recent years; >150 = elevated, <120 = soft.
+        trend_sym = "▲" if shipping_index > 150 else "▼" if shipping_index < 120 else "─"
+        trend_col = "#ef4444" if shipping_index > 150 else "#22c55e" if shipping_index < 120 else "#666"
         market_html += f"""
 <div class="tw-market-row">
-  <span style="color:#aaa">⚓ Freight Idx</span>
-  <span style="font-weight:600">{shipping_index:,.0f}
+  <span style="color:#aaa">⚓ IMF Freight Idx <span style="color:#666;font-size:9px">(monthly)</span></span>
+  <span style="font-weight:600">{shipping_index:,.1f}
     <span style="color:{trend_col};font-size:9px;margin-left:6px">{trend_sym}</span>
   </span>
 </div>"""
@@ -85,12 +88,23 @@ with top_left:
   <span style="font-weight:600">{rate:.4f}</span>
 </div>"""
 
-    if oil_price:
-        bunker = oil_price * 6.35
+    # Real Singapore VLSFO from Ship & Bunker (live)
+    bunker_df = APIClient.get_bunker_prices()
+    sg_vlsfo = None
+    if len(bunker_df) > 0:
+        sg = bunker_df[(bunker_df["port"] == "Singapore") & (bunker_df["grade"] == "VLSFO")]
+        if len(sg) > 0:
+            sg_vlsfo = sg.iloc[0]
+    if sg_vlsfo is not None:
+        chg = sg_vlsfo["change_usd"]
+        chg_col = "#22c55e" if chg < 0 else "#ef4444"
+        chg_sym = "▲" if chg >= 0 else "▼"
         market_html += f"""
 <div class="tw-market-row">
-  <span style="color:#aaa">⛽ Bunker HFO</span>
-  <span style="font-weight:600">${bunker:.0f}/ton</span>
+  <span style="color:#aaa">⛽ Singapore VLSFO</span>
+  <span style="font-weight:600">${sg_vlsfo['price_usd_per_mt']:.0f}/MT
+    <span style="color:{chg_col};font-size:9px;margin-left:6px">{chg_sym}${abs(chg):.0f}</span>
+  </span>
 </div>"""
 
     market_html += "</div>"
@@ -122,6 +136,49 @@ with top_right:
         ports_html += '<div style="color:#555;font-size:11px;padding:8px">Loading port data…</div>'
     ports_html += "</div>"
     st.markdown(ports_html, unsafe_allow_html=True)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# BUNKER PRICES (live, from Ship & Bunker)
+# ══════════════════════════════════════════════════════════════════════════════
+st.markdown('<div class="tw-label" style="margin-top:14px">⛽ Bunker Prices · live from shipandbunker.com</div>',
+            unsafe_allow_html=True)
+if len(bunker_df) > 0:
+    pivot = bunker_df.pivot_table(
+        index="port", columns="grade",
+        values="price_usd_per_mt", aggfunc="first",
+    ).reset_index()
+    chg_pivot = bunker_df.pivot_table(
+        index="port", columns="grade",
+        values="change_usd", aggfunc="first",
+    ).reset_index()
+
+    rows = ""
+    for _, r in pivot.iterrows():
+        port = r["port"]
+        cells = ""
+        for grade in ("VLSFO", "IFO380", "MGO"):
+            price = r.get(grade)
+            if pd.notna(price):
+                chg_row = chg_pivot[chg_pivot["port"] == port]
+                chg = chg_row[grade].iloc[0] if grade in chg_row.columns and len(chg_row) > 0 else 0
+                col = "#22c55e" if chg < 0 else "#ef4444" if chg > 0 else "#666"
+                sym = "▲" if chg > 0 else "▼" if chg < 0 else "─"
+                cells += (
+                    f'<td style="padding:6px 10px;font-weight:600">${price:.0f}'
+                    f'<span style="color:{col};font-size:9px;margin-left:6px">{sym}${abs(chg):.0f}</span>'
+                    f'</td>'
+                )
+            else:
+                cells += '<td style="padding:6px 10px;color:#444">—</td>'
+        rows += f'<tr><td style="padding:6px 10px;color:#cfe1ff">{port}</td>{cells}</tr>'
+    st.markdown(f"""
+<table class="tw-table" style="font-size:11px">
+<thead><tr><th>Port</th><th>VLSFO</th><th>IFO380</th><th>MGO</th></tr></thead>
+<tbody>{rows}</tbody>
+</table>""", unsafe_allow_html=True)
+else:
+    st.markdown('<div style="color:#555;font-size:11px;padding:8px">Loading bunker prices…</div>',
+                unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # FINANCIAL IMPACT

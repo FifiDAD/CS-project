@@ -13,6 +13,10 @@ from ui_helpers import (
     inject_css, render_header, render_nav, render_footer,
     SC, SBG, risk_col, IMPACT_COL, IMPACT_ICON,
 )
+import ais_consumer
+
+# Start the AIS WebSocket once per process (idempotent — no-op on rerun).
+ais_consumer.start_consumer()
 
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -29,6 +33,14 @@ with st.spinner(""):
     events_df, oil_price, shipping_index, exchange_rates = load_core_data()
 
 events_json = events_df.to_json() if len(events_df) > 0 else pd.DataFrame().to_json()
+
+# Surface live-feed health rather than silently substituting defaults.
+if events_df is None or len(events_df) == 0:
+    st.warning(
+        "⚠ Live event feed returned no rows — chokepoint status will read "
+        "**Unavailable** rather than default to Operational. "
+        "Check GDELT connectivity in test_apis.py."
+    )
 
 with st.spinner(""):
     shipping_df  = compute_shipping_status(events_json)
@@ -75,11 +87,59 @@ with map_col:
     if len(shipping_df) > 0:
         route_statuses = dict(zip(shipping_df["Route"], shipping_df["Status"]))
 
+    # ── Layer toggles ─────────────────────────────────────────────────────────
+    from api_integrations import APIClient
+    ais_df = ais_consumer.latest_positions(max_age_sec=600)
+    ais_count = len(ais_df) if ais_df is not None else 0
+    piracy_df = APIClient.get_piracy_incidents(days=90)
+    pir_count = len(piracy_df)
+    tcols = st.columns(7)
+    with tcols[0]:
+        show_routes = st.toggle("Routes",  value=True,  key="lay_routes")
+    with tcols[1]:
+        show_ports  = st.toggle("Ports",   value=True,  key="lay_ports")
+    with tcols[2]:
+        show_events = st.toggle("Events",  value=True,  key="lay_events")
+    with tcols[3]:
+        show_ves    = st.toggle(f"Vessels ({ais_count})",
+                                value=ais_count > 0, key="lay_vessels")
+    with tcols[4]:
+        show_pir    = st.toggle(f"Piracy ({pir_count})",
+                                value=False, key="lay_piracy")
+    with tcols[5]:
+        show_dn     = st.toggle("Day/Night", value=True, key="lay_daynight")
+    with tcols[6]:
+        if st.button("↻", help="Force refresh data caches"):
+            st.cache_data.clear()
+            st.rerun()
+
+    # Header chip — surface event count + AIS status
+    n_events = len(filtered_events)
+    chip_text = (
+        f"⚠ {n_events} high-signal events near shipping lanes · "
+        f"⛴ {ais_count} live vessels"
+        if ais_count > 0
+        else f"⚠ {n_events} high-signal events near shipping lanes · ⛴ AIS connecting…"
+    )
+    st.markdown(f"""
+<div style="background:rgba(59,130,246,0.05);border:1px solid rgba(59,130,246,0.2);
+            border-radius:3px;padding:6px 10px;margin-bottom:6px;
+            font-size:11px;color:#cfe1ff">
+  {chip_text}
+</div>""", unsafe_allow_html=True)
+
     globe_fig = create_dashboard_map(
         filtered_events,
-        show_routes=True,
+        show_routes=show_routes,
+        show_ports=show_ports,
+        show_events=show_events,
+        show_vessels=show_ves,
+        show_daynight=show_dn,
+        show_piracy=show_pir,
         route_statuses=route_statuses,
         port_congestion_df=port_cong_df if len(port_cong_df) > 0 else None,
+        ais_df=ais_df,
+        piracy_df=piracy_df,
     )
     globe_fig.update_layout(
         paper_bgcolor="#0a0a0a",
@@ -223,6 +283,76 @@ with panels_col:
 
     st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
     st.page_link("pages/2_Intel_Feed.py", label="View full Intel Feed →", icon="📡")
+
+# ── Data freshness strip ──────────────────────────────────────────────────────
+def _freshness_strip():
+    import sqlite3, time
+    from datetime import datetime, timezone
+    from pathlib import Path
+
+    parts = []
+
+    # AIS: how recent is the last sighting?
+    try:
+        db = Path(__file__).resolve().parent / ".ais_positions.db"
+        if db.exists():
+            with sqlite3.connect(db) as con:
+                last = con.execute("SELECT MAX(ts) FROM positions").fetchone()[0] or 0
+            age = time.time() - last if last else None
+            if age is not None and age < 300:
+                parts.append(f"<span style='color:#22c55e'>● AIS streaming ({int(age)}s ago)</span>")
+            elif age is not None and age < 1800:
+                parts.append(f"<span style='color:#eab308'>● AIS lagging ({int(age/60)}m ago)</span>")
+            else:
+                parts.append("<span style='color:#ef4444'>● AIS stale/offline</span>")
+        else:
+            parts.append("<span style='color:#ef4444'>● AIS not yet started</span>")
+    except Exception:
+        parts.append("<span style='color:#ef4444'>● AIS check failed</span>")
+
+    # Events
+    if len(events_df) > 0 and "date" in events_df.columns:
+        try:
+            latest = pd.to_datetime(events_df["date"], errors="coerce").max()
+            parts.append(f"<span style='color:#22c55e'>● Events {latest.strftime('%Y-%m-%d')}</span>")
+        except Exception:
+            parts.append("<span style='color:#eab308'>● Events: date parse failed</span>")
+    else:
+        parts.append("<span style='color:#ef4444'>● Events feed empty</span>")
+
+    # NGA freshness — show latest msgYear
+    try:
+        from nga_warnings import fetch_warnings
+        nga = fetch_warnings()
+        if len(nga) > 0 and "msgYear" in nga.columns:
+            latest_y = int(pd.to_numeric(nga["msgYear"], errors="coerce").max())
+            this_y = datetime.utcnow().year
+            if latest_y >= this_y:
+                parts.append(f"<span style='color:#22c55e'>● NGA current ({latest_y})</span>")
+            elif latest_y >= this_y - 1:
+                parts.append(f"<span style='color:#eab308'>● NGA latest {latest_y} (stale)</span>")
+            else:
+                parts.append(f"<span style='color:#ef4444'>● NGA archive only (latest {latest_y})</span>")
+        else:
+            parts.append("<span style='color:#ef4444'>● NGA empty</span>")
+    except Exception:
+        parts.append("<span style='color:#ef4444'>● NGA check failed</span>")
+
+    # Oil + freight publish dates (FRED is weekday)
+    parts.append(f"<span style='color:#aaa'>WTI ${oil_price}</span>")
+    parts.append(f"<span style='color:#aaa'>Freight Idx {shipping_index:.0f} (monthly)</span>")
+
+    st.markdown(
+        "<div style='padding:6px 10px;background:rgba(255,255,255,0.02);"
+        "border:1px solid rgba(255,255,255,0.05);border-radius:3px;"
+        "font-size:10px;display:flex;gap:14px;flex-wrap:wrap;margin-bottom:6px'>"
+        "<span style='color:#666'>DATA FRESHNESS:</span> "
+        + " · ".join(parts) +
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
+_freshness_strip()
 
 # ── Footer ────────────────────────────────────────────────────────────────────
 render_footer()

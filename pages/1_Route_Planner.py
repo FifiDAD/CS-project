@@ -135,40 +135,50 @@ with planner_left:
         st.plotly_chart(fig_tl, use_container_width=True, config={"displayModeBar": False})
 
 with planner_right:
-    wti    = oil_price if oil_price else 78.45
-    bunker = wti * 6.35
+    from api_integrations import APIClient
+    from vessels import VESSELS
+    from canal_tolls import estimate_toll_usd, can_transit
+
+    # Live VLSFO at chosen bunkering port (default Singapore)
+    bunker_df = APIClient.get_bunker_prices()
 
     st.markdown('<div class="tw-label">Voyage Cost Estimator</div>', unsafe_allow_html=True)
+
+    # Vessel class + bunkering port selectors
+    vc1, vc2 = st.columns(2)
+    with vc1:
+        vessel_class = st.selectbox("Vessel Class", list(VESSELS.keys()),
+                                    index=0, key="vessel_class")
+    bunker_ports = sorted(bunker_df["port"].unique()) if len(bunker_df) > 0 else ["Singapore"]
+    with vc2:
+        bunker_port = st.selectbox("Bunker port",
+                                   bunker_ports,
+                                   index=bunker_ports.index("Singapore") if "Singapore" in bunker_ports else 0,
+                                   key="bunker_port")
+
+    vessel = VESSELS[vessel_class]
+    grade = vessel.fuel_grade
+    bunker_price = None
+    if len(bunker_df) > 0:
+        match = bunker_df[(bunker_df["port"] == bunker_port) & (bunker_df["grade"] == grade)]
+        if len(match) > 0:
+            bunker_price = float(match.iloc[0]["price_usd_per_mt"])
+    if bunker_price is None:
+        bunker_price = 600  # only used if Ship & Bunker scrape failed
+
+    # Service speed (knots) — drives cubic fuel curve
+    speed_kn = st.slider("Service speed (kn)",
+                         min_value=8.0, max_value=22.0,
+                         value=float(vessel.design_speed_kn), step=0.5, key="speed_kn")
+    cons = vessel.fuel_tpd(speed_kn)
+
     st.markdown(f"""
 <div style="background:var(--surface);border:1px solid var(--border);border-radius:3px;
             padding:8px 10px;margin-bottom:10px;font-size:11px;color:#aaa">
-  WTI <b style="color:#e8e8e8">${wti:.2f}/bbl</b>
-  &nbsp;→&nbsp; Bunker HFO <b style="color:#e8e8e8">${bunker:.0f}/ton</b>
+  {vessel.name} · {grade} <b style="color:#e8e8e8">${bunker_price:.0f}/MT</b> @ {bunker_port}
+  · burn <b style="color:#e8e8e8">{cons:.1f} t/day</b> @ {speed_kn:.1f} kn
 </div>""", unsafe_allow_html=True)
 
-    vessel_preset = st.selectbox("Vessel Type", [
-        "Custom",
-        "Small Feeder (600 TEU) — 18 t/day",
-        "Medium Feeder (1,500 TEU) — 30 t/day",
-        "Panamax (4,500 TEU) — 55 t/day",
-        "Post-Panamax (8,000 TEU) — 80 t/day",
-        "ULCS (20,000+ TEU) — 130 t/day",
-        "Suezmax Tanker — 65 t/day",
-        "VLCC Tanker — 90 t/day",
-        "Capesize Bulk — 50 t/day",
-    ], key="vessel_preset")
-    preset_cons = {
-        "Small Feeder (600 TEU) — 18 t/day": 18,
-        "Medium Feeder (1,500 TEU) — 30 t/day": 30,
-        "Panamax (4,500 TEU) — 55 t/day": 55,
-        "Post-Panamax (8,000 TEU) — 80 t/day": 80,
-        "ULCS (20,000+ TEU) — 130 t/day": 130,
-        "Suezmax Tanker — 65 t/day": 65,
-        "VLCC Tanker — 90 t/day": 90,
-        "Capesize Bulk — 50 t/day": 50,
-    }
-    cons  = st.number_input("Fuel Consumption (t/day)", 1.0, 500.0,
-                             float(preset_cons.get(vessel_preset, 50)), 1.0, key="cons")
     vdays = st.number_input("Voyage Duration (days)", 1, 120, 14, 1, key="vdays")
 
     r_opts  = ["No specific route"] + route_names
@@ -178,7 +188,7 @@ with planner_right:
         def_idx = r_opts.index(sel)
     sel_route = st.selectbox("Shipping Route", r_opts, index=def_idx, key="calc_route")
 
-    spd_red   = st.slider("Speed Reduction (%)", 0, 30, 0, 5, key="spd_red")
+    spd_red   = st.slider("Speed Reduction (%) — slow steaming", 0, 30, 0, 5, key="spd_red")
     cargo_val = st.number_input("Cargo Value USD", 0, 500_000_000, 0, 100_000,
                                 format="%d", key="cargo_val")
 
@@ -191,11 +201,31 @@ with planner_right:
             try:    surcharge = float(rr.iloc[0]["Cost Impact"].replace("%", "").replace("+", "")) / 100
             except: surcharge = int(rr.iloc[0]["Risk Score"]) / 400
 
+    # Slow steaming reduces speed → cubic fuel curve, big savings
+    eff_speed = speed_kn * (1 - spd_red / 100)
+    eff_cons = vessel.fuel_tpd(eff_speed)
     eff_days   = vdays * (1 + spd_red / 100)
-    fuel_tons  = cons * eff_days
-    base_cost  = fuel_tons * bunker
+    fuel_tons  = eff_cons * eff_days
+    base_cost  = fuel_tons * bunker_price
     risk_cost  = base_cost * surcharge
-    total_cost = base_cost + risk_cost
+
+    # Canal toll if the chosen route uses Suez or Panama
+    toll_cost = 0
+    toll_label = ""
+    canal_key = None
+    if "Suez" in sel_route:
+        canal_key = "suez"
+    elif "Panama" in sel_route:
+        canal_key = "panama"
+    if canal_key:
+        toll = estimate_toll_usd(canal_key, vessel_class)
+        if toll is None:
+            toll_label = f"⚠ {vessel_class} cannot transit {canal_key.title()} canal"
+        else:
+            toll_cost = toll
+            toll_label = f"{canal_key.title()} canal toll: ${toll:,.0f}"
+
+    total_cost = base_cost + risk_cost + toll_cost
     insurance  = 0.0
     if cargo_val > 0:
         pct       = 0.003 if surcharge > 0.15 else 0.0015 if surcharge > 0.05 else 0.001
@@ -222,16 +252,18 @@ with planner_right:
   <div style="margin-top:8px;font-size:9px;color:#444">
     {fuel_tons:,.0f}t fuel · {eff_days:.1f} days · +{surcharge*100:.0f}% surcharge
     {f" · {route_lbl}" if route_lbl != "N/A" else ""}
+    {f"<br>{toll_label}" if toll_label else ""}
   </div>
 </div>""", unsafe_allow_html=True)
 
     bd = {"Base Fuel": base_cost}
     if risk_cost > 0: bd["Risk Surcharge"] = risk_cost
+    if toll_cost > 0: bd["Canal Toll"]     = toll_cost
     if insurance  > 0: bd["Insurance"]     = insurance
 
     fig_br = go.Figure(go.Bar(
         x=list(bd.keys()), y=list(bd.values()),
-        marker_color=["#3b82f6", "#f97316", "#eab308"][:len(bd)],
+        marker_color=["#3b82f6", "#f97316", "#9b59b6", "#eab308"][:len(bd)],
         text=[f"${v:,.0f}" for v in bd.values()],
         textposition="outside",
         textfont=dict(color="#666", size=9),

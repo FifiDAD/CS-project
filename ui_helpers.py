@@ -8,12 +8,14 @@ SC = {
     "Operational - Alert":     "#eab308",
     "Operational - High Risk": "#f97316",
     "Critical - Avoid":        "#ef4444",
+    "Unavailable":             "#6b7280",
 }
 SBG = {
     "Operational":             "rgba(34,197,94,0.1)",
     "Operational - Alert":     "rgba(234,179,8,0.1)",
     "Operational - High Risk": "rgba(249,115,22,0.1)",
     "Critical - Avoid":        "rgba(239,68,68,0.1)",
+    "Unavailable":             "rgba(107,114,128,0.1)",
 }
 
 def risk_col(s: int) -> str:
@@ -308,7 +310,7 @@ def render_footer() -> None:
 <div style="background:#0a0a0a;border-top:1px solid #1a1a1a;padding:8px 16px;
             display:flex;justify-content:space-between;margin-top:8px">
   <span style="font-size:9px;color:#444">TradeWatch v5.0 · Shipping Route Intelligence</span>
-  <span style="font-size:9px;color:#444">ACLED · GDELT · NewsAPI · Guardian · FRED · OpenWeather</span>
+  <span style="font-size:9px;color:#444">GDELT · AISStream · NewsAPI · Guardian · FRED · Open-Meteo · Ship&Bunker</span>
   <span style="font-size:9px;color:#444">{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} UTC</span>
 </div>
 """, unsafe_allow_html=True)

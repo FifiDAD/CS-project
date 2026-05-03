@@ -24,8 +24,7 @@ col1, col2 = st.columns(2)
 
 with col1:
     st.markdown("""
-    ✅ **ACLED** - Conflict events
-    ✅ **GDELT** - Global events  
+    ✅ **GDELT** - Global events & conflict
     ✅ **NOAA** - Weather alerts
     ✅ **World Bank** - Trade data
     ✅ **Exchange Rates** - Currency

@@ -1,3 +1,8 @@
+# Local runtime state
+.acled_token.json
+.ais_positions.db
+.requests_cache.sqlite
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

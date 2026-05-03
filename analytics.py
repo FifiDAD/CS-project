@@ -170,7 +170,19 @@ class RiskAnalytics:
     @staticmethod
     def get_summary_metrics(events_df, oil_price, shipping_index):
         """Get all summary metrics for dashboard"""
-        
+
+        if events_df is None or len(events_df) == 0 or "impact" not in events_df.columns:
+            return {
+                'total_events': 0,
+                'critical_events': 0,
+                'high_events': 0,
+                'events_last_48h': 0,
+                'oil_price_usd': round(oil_price, 2) if oil_price else None,
+                'shipping_index': shipping_index,
+                'worst_affected_region': '—',
+                'recommendation': 'Live event feed unavailable — chokepoint status driven by NGA + AIS only.',
+            }
+
         summary = {
             'total_events': len(events_df),
             'critical_events': len(events_df[events_df['impact'] == 'Critical']),

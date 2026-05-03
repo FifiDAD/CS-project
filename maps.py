@@ -1,3 +1,4 @@
+
 """Map visualization functions for the Global Events Dashboard"""
 
 import numpy as np
@@ -9,12 +10,19 @@ from api_config import CRITICAL_PORTS
 
 # Map event type to a color string for Plotly
 EVENT_COLORS = {
+    # Legacy categories (still used by mock fallback data)
     "Military Strike":      "#FF2222",
     "Port Disruption":      "#FF8C00",
     "Terrorist Activity":   "#8B0000",
     "Political Instability":"#9B59B6",
     "Supply Chain Alert":   "#3498DB",
     "Weather Hazard":       "#1A5276",
+    # Live shipping-bucket categories from events_aggregator
+    "🛑 Disruption": "#FF8C00",
+    "⚠️ Threat":     "#FF2222",
+    "🌊 Weather":    "#1A5276",
+    "🏛 Political":  "#9B59B6",
+    "📦 Trade":      "#3498DB",
 }
 
 TRAFFIC_COLORS = {
@@ -149,24 +157,37 @@ def _add_day_night(fig, lat_s, lon_s):
 def create_dashboard_map(
     events_df,
     show_routes=True,
+    show_ports=True,
+    show_events=True,
+    show_vessels=False,
+    show_daynight=True,
+    show_piracy=False,
     route_statuses=None,
     port_congestion_df=None,
+    ais_df=None,
+    piracy_df=None,
 ):
     """
-    Create a 3D orthographic globe with events and shipping routes.
+    Create a 3D orthographic globe with toggleable layers.
 
     Args:
         events_df: DataFrame of geopolitical events
         show_routes: Whether to draw shipping route lines
+        show_ports: Whether to plot port markers
+        show_events: Whether to plot event markers
+        show_vessels: Whether to plot live AIS vessel positions
+        show_daynight: Whether to draw the day/night terminator overlay
         route_statuses: dict {route_name: status_string} for dynamic coloring
         port_congestion_df: DataFrame from compute_port_congestion() for port markers
+        ais_df: DataFrame from ais_consumer.latest_positions()
     """
 
     fig = go.Figure()
 
     # ── Day / Night overlay ───────────────────────────────────────────────────
-    lat_sun, lon_sun = _get_subsolar_point()
-    _add_day_night(fig, lat_sun, lon_sun)
+    if show_daynight:
+        lat_sun, lon_sun = _get_subsolar_point()
+        _add_day_night(fig, lat_sun, lon_sun)
 
     # ── Shipping routes ───────────────────────────────────────────────────────
     if show_routes:
@@ -216,17 +237,23 @@ def create_dashboard_map(
             first_route = False
 
     # ── Port congestion markers ───────────────────────────────────────────────
-    if port_congestion_df is not None and len(port_congestion_df) > 0:
+    if not show_ports:
+        port_congestion_df = None  # short-circuit fallback path too
+    if port_congestion_df is not None and len(port_congestion_df) > 0 and show_ports:
         port_colors = [CONGESTION_COLORS.get(c, "#888888") for c in port_congestion_df["Congestion"]]
-        port_hover = [
-            f"<b>⚓ {row['Port']}</b><br>"
-            f"Congestion: <b>{row['Congestion']}</b><br>"
-            f"Score: {row['Score']}/100<br>"
-            f"Events nearby: {row['ACLED Events']}<br>"
-            f"News signals: {row['News Articles']}<br>"
-            f"Weather: {row['Weather']}"
-            for _, row in port_congestion_df.iterrows()
-        ]
+        def _port_hover(row):
+            queue = row.get("Queue (anchored)", "—")
+            delay = row.get("Expected Delay (d)", "—")
+            return (
+                f"<b>⚓ {row['Port']}</b> ({row.get('Country','')})<br>"
+                f"Congestion: <b>{row['Congestion']}</b> · Score {row['Score']}/100<br>"
+                f"Queue at anchor: <b>{queue}</b> vessels (in {row.get('Berths','?')} berths)<br>"
+                f"Expected delay: <b>{delay} days</b><br>"
+                f"Sea state: {row.get('Sea State','n/a')}<br>"
+                f"Conflict events nearby: {row.get('Conflict Events',0)}<br>"
+                f"Disruption news hits: {row.get('News Hits',0)}"
+            )
+        port_hover = [_port_hover(row) for _, row in port_congestion_df.iterrows()]
         fig.add_trace(go.Scattergeo(
             lat=port_congestion_df["Lat"].tolist(),
             lon=port_congestion_df["Lon"].tolist(),
@@ -248,7 +275,7 @@ def create_dashboard_map(
             legendgroup="ports",
             legendgrouptitle_text="Ports",
         ))
-    else:
+    elif show_ports:
         # Fallback: always show ports as grey markers when API data unavailable
         fallback_lats  = [v["lat"]  for v in CRITICAL_PORTS.values()]
         fallback_lons  = [v["lon"]  for v in CRITICAL_PORTS.values()]
@@ -277,7 +304,7 @@ def create_dashboard_map(
         ))
 
     # ── Critical event threat rings (radar ping effect) ───────────────────────
-    if len(events_df) > 0:
+    if show_events and len(events_df) > 0:
         critical_events = events_df[events_df["impact"] == "Critical"] if "impact" in events_df.columns else pd.DataFrame()
         if len(critical_events) > 0:
             fig.add_trace(go.Scattergeo(
@@ -295,8 +322,63 @@ def create_dashboard_map(
                 name="Critical Threat Ring",
             ))
 
+    # ── AIS vessel positions ──────────────────────────────────────────────────
+    if show_vessels and ais_df is not None and len(ais_df) > 0:
+        sog = ais_df["sog_kn"].fillna(0)
+        ais_hover = [
+            f"<b>⛴ {row.get('name') or 'MMSI ' + str(row['mmsi'])}</b><br>"
+            f"Speed: {row.get('sog_kn') or 0:.1f} kn · Course: {row.get('cog_deg') or 0:.0f}°<br>"
+            f"Lat {row['lat']:.3f} · Lon {row['lon']:.3f}"
+            for _, row in ais_df.iterrows()
+        ]
+        fig.add_trace(go.Scattergeo(
+            lat=ais_df["lat"],
+            lon=ais_df["lon"],
+            mode="markers",
+            marker=dict(
+                size=4,
+                color=["#2ecc71" if s >= 0.5 else "#f1c40f" for s in sog],
+                opacity=0.85,
+                line=dict(width=0),
+                symbol="triangle-up",
+            ),
+            name=f"⛴ Vessels ({len(ais_df)})",
+            hovertemplate="%{customdata}<extra></extra>",
+            customdata=ais_hover,
+            legendgroup="vessels",
+            legendgrouptitle_text="AIS",
+        ))
+
+    # ── Piracy incidents (last 90 days) ──────────────────────────────────────
+    if show_piracy and piracy_df is not None and len(piracy_df) > 0:
+        pir_hover = [
+            f"<b>☠ Piracy / Maritime Crime</b><br>"
+            f"📍 {row.get('source_country','')}<br>"
+            f"🗓 {row['date'].strftime('%Y-%m-%d') if hasattr(row['date'], 'strftime') else row['date']}<br>"
+            f"<i>{(row.get('title') or '')[:120]}</i>"
+            + (f"<br>🔗 <a href='{row.get('url','')}' target='_blank'>read article</a>"
+               if row.get("url") else "")
+            for _, row in piracy_df.iterrows()
+        ]
+        fig.add_trace(go.Scattergeo(
+            lat=piracy_df["lat"],
+            lon=piracy_df["lon"],
+            mode="markers",
+            marker=dict(
+                size=14,
+                color="rgba(220, 38, 38, 0.85)",
+                symbol="x",
+                line=dict(width=2, color="white"),
+            ),
+            name=f"☠ Piracy ({len(piracy_df)})",
+            hovertemplate="%{customdata}<extra></extra>",
+            customdata=pir_hover,
+            legendgroup="piracy",
+            legendgrouptitle_text="Piracy",
+        ))
+
     # ── Event markers (grouped by type) ──────────────────────────────────────
-    if len(events_df) > 0:
+    if show_events and len(events_df) > 0:
         first_event_type = True
         for event_type, group in events_df.groupby("type"):
             color = EVENT_COLORS.get(event_type, "#AAAAAA")
@@ -309,15 +391,28 @@ def create_dashboard_map(
                 "Low":      6,
             }).fillna(9)
 
-            hover_texts = [
-                f"<b>{icon} {row['type']}</b><br>"
-                f"📍 {row['location']}<br>"
-                f"🗓 {row['date'].strftime('%Y-%m-%d %H:%M')}<br>"
-                f"⚡ Impact: <b>{row['impact']}</b><br>"
-                f"{row['description']}<br>"
-                f"📦 {row['business_impact']}"
-                for _, row in group.iterrows()
-            ]
+            def _ev_hover(row):
+                bucket = row.get("type", "Event")
+                sub = row.get("subtype", "")
+                loc = row.get("location", "")
+                try:
+                    ts = row["date"].strftime("%Y-%m-%d %H:%M")
+                except Exception:
+                    ts = ""
+                impact = row.get("impact", "")
+                url = row.get("url", "") or ""
+                link = f"<br>🔗 <a href='{url}' target='_blank'>read article</a>" if url else ""
+                detail = row.get("business_impact", "")
+                return (
+                    f"<b>{bucket}</b>"
+                    + (f" · {sub}" if sub else "")
+                    + f"<br>📍 {loc}"
+                    + (f"<br>🗓 {ts}" if ts else "")
+                    + f"<br>⚡ Impact: <b>{impact}</b>"
+                    + (f"<br>📊 {detail}" if detail else "")
+                    + link
+                )
+            hover_texts = [_ev_hover(row) for _, row in group.iterrows()]
 
             fig.add_trace(go.Scattergeo(
                 lat=group["latitude"],
