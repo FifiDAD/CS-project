@@ -56,10 +56,19 @@ render_nav()
 # Intelligence brief
 brief_lines = generate_intel_brief(filtered_events, news_feed_df, shipping_df)
 if brief_lines:
-    brief_html = "".join(
-        f'<div style="font-size:11px;color:#aaa;padding:3px 0;border-bottom:1px solid #1a1a1a">{ln}</div>'
-        for ln in brief_lines
-    )
+    brief_html = ""
+    for ln in brief_lines:
+        clean_ln = ln.replace("**", "")
+        if ":" in clean_ln:
+            label, detail = clean_ln.split(":", 1)
+            brief_html += (
+                f'<div class="tw-brief-line">'
+                f'<span class="tw-brief-label">{label}:</span>'
+                f'<span class="tw-brief-detail">{detail}</span>'
+                f'</div>'
+            )
+        else:
+            brief_html += f'<div class="tw-brief-line tw-brief-detail">{clean_ln}</div>'
     st.markdown(
         f'<div class="tw-brief">'
         f'<div style="font-size:9px;font-weight:700;color:#3b82f6;text-transform:uppercase;'
