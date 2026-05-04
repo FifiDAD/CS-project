@@ -48,7 +48,6 @@ _CSS = """
   --border:     #2a2a2a;
   --border2:    #444444;
   --text:       #e8e8e8;
-  --text-strong:#ffffff;
   --text2:      #aaaaaa;
   --text3:      #666666;
   --text4:      #444444;
@@ -89,8 +88,7 @@ div[data-testid="metric-container"] {
   border-radius: 4px !important;
   padding: 8px 10px !important;
 }
-div[data-testid="stMetricValue"],
-div[data-testid="stMetricValue"] *  { color: var(--text-strong) !important; font-size: 14px !important; font-weight: 700 !important; }
+div[data-testid="stMetricValue"]    { font-size: 14px !important; font-weight: 600 !important; }
 div[data-testid="stMetricLabel"]    { font-size: 10px !important; color: var(--text3) !important; text-transform: uppercase; letter-spacing: 0.4px; }
 
 div[data-testid="stExpander"]      { background: var(--surface) !important; border: 1px solid var(--border) !important; border-radius: 4px !important; }
@@ -101,22 +99,7 @@ div[data-testid="stExpander"] summary { font-size: 11px !important; color: var(-
                                      font-size: 10px !important; padding: 4px 10px !important;
                                      text-transform: uppercase; letter-spacing: 0.4px;
                                      transition: all 0.15s ease; }
-.stButton > button:hover           { background: #242424 !important; border-color: var(--accent) !important;
-                                     color: var(--text-strong) !important;
-                                     box-shadow: 0 0 0 1px rgba(59,130,246,0.28) !important; }
-.stButton > button[kind="primary"],
-button[data-testid="baseButton-primary"] {
-  background: rgba(59,130,246,0.26) !important;
-  border: 1px solid var(--accent) !important;
-  color: var(--text-strong) !important;
-  box-shadow: inset 0 -2px 0 var(--accent), 0 0 0 1px rgba(59,130,246,0.18) !important;
-}
-.stButton > button[kind="primary"]:hover,
-button[data-testid="baseButton-primary"]:hover {
-  background: rgba(59,130,246,0.36) !important;
-  border-color: #60a5fa !important;
-  box-shadow: inset 0 -2px 0 #60a5fa, 0 0 8px rgba(59,130,246,0.32) !important;
-}
+.stButton > button:hover           { border-color: var(--accent) !important; color: var(--text) !important; }
 
 div[data-baseweb="select"] > div,
 div[data-baseweb="input"] > div,
@@ -162,7 +145,7 @@ div[data-testid="stSpinner"]       { color: var(--text3) !important; font-size: 
   padding: 0 8px;
 }
 div[data-testid="stPageLink"] {
-  padding: 0 !important; margin: 0 !important; width: 100% !important;
+  padding: 0 !important; margin: 0 !important;
 }
 div[data-testid="stPageLink"] a {
   color: var(--text3) !important;
@@ -173,8 +156,6 @@ div[data-testid="stPageLink"] a {
   letter-spacing: 0.5px !important;
   padding: 8px 12px !important;
   display: block !important;
-  width: 100% !important;
-  text-align: center !important;
   border-bottom: 2px solid transparent !important;
   transition: color 0.1s, border-color 0.1s !important;
 }
@@ -210,18 +191,12 @@ div[data-testid="stPageLink"] a[aria-current="page"] {
 /* ── Route row ───────────────────────────────────────────────────────────── */
 .tw-route-row {
   display: flex; align-items: center; justify-content: space-between;
-  gap: 10px;
-  padding: 8px 10px; margin: 6px 0;
+  padding: 6px 8px; margin: 2px 0;
   border-radius: 3px; cursor: pointer;
   transition: background 0.1s ease;
-  background: rgba(255,255,255,0.018);
-  border: 1px solid var(--border);
   border-left: 3px solid transparent;
 }
-.tw-route-row:hover {
-  background: var(--surface2);
-  border-color: var(--border2);
-}
+.tw-route-row:hover { background: var(--surface2); }
 
 /* ── Badge ───────────────────────────────────────────────────────────────── */
 .tw-badge {
@@ -262,21 +237,6 @@ div[data-testid="stPageLink"] a[aria-current="page"] {
   border: 1px solid rgba(59,130,246,0.25);
   border-left: 3px solid var(--accent);
   border-radius: 4px; padding: 10px 12px; margin-bottom: 12px;
-}
-.tw-brief-line {
-  font-size: 11px;
-  line-height: 1.55;
-  padding: 7px 0;
-  border-bottom: 1px solid #1a1a1a;
-}
-.tw-brief-line:last-child { border-bottom: none; padding-bottom: 0; }
-.tw-brief-label {
-  color: var(--text-strong);
-  font-weight: 700;
-}
-.tw-brief-detail {
-  color: var(--text2);
-  font-weight: 400;
 }
 
 /* ── Comparison table ────────────────────────────────────────────────────── */
@@ -331,9 +291,11 @@ def render_header(crit: int, high: int, total: int, worst_status: str, count: in
 
 def render_nav() -> None:
     st.markdown('<div class="tw-nav-wrap">', unsafe_allow_html=True)
-    c1, c2, c3, c4, c5 = st.columns(5, gap="small")
-    with c1:
+    c0, c1, c2, c3, c4, c5, _ = st.columns([1, 1, 1, 1, 1, 1, 3])
+    with c0:
         st.page_link("app.py", label="Overview", icon="🌍")
+    with c1:
+        st.page_link("pages/0_Landing.py", label="Welcome", icon="🏠")
     with c2:
         st.page_link("pages/1_Route_Planner.py", label="Routes", icon="🗺️")
     with c3:

@@ -168,7 +168,7 @@ def create_dashboard_map(
     piracy_df=None,
 ):
     """
-    Create a 3D orthographic globe with toggleable layers.
+    Create a 2D world map (Natural Earth projection) with toggleable layers.
 
     Args:
         events_df: DataFrame of geopolitical events
@@ -433,7 +433,7 @@ def create_dashboard_map(
             ))
             first_event_type = False
 
-    # ── Globe layout ──────────────────────────────────────────────────────────
+    # ── Map layout ────────────────────────────────────────────────────────────
     fig.update_layout(
         height=600,
         margin=dict(l=0, r=0, t=0, b=0),
@@ -447,7 +447,7 @@ def create_dashboard_map(
             y=0.99,
         ),
         geo=dict(
-            projection_type="orthographic",
+            projection_type="natural earth",
             showland=True,
             landcolor="#2d6a2d",
             showocean=True,
@@ -458,12 +458,12 @@ def create_dashboard_map(
             countrycolor="rgba(255,255,255,0.35)",
             showcoastlines=True,
             coastlinecolor="rgba(255,255,255,0.7)",
-            showrivers=True,
-            rivercolor="#1a6aaa",
+            showrivers=False,
             showframe=False,
             bgcolor="#000510",
             resolution=50,
-            projection_rotation=dict(lon=20, lat=20, roll=0),
+            lataxis_range=[-70, 80],
+            lonaxis_range=[-180, 180],
         ),
     )
 
