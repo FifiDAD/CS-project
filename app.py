@@ -28,6 +28,11 @@ st.set_page_config(
 
 inject_css()
 
+# ── First-load redirect to Welcome page ───────────────────────────────────────
+if "has_seen_welcome" not in st.session_state:
+    st.session_state["has_seen_welcome"] = True
+    st.switch_page("pages/0_Landing.py")
+
 # ── Data loading ──────────────────────────────────────────────────────────────
 with st.spinner(""):
     events_df, oil_price, shipping_index, exchange_rates = load_core_data()
@@ -158,8 +163,8 @@ with map_col:
             border-left:3px solid #22c55e;border-radius:3px;padding:8px 12px;
             display:flex;justify-content:space-between;align-items:center">
   <span style="font-size:11px;color:#22c55e;font-weight:600">✓ RECOMMENDED ROUTE</span>
-  <span style="font-size:13px;font-weight:700;color:#ffffff">{best_route}</span>
-  <span style="font-size:11px;color:#666">Risk <b style="color:#ffffff">{best_score}</b>/100</span>
+  <span style="font-size:13px;font-weight:700;color:#e8e8e8">{best_route}</span>
+  <span style="font-size:11px;color:{rc}">Risk {best_score}/100</span>
   <span style="font-size:10px;color:#666">lowest risk + delay composite</span>
 </div>""", unsafe_allow_html=True)
 
@@ -181,7 +186,7 @@ with map_col:
             border-radius:3px;padding:7px 8px;text-align:center">
   <div style="font-size:9px;font-weight:700;color:{sc};text-transform:uppercase;
               letter-spacing:0.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{name}</div>
-  <div style="font-size:18px;font-weight:700;color:#ffffff;line-height:1.2;margin-top:2px">{score}</div>
+  <div style="font-size:18px;font-weight:700;color:{rc_fill};line-height:1.2;margin-top:2px">{score}</div>
   <div style="font-size:8px;color:#666">/100</div>
   <div class="tw-risk-bar-bg" style="margin-top:4px">
     <div class="tw-risk-bar-fill" style="width:{score}%;background:{rc_fill}"></div>
@@ -217,11 +222,11 @@ with panels_col:
             route_rows_html += f"""
 <div class="tw-route-row" style="{sel_bg}border-left-color:{sc}">
   <div>
-    <div style="font-size:11px;font-weight:600;color:#ffffff">{row['Route']}</div>
+    <div style="font-size:11px;font-weight:600;color:#e8e8e8">{row['Route']}</div>
     <div style="font-size:9px;color:#666;margin-top:1px">{row['Nearby Events']} events · {row['News Signals']} signals</div>
   </div>
   <div style="text-align:right">
-    <div style="font-size:15px;font-weight:700;color:#ffffff">{score}</div>
+    <div style="font-size:15px;font-weight:700;color:{rc}">{score}</div>
     <div style="font-size:8px;color:#555">/100</div>
   </div>
   <div>
@@ -237,12 +242,77 @@ with panels_col:
         st.markdown(route_rows_html + "</div>", unsafe_allow_html=True)
 
         sel_cols = st.columns(len(shipping_df))
-        for col, (_, row) in zip(sel_cols, shipping_df.iterrows()):
+        for col, (_, row) in zip(sel_cols, shipping_df.sort_values("Risk Score", ascending=False).iterrows()):
             with col:
-                if st.button("▸", key=f"sel_{row['Route']}", use_container_width=True,
-                             help=f"Select {row['Route']}"):
+                if st.button("Details", key=f"sel_{row['Route']}", use_container_width=True,
+                             help=f"View brief for {row['Route']}"):
                     st.session_state["selected_route"] = row["Route"]
                     st.rerun()
+
+    # ── Selected Route Brief ──────────────────────────────────────────────────
+    sel_route = st.session_state.get("selected_route")
+    if sel_route and len(shipping_df) > 0:
+        match = shipping_df[shipping_df["Route"] == sel_route]
+        if not match.empty:
+            r = match.iloc[0]
+            score  = int(r["Risk Score"])
+            rc     = risk_col(score)
+            status = r["Status"]
+
+            def _brief_recommendation(s):
+                if s == "Critical - Avoid":
+                    return "Avoid or compare alternative routing before dispatch."
+                if s == "Operational - High Risk":
+                    return "Proceed only with monitoring and contingency planning."
+                if s == "Operational - Alert":
+                    return "Monitor before final route confirmation."
+                if s == "Unavailable":
+                    return "Data unavailable — manual review required."
+                return "Proceed normally under current conditions."
+
+            rec = _brief_recommendation(status)
+            sc  = SC.get(status, "#666")
+            sbg = SBG.get(status, "transparent")
+
+            st.markdown(f"""
+<div class="tw-panel" style="border-left:3px solid {sc};margin-top:4px">
+  <div class="tw-panel-title" style="margin-bottom:10px">
+    Route Brief
+    <span class="tw-panel-badge"
+          style="background:{sbg};color:{sc};border:1px solid {sc}44">
+      {status.replace('Operational - ','').replace('Critical - ','')}
+    </span>
+  </div>
+  <div style="font-size:13px;font-weight:700;color:#e0e8f0;margin-bottom:10px">{sel_route}</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;margin-bottom:10px">
+    <div>
+      <div style="font-size:9px;color:#555;text-transform:uppercase;letter-spacing:0.3px">Operational Risk</div>
+      <div style="font-size:16px;font-weight:700;color:{rc}">{score}<span style="font-size:10px;color:#555">/100</span></div>
+    </div>
+    <div>
+      <div style="font-size:9px;color:#555;text-transform:uppercase;letter-spacing:0.3px">Expected Delay</div>
+      <div style="font-size:13px;font-weight:600;color:#c8d6e5">{r['Average Delay']}</div>
+    </div>
+    <div>
+      <div style="font-size:9px;color:#555;text-transform:uppercase;letter-spacing:0.3px">Estimated Cost Impact</div>
+      <div style="font-size:13px;font-weight:600;color:#c8d6e5">{r['Cost Impact']}</div>
+    </div>
+    <div>
+      <div style="font-size:9px;color:#555;text-transform:uppercase;letter-spacing:0.3px">Nearby Incidents</div>
+      <div style="font-size:13px;font-weight:600;color:#c8d6e5">{r['Nearby Events']}</div>
+    </div>
+    <div style="grid-column:1/-1">
+      <div style="font-size:9px;color:#555;text-transform:uppercase;letter-spacing:0.3px">Disruption Signals</div>
+      <div style="font-size:13px;font-weight:600;color:#c8d6e5">{r['News Signals']} news signals</div>
+    </div>
+  </div>
+  <div style="background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.2);
+              border-radius:3px;padding:8px 10px;">
+    <div style="font-size:9px;color:#3b82f6;font-weight:700;text-transform:uppercase;
+                letter-spacing:0.3px;margin-bottom:3px">Recommendation</div>
+    <div style="font-size:11px;color:#c8d6e5;line-height:1.5">{rec}</div>
+  </div>
+</div>""", unsafe_allow_html=True)
 
     # ── Live Events (top 5) ───────────────────────────────────────────────────
     events_html = f"""
