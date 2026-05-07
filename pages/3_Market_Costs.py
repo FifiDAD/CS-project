@@ -2,9 +2,6 @@
 
 import streamlit as st
 import pandas as pd
-import plotly.express as px
-import plotly.graph_objects as go
-
 from analytics import RiskAnalytics
 from components import filter_events
 from dynamic_status import compute_shipping_status, compute_port_congestion
@@ -50,6 +47,7 @@ render_nav()
 # ══════════════════════════════════════════════════════════════════════════════
 # MARKET PULSE + PORT CONGESTION
 # ══════════════════════════════════════════════════════════════════════════════
+st.markdown('<div class="tw-label" style="margin-bottom:6px">Market Overview</div>', unsafe_allow_html=True)
 top_left, top_right = st.columns([1, 1], gap="large")
 
 with top_left:
@@ -140,7 +138,8 @@ with top_right:
 # ══════════════════════════════════════════════════════════════════════════════
 # BUNKER PRICES (live, from Ship & Bunker)
 # ══════════════════════════════════════════════════════════════════════════════
-st.markdown('<div class="tw-label" style="margin-top:14px">⛽ Bunker Prices · live from shipandbunker.com</div>',
+st.markdown('<hr style="margin:16px 0;border-color:#1e1e1e">', unsafe_allow_html=True)
+st.markdown('<div class="tw-label" style="margin-bottom:6px">⛽ Bunker Prices <span style="font-weight:400;color:#444;font-size:9px">· live from shipandbunker.com · updated every 30 min</span></div>',
             unsafe_allow_html=True)
 if len(bunker_df) > 0:
     pivot = bunker_df.pivot_table(
@@ -183,38 +182,49 @@ else:
 # ══════════════════════════════════════════════════════════════════════════════
 # FINANCIAL IMPACT
 # ══════════════════════════════════════════════════════════════════════════════
-st.markdown('<hr style="margin:16px 0">', unsafe_allow_html=True)
+st.markdown('<hr style="margin:16px 0;border-color:#1e1e1e">', unsafe_allow_html=True)
+st.markdown('<div class="tw-label" style="margin-bottom:6px">Financial Impact Fleet</div>', unsafe_allow_html=True)
 
 cost_impact = RiskAnalytics.calculate_cost_impact(filtered_events, oil_price, {})
-mc1, mc2, mc3 = st.columns(3)
-mc1.metric("Daily Cost Impact",  f"${cost_impact['daily_cost_increase_usd']:,.0f}")
-mc2.metric("Monthly Projection", f"${cost_impact['monthly_cost_increase_usd']:,.0f}")
-mc3.metric("Reference Fleet",    f"~{cost_impact['affected_vessels']} vessels/day")
 
-st.markdown('<div class="tw-label" style="margin-top:14px">Cost Impact Over Time</div>',
-            unsafe_allow_html=True)
-cost_data = pd.DataFrame({
-    "Period": ["Daily", "Weekly", "Monthly"],
-    "USD":    [cost_impact["daily_cost_increase_usd"],
-               cost_impact["weekly_cost_increase_usd"],
-               cost_impact["monthly_cost_increase_usd"]],
-})
-fig_cost = go.Figure(go.Bar(
-    x=cost_data["Period"], y=cost_data["USD"],
-    marker_color=["#3b82f6", "#f97316", "#ef4444"],
-    text=[f"${v:,.0f}" for v in cost_data["USD"]],
-    textposition="outside",
-    textfont=dict(color="#666", size=9),
-))
-fig_cost.update_layout(
-    paper_bgcolor="#0a0a0a", plot_bgcolor="#111", font_color="#666", height=200,
-    margin=dict(t=20, b=0, l=0, r=0), showlegend=False,
-    xaxis=dict(tickfont_size=10, tickcolor="#444", linecolor="#2a2a2a"),
-    yaxis=dict(gridcolor="#1a1a1a", tickfont_size=9, showticklabels=False),
+oil_mult   = cost_impact["oil_multiplier"]
+ev_mult    = cost_impact["event_risk_multiplier"]
+oil_vs_base = (oil_mult - 1) * 100
+oil_col    = "#22c55e" if oil_vs_base < 0 else "#ef4444"
+oil_sym    = "▼" if oil_vs_base < 0 else "▲"
+ev_col     = "#22c55e" if ev_mult <= 1.0 else "#f97316" if ev_mult < 1.3 else "#ef4444"
+
+st.markdown(
+    f'<div style="display:flex;gap:12px;margin-bottom:12px">'
+    f'<div class="tw-panel" style="flex:1;padding:10px 14px">'
+    f'<div style="font-size:9px;color:#555;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px">Daily Cost Impact</div>'
+    f'<div style="font-size:22px;font-weight:700;color:#e8e8e8">${cost_impact["daily_cost_increase_usd"]:,.0f}</div>'
+    f'<div style="font-size:9px;color:#555;margin-top:2px">reference fleet estimate</div>'
+    f'</div>'
+    f'<div class="tw-panel" style="flex:1;padding:10px 14px">'
+    f'<div style="font-size:9px;color:#555;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px">Monthly Projection</div>'
+    f'<div style="font-size:22px;font-weight:700;color:#e8e8e8">${cost_impact["monthly_cost_increase_usd"]:,.0f}</div>'
+    f'<div style="font-size:9px;color:#555;margin-top:2px">~{cost_impact["affected_vessels"]} vessels/day</div>'
+    f'</div>'
+    f'<div class="tw-panel" style="flex:1;padding:10px 14px">'
+    f'<div style="font-size:9px;color:#555;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px">Active multipliers</div>'
+    f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'
+    f'<span style="font-size:10px;color:#888">🛢 Oil (vs $90/bbl)</span>'
+    f'<span style="font-size:11px;font-weight:700;color:{oil_col}">{oil_sym}{abs(oil_vs_base):.1f}%&nbsp;<span style="color:#555;font-size:9px">{oil_mult}x</span></span>'
+    f'</div>'
+    f'<div style="font-size:9px;color:#444;margin-bottom:8px">WTI at ${oil_price:.0f}/bbl — fleet fuel cost scales proportionally to oil price vs the $90 baseline.</div>'
+    f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'
+    f'<span style="font-size:10px;color:#888">⚠️ Event risk</span>'
+    f'<span style="font-size:11px;font-weight:700;color:{ev_col}">{ev_mult}x</span>'
+    f'</div>'
+    f'<div style="font-size:9px;color:#444">Based on active critical/high events on monitored routes.</div>'
+    f'</div>'
+    f'</div>',
+    unsafe_allow_html=True,
 )
-st.plotly_chart(fig_cost, use_container_width=True, config={"displayModeBar": False})
 
-st.markdown('<div class="tw-label" style="margin-top:14px">Chokepoint Delay & Cost Table</div>',
+st.markdown('<hr style="margin:16px 0;border-color:#1e1e1e">', unsafe_allow_html=True)
+st.markdown('<div class="tw-label" style="margin-bottom:6px">Chokepoint — Delays & Costs</div>',
             unsafe_allow_html=True)
 if len(shipping_df) > 0:
     rows = ""
@@ -238,34 +248,5 @@ if len(shipping_df) > 0:
 <tbody>{rows}</tbody>
 </table>""", unsafe_allow_html=True)
 
-st.markdown('<div class="tw-label" style="margin-top:16px">Port Congestion Detail</div>',
-            unsafe_allow_html=True)
-if len(port_cong_df) > 0:
-    fig_ports = px.bar(
-        port_cong_df.sort_values("Score", ascending=False),
-        x="Port", y="Score", color="Congestion",
-        color_discrete_map={"Critical":"#ef4444","High":"#f97316","Medium":"#eab308","Low":"#22c55e"},
-    )
-    fig_ports.update_layout(
-        paper_bgcolor="#0a0a0a", plot_bgcolor="#111", font_color="#666", height=220,
-        margin=dict(t=4, b=0, l=0, r=0),
-        legend=dict(bgcolor="rgba(0,0,0,0.5)", font_color="#888", font_size=9,
-                    bordercolor="#2a2a2a", borderwidth=1),
-        xaxis=dict(tickangle=-30, tickfont_size=9, tickcolor="#444", linecolor="#2a2a2a"),
-        yaxis=dict(gridcolor="#1a1a1a", tickfont_size=9),
-    )
-    st.plotly_chart(fig_ports, use_container_width=True, config={"displayModeBar": False})
-
-m_l, m_r = st.columns(2)
-m_l.markdown(
-    f'<div style="font-size:11px;color:#888;padding:8px">🛢 Oil multiplier '
-    f'<b style="color:#e8e8e8">{cost_impact["oil_multiplier"]}x</b> (baseline $90)</div>',
-    unsafe_allow_html=True,
-)
-m_r.markdown(
-    f'<div style="font-size:11px;color:#888;padding:8px">⚠️ Event multiplier '
-    f'<b style="color:#e8e8e8">{cost_impact["event_risk_multiplier"]}x</b></div>',
-    unsafe_allow_html=True,
-)
 
 render_footer()

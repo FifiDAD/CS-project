@@ -101,10 +101,52 @@ div[data-testid="stExpander"] summary { font-size: 11px !important; color: var(-
                                      transition: all 0.15s ease; }
 .stButton > button:hover           { border-color: var(--accent) !important; color: var(--text) !important; }
 
+/* ── Selectbox / Input trigger ──────────────────────────────────────────── */
 div[data-baseweb="select"] > div,
 div[data-baseweb="input"] > div,
 .stTextInput > div > div          { background: var(--surface2) !important; border-color: var(--border) !important;
-                                    font-size: 12px !important; border-radius: 4px !important; }
+                                    font-size: 12px !important; border-radius: 4px !important; color: var(--text) !important; }
+
+/* selected value text inside trigger */
+div[data-baseweb="select"] span,
+div[data-baseweb="select"] div[class*="placeholder"]
+                                  { color: var(--text2) !important; }
+div[data-baseweb="select"] div[aria-selected="true"] span,
+div[data-baseweb="select"] [class*="singleValue"]
+                                  { color: var(--text) !important; }
+
+/* dropdown arrow icon */
+div[data-baseweb="select"] svg    { fill: var(--text3) !important; }
+
+/* ── Selectbox popup / menu ─────────────────────────────────────────────── */
+div[data-baseweb="popover"],
+ul[data-baseweb="menu"]           { background: var(--surface2) !important;
+                                    border: 1px solid var(--border) !important;
+                                    border-radius: 4px !important;
+                                    box-shadow: 0 8px 24px rgba(0,0,0,0.6) !important; }
+
+li[data-baseweb="option"],
+div[role="option"]                { background: var(--surface2) !important;
+                                    color: var(--text2) !important;
+                                    font-size: 11px !important;
+                                    padding: 8px 12px !important;
+                                    border-bottom: 1px solid var(--border) !important;
+                                    cursor: pointer !important; }
+
+li[data-baseweb="option"]:hover,
+div[role="option"]:hover,
+li[data-baseweb="option"][aria-selected="true"],
+div[role="option"][aria-selected="true"]
+                                  { background: #1a2744 !important;
+                                    color: var(--text) !important; }
+
+/* selectbox label */
+div[data-testid="stSelectbox"] label,
+div[data-testid="stMultiSelect"] label
+                                  { color: var(--text3) !important;
+                                    font-size: 9px !important;
+                                    text-transform: uppercase !important;
+                                    letter-spacing: 0.4px !important; }
 
 .stDataFrame                       { background: var(--surface) !important; border: 1px solid var(--border) !important; border-radius: 4px !important; }
 .stDataFrame table                 { font-size: 11px !important; }
