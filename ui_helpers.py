@@ -94,12 +94,18 @@ div[data-testid="stMetricLabel"]    { font-size: 10px !important; color: var(--t
 div[data-testid="stExpander"]      { background: var(--surface) !important; border: 1px solid var(--border) !important; border-radius: 4px !important; }
 div[data-testid="stExpander"] summary { font-size: 11px !important; color: var(--text2) !important; }
 
-.stButton > button                 { background: var(--surface2) !important; border: 1px solid var(--border) !important;
-                                     color: var(--text2) !important; border-radius: 4px !important;
-                                     font-size: 10px !important; padding: 4px 10px !important;
-                                     text-transform: uppercase; letter-spacing: 0.4px;
+.stButton > button,
+div[data-testid="stButton"] > button,
+div[data-testid="stBaseButton-secondary"],
+button[kind="secondary"]           { background: #1e1e1e !important; border: 1px solid #2a2a2a !important;
+                                     color: #aaaaaa !important; border-radius: 4px !important;
+                                     font-size: 8px !important; padding: 2px 4px !important;
+                                     white-space: nowrap !important; letter-spacing: 0.3px;
                                      transition: all 0.15s ease; }
-.stButton > button:hover           { border-color: var(--accent) !important; color: var(--text) !important; }
+.stButton > button:hover,
+div[data-testid="stButton"] > button:hover { border-color: #2a2a2a !important; color: #e8e8e8 !important; background: #1e1e1e !important; }
+.stButton > button p,
+div[data-testid="stButton"] > button p { color: #aaaaaa !important; }
 
 /* ── Selectbox / Input trigger ──────────────────────────────────────────── */
 div[data-baseweb="select"] > div,
