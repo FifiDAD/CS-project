@@ -346,7 +346,7 @@ if compute or st.session_state.get("mnav_result"):
   <div style="display:flex;justify-content:space-between;margin-bottom:2px">
     <span style="font-size:11px;color:#aaa">Est. Voyage</span>
     <span style="font-size:11px;font-weight:600;color:#e8e8e8">
-      ~{voyage_days} days @ {KNOTS_SPEED} kn
+      ~{voyage_days} days @ {speed_kn:.0f} kn
     </span>
   </div>
   <div style="display:flex;justify-content:space-between">
@@ -406,55 +406,32 @@ if compute or st.session_state.get("mnav_result"):
         # Cost estimate
         toll_html = ""
         if toll_usd > 0:
-            toll_html = f"""
-    <div>
-      <div style="font-size:9px;color:#555;text-transform:uppercase;letter-spacing:0.4px">
-        Canal Toll
-      </div>
-      <div style="font-size:18px;font-weight:700;color:#9b59b6">
-        ${toll_usd:,.0f}
-      </div>
-    </div>"""
+            toll_html = (
+                f'<div><div style="font-size:9px;color:#555;text-transform:uppercase;letter-spacing:0.4px">Canal Toll</div>'
+                f'<div style="font-size:18px;font-weight:700;color:#9b59b6">${toll_usd:,.0f}</div></div>'
+            )
         toll_warning = "<br>".join(toll_lines) if toll_lines else ""
         total_estimate = base_fuel_usd + risk_usd + toll_usd
-        st.markdown(f"""
-<div class="tw-panel">
-  <div class="tw-panel-title">Voyage Cost Estimate
-    <span style="font-size:8px;color:#444">({vessel.name}, {fuel_cons_day:.1f}t/day @ {speed_kn:.0f} kn)</span>
-  </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-    <div>
-      <div style="font-size:9px;color:#555;text-transform:uppercase;letter-spacing:0.4px">
-        Base Fuel
-      </div>
-      <div style="font-size:18px;font-weight:700;color:#e8e8e8">
-        ${base_fuel_usd:,.0f}
-      </div>
-    </div>
-    <div>
-      <div style="font-size:9px;color:#555;text-transform:uppercase;letter-spacing:0.4px">
-        Risk Surcharge
-      </div>
-      <div style="font-size:18px;font-weight:700;color:#f97316">
-        ${risk_usd:,.0f}
-      </div>
-    </div>
-    {toll_html}
-    <div style="grid-column:1/-1;border-top:1px solid var(--border);padding-top:8px;margin-top:4px">
-      <div style="font-size:9px;color:#555;text-transform:uppercase;letter-spacing:0.4px">
-        Total Estimate
-      </div>
-      <div style="font-size:22px;font-weight:700;color:#22c55e">
-        ${total_estimate:,.0f}
-      </div>
-    </div>
-  </div>
-  <div style="margin-top:6px;font-size:9px;color:#444">
-    {vessel.fuel_grade} ${bunker:.0f}/MT @ {bunker_port} · +{surcharge_pct*100:.0f}% risk surcharge
-    {f"<br>{toll_warning}" if toll_warning else ""}
-  </div>
-</div>
-""", unsafe_allow_html=True)
+        st.markdown(
+            f'<div class="tw-panel">'
+            f'<div class="tw-panel-title">Voyage Cost Estimate '
+            f'<span style="font-size:8px;color:#444">({vessel.name}, {fuel_cons_day:.1f}t/day @ {speed_kn:.0f} kn)</span></div>'
+            f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'
+            f'<div><div style="font-size:9px;color:#555;text-transform:uppercase;letter-spacing:0.4px">Base Fuel</div>'
+            f'<div style="font-size:18px;font-weight:700;color:#e8e8e8">${base_fuel_usd:,.0f}</div></div>'
+            f'<div><div style="font-size:9px;color:#555;text-transform:uppercase;letter-spacing:0.4px">Risk Surcharge</div>'
+            f'<div style="font-size:18px;font-weight:700;color:#f97316">${risk_usd:,.0f}</div></div>'
+            f'{toll_html}'
+            f'<div style="grid-column:1/-1;border-top:1px solid var(--border);padding-top:8px;margin-top:4px">'
+            f'<div style="font-size:9px;color:#555;text-transform:uppercase;letter-spacing:0.4px">Total Estimate</div>'
+            f'<div style="font-size:22px;font-weight:700;color:#22c55e">${total_estimate:,.0f}</div></div>'
+            f'</div>'
+            f'<div style="margin-top:6px;font-size:9px;color:#444">'
+            f'{vessel.fuel_grade} ${bunker:.0f}/MT @ {bunker_port} · +{surcharge_pct*100:.0f}% risk surcharge'
+            f'{"<br>" + toll_warning if toll_warning else ""}'
+            f'</div></div>',
+            unsafe_allow_html=True,
+        )
 
         # Route segments breakdown
         non_junction = {k: v for k, v in route_segments.items() if k != "junction"}

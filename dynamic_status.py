@@ -7,6 +7,7 @@ Streamlit's @st.cache_data can hash them — DataFrames are not hashable.
 
 import math
 from io import StringIO
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import pandas as pd
 import streamlit as st
 from datetime import datetime
@@ -328,6 +329,22 @@ def compute_port_congestion(events_json: str) -> pd.DataFrame:
     # ── Live AIS snapshot (≤10 min old) ──────────────────────────────────────
     ais_df = latest_positions(max_age_sec=600)
 
+    # ── Parallel marine weather fetch for all ports ───────────────────────────
+    # Fetching 30+ ports sequentially takes 15-40 s; parallel cuts this to ~2 s.
+    _port_items = list(PORT_BASELINES.items())
+    _marine_cache: dict[str, dict] = {}
+    with ThreadPoolExecutor(max_workers=8) as _ex:
+        _futs = {
+            _ex.submit(APIClient.get_marine_weather, ref["lat"], ref["lon"]): pname
+            for pname, ref in _port_items
+        }
+        for _fut in as_completed(_futs):
+            _pname = _futs[_fut]
+            try:
+                _marine_cache[_pname] = _fut.result() or {}
+            except Exception:
+                _marine_cache[_pname] = {}
+
     rows = []
     for port_name, ref in PORT_BASELINES.items():
         lat = ref["lat"]; lon = ref["lon"]
@@ -343,8 +360,8 @@ def compute_port_congestion(events_json: str) -> pd.DataFrame:
             queue = None
             queue_label = "Collecting…"
 
-        # 2. Real marine weather (waves, swell, current)
-        marine = APIClient.get_marine_weather(lat, lon) or {}
+        # 2. Real marine weather (pre-fetched in parallel above)
+        marine = _marine_cache.get(port_name, {})
         wave_m = marine.get("wave_height_m") or 0.0
         swell_m = marine.get("swell_height_m") or 0.0
         # Hazard if seas above 3 m or swell above 2.5 m
@@ -359,7 +376,7 @@ def compute_port_congestion(events_json: str) -> pd.DataFrame:
         # 4. Conflict events within 100 km
         nearby = _events_within_radius(events_df, lat, lon, 100)
 
-        # 5. Expected delay (days)
+        # 5. Expected delay (days) — only when AIS queue is known
         if queue is None:
             expected_delay_d: float | None = None
         else:
@@ -367,19 +384,22 @@ def compute_port_congestion(events_json: str) -> pd.DataFrame:
                 (queue / max(1, berths)) * baseline_d * wx_mult, 1
             )
 
-        # 6. Score derived from real delay + event/news multipliers
+        # 6. Score derived from real delay + event/news multipliers.
+        # When AIS data is not yet available (queue=None) we still compute a
+        # meaningful score from news signals and conflict proximity so the UI
+        # shows "Low / Medium / High" instead of the uninformative "Unknown".
+        event_bump = len(nearby) * 4
+        news_bump = min(20, news_hits * 3)
         if expected_delay_d is None:
-            score = 0
-            congestion = "Unknown"
+            score = int(min(100, event_bump + news_bump))
         else:
             base = expected_delay_d * 10           # 1 day delay → 10 points
-            event_bump = len(nearby) * 4
-            news_bump = min(20, news_hits * 3)
             score = int(min(100, base + event_bump + news_bump))
-            if   score >= 70: congestion = "Critical"
-            elif score >= 40: congestion = "High"
-            elif score >= 15: congestion = "Medium"
-            else:             congestion = "Low"
+
+        if   score >= 70: congestion = "Critical"
+        elif score >= 40: congestion = "High"
+        elif score >= 15: congestion = "Medium"
+        else:             congestion = "Low"
 
         rows.append({
             "Port":             port_name,
@@ -448,6 +468,36 @@ def get_news_feed(keywords: str = "shipping port conflict military supply chain 
                 "topic":  _classify_topic(title),
             })
 
+    # ── GDELT supplementary / fallback (free, no key required) ──────────────
+    # Fires when Guardian + NewsAPI together return fewer than 10 articles so
+    # the Intel Feed always has content even if API keys are missing or quota
+    # is exhausted.
+    if len(records) < 10:
+        gdelt_arts = APIClient.get_gdelt_articles(
+            "(shipping OR maritime OR port OR conflict OR military OR sanctions OR trade)"
+            " sourcelang:english",
+            timespan="24H",
+        )
+        for art in gdelt_arts[:40]:
+            title = (art.get("title") or "").strip()
+            url   = art.get("url") or "#"
+            if not title:
+                continue
+            raw_date = art.get("seendate") or art.get("crawldate") or ""
+            try:
+                date = pd.to_datetime(raw_date, format="%Y%m%d%H%M%S", utc=True)
+                if pd.isnull(date):
+                    raise ValueError
+            except Exception:
+                date = pd.Timestamp.now(tz="UTC")
+            records.append({
+                "title":  title,
+                "source": art.get("domain", "GDELT"),
+                "date":   date,
+                "url":    url,
+                "topic":  _classify_topic(title),
+            })
+
     if not records:
         return pd.DataFrame(columns=["title", "source", "date", "url", "topic"])
 
@@ -470,19 +520,19 @@ def get_news_feed(keywords: str = "shipping port conflict military supply chain 
         head["_cluster"]  = [c["cluster"]  for c in classifications]
         head["_severity"] = [c["severity"] for c in classifications]
         head["_fresh"]    = [c["fresh"]    for c in classifications]
-        # Keep only fresh items, then highest-severity per cluster.
-        head = head[head["_fresh"]]
-        if len(head) > 0:
-            head = (head.sort_values("_severity", ascending=False)
-                        .drop_duplicates(subset="_cluster", keep="first"))
+        fresh = head[head["_fresh"]]
+        if len(fresh) > 0:
+            fresh = (fresh.sort_values("_severity", ascending=False)
+                         .drop_duplicates(subset="_cluster", keep="first"))
             now_utc = pd.Timestamp.now(tz="UTC")
-            age_h = (now_utc - pd.to_datetime(head["date"], utc=True, errors="coerce")) \
+            age_h = (now_utc - pd.to_datetime(fresh["date"], utc=True, errors="coerce")) \
                 .dt.total_seconds() / 3600
-            recency = 1.0 / (1.0 + (age_h.fillna(0) / 12.0))   # half-life ~12h
-            head["_score"] = head["_severity"] * recency
-            head = head.sort_values("_score", ascending=False)
-        return head.drop(columns=[c for c in ("_cluster", "_severity", "_fresh", "_score")
-                                   if c in head.columns]).reset_index(drop=True)
+            recency = 1.0 / (1.0 + (age_h.fillna(0) / 12.0))
+            fresh["_score"] = fresh["_severity"] * recency
+            fresh = fresh.sort_values("_score", ascending=False)
+            return fresh.drop(columns=[c for c in ("_cluster", "_severity", "_fresh", "_score")
+                                       if c in fresh.columns]).reset_index(drop=True)
+        # Groq marked everything stale — fall through to unfiltered sort
 
     # Sort newest first (fallback path)
     df = df.sort_values("date", ascending=False).reset_index(drop=True)

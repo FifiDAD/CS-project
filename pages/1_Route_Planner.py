@@ -256,24 +256,4 @@ with planner_right:
   </div>
 </div>""", unsafe_allow_html=True)
 
-    bd = {"Base Fuel": base_cost}
-    if risk_cost > 0: bd["Risk Surcharge"] = risk_cost
-    if toll_cost > 0: bd["Canal Toll"]     = toll_cost
-    if insurance  > 0: bd["Insurance"]     = insurance
-
-    fig_br = go.Figure(go.Bar(
-        x=list(bd.keys()), y=list(bd.values()),
-        marker_color=["#3b82f6", "#f97316", "#9b59b6", "#eab308"][:len(bd)],
-        text=[f"${v:,.0f}" for v in bd.values()],
-        textposition="outside",
-        textfont=dict(color="#666", size=9),
-    ))
-    fig_br.update_layout(
-        paper_bgcolor="#0a0a0a", plot_bgcolor="#111111", font_color="#666", height=160,
-        margin=dict(t=20, b=0, l=0, r=0), showlegend=False,
-        xaxis=dict(tickfont_size=9, tickcolor="#444", linecolor="#2a2a2a"),
-        yaxis=dict(showgrid=True, gridcolor="#1a1a1a", tickfont_size=9, showticklabels=False),
-    )
-    st.plotly_chart(fig_br, use_container_width=True, config={"displayModeBar": False})
-
 render_footer()
