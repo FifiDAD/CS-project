@@ -80,33 +80,73 @@ def _init_db() -> None:
 
 
 def _upsert(con: sqlite3.Connection, msg: dict) -> None:
+    """Persist an incoming AIS message into SQLite.
+
+    Two message types are accepted:
+
+    - **PositionReport** (Type 1/2/3): carries lat/lon/sog/cog and a name.
+      Does NOT carry ship type — that field doesn't exist on these
+      messages, so we never try to read it here.
+    - **ShipStaticData** (Type 5): carries the ITU-R ship type code (and
+      a more authoritative name). Does NOT carry position data, so we
+      only update `ship_type` and `name` for the existing row, leaving
+      lat/lon/sog/cog/ts untouched.
+
+    `ship_type` therefore populates gradually as Type 5 messages flow in
+    (every ~6 min per vessel). Until then the column stays NULL and
+    downstream code treats unknown vessels as commercial-by-default.
+    """
+    body = msg.get("Message", {}) or {}
     meta = msg.get("MetaData", {}) or {}
-    pos_msg = (msg.get("Message", {}) or {}).get("PositionReport", {}) or {}
-    mmsi = meta.get("MMSI") or pos_msg.get("UserID")
-    lat = pos_msg.get("Latitude")
-    lon = pos_msg.get("Longitude")
-    if not (mmsi and lat is not None and lon is not None):
+
+    pos_msg = body.get("PositionReport") or {}
+    static_msg = body.get("ShipStaticData") or {}
+
+    if pos_msg:
+        mmsi = meta.get("MMSI") or pos_msg.get("UserID")
+        lat = pos_msg.get("Latitude")
+        lon = pos_msg.get("Longitude")
+        if not (mmsi and lat is not None and lon is not None):
+            return
+        now = time.time()
+        con.execute(
+            """INSERT INTO positions (mmsi, lat, lon, sog_kn, cog_deg, name, ship_type, ts)
+               VALUES (?, ?, ?, ?, ?, ?, NULL, ?)
+               ON CONFLICT(mmsi) DO UPDATE SET
+                  lat=excluded.lat, lon=excluded.lon,
+                  sog_kn=excluded.sog_kn, cog_deg=excluded.cog_deg,
+                  name=excluded.name, ts=excluded.ts""",
+            (
+                mmsi, lat, lon,
+                pos_msg.get("Sog"), pos_msg.get("Cog"),
+                (meta.get("ShipName") or "").strip(),
+                now,
+            ),
+        )
+        con.execute(
+            "INSERT INTO sightings (mmsi, lat, lon, ts) VALUES (?,?,?,?)",
+            (mmsi, lat, lon, now),
+        )
         return
-    now = time.time()
-    con.execute(
-        """INSERT INTO positions (mmsi, lat, lon, sog_kn, cog_deg, name, ship_type, ts)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-           ON CONFLICT(mmsi) DO UPDATE SET
-              lat=excluded.lat, lon=excluded.lon,
-              sog_kn=excluded.sog_kn, cog_deg=excluded.cog_deg,
-              name=excluded.name, ts=excluded.ts""",
-        (
-            mmsi, lat, lon,
-            pos_msg.get("Sog"), pos_msg.get("Cog"),
-            (meta.get("ShipName") or "").strip(),
-            pos_msg.get("ShipType"),
-            now,
-        ),
-    )
-    con.execute(
-        "INSERT INTO sightings (mmsi, lat, lon, ts) VALUES (?,?,?,?)",
-        (mmsi, lat, lon, now),
-    )
+
+    if static_msg:
+        mmsi = meta.get("MMSI") or static_msg.get("UserID")
+        ship_type = static_msg.get("Type")
+        if not mmsi or ship_type is None:
+            return
+        name = (static_msg.get("Name") or meta.get("ShipName") or "").strip()
+        # Static-only update: never touch position fields here. If the row
+        # doesn't exist yet (no PositionReport seen), insert a placeholder
+        # so the next PositionReport simply updates lat/lon/ts.
+        con.execute(
+            """INSERT INTO positions (mmsi, lat, lon, sog_kn, cog_deg, name, ship_type, ts)
+               VALUES (?, NULL, NULL, NULL, NULL, ?, ?, 0)
+               ON CONFLICT(mmsi) DO UPDATE SET
+                  ship_type=excluded.ship_type,
+                  name=CASE WHEN excluded.name != '' THEN excluded.name ELSE positions.name END""",
+            (mmsi, name, ship_type),
+        )
+        return
 
 
 async def _run() -> None:
@@ -118,7 +158,11 @@ async def _run() -> None:
     sub = json.dumps({
         "APIKey": AISSTREAM_KEY,
         "BoundingBoxes": boxes_pairs,
-        "FilterMessageTypes": ["PositionReport"],
+        # Subscribe to PositionReport (lat/lon/sog/cog) AND ShipStaticData
+        # (ship type code + canonical name). Without ShipStaticData,
+        # `ship_type` is forever NULL — and the port-congestion metric
+        # ends up counting every yacht/ferry/fishing boat as "queue".
+        "FilterMessageTypes": ["PositionReport", "ShipStaticData"],
     })
     while True:
         try:

@@ -6,11 +6,15 @@ import plotly.express as px
 
 from analytics import RiskAnalytics
 from components import filter_events, generate_intel_brief
-from dynamic_status import compute_shipping_status, compute_risk_summary, get_news_feed
+from dynamic_status import (
+    compute_shipping_status, compute_risk_summary, get_news_feed,
+    cluster_news_by_region,
+)
+from nga_warnings import fetch_warnings as fetch_nga_warnings
 from data_loader import load_core_data
 from ui_helpers import (
     inject_css, render_header, render_nav, render_footer,
-    TOPIC_COLOR, TOPIC_ICON,
+    TOPIC_COLOR, TOPIC_ICON, lottie_loader,
 )
 
 st.set_page_config(
@@ -23,12 +27,9 @@ st.set_page_config(
 inject_css()
 
 # ── Data ──────────────────────────────────────────────────────────────────────
-with st.spinner(""):
+with lottie_loader():
     events_df, oil_price, shipping_index, exchange_rates = load_core_data()
-
-events_json = events_df.to_json() if len(events_df) > 0 else pd.DataFrame().to_json()
-
-with st.spinner(""):
+    events_json = events_df.to_json() if len(events_df) > 0 else pd.DataFrame().to_json()
     shipping_df  = compute_shipping_status(events_json)
     risk_df      = compute_risk_summary(events_json)
     news_feed_df = get_news_feed()
@@ -96,6 +97,35 @@ with feed_left:
 <tbody>{rows}</tbody>
 </table>""", unsafe_allow_html=True)
 
+    # ── NGA Maritime Safety Warnings ──────────────────────────────────────────
+    try:
+        nga_df = fetch_nga_warnings()
+    except Exception:  # noqa: BLE001
+        nga_df = pd.DataFrame()
+    if len(nga_df) > 0:
+        active = nga_df[nga_df["severity"] >= 0.55].sort_values("severity", ascending=False)
+        if len(active) > 0:
+            st.markdown('<div class="tw-label" style="margin-top:12px">Maritime Safety Warnings (NGA)</div>',
+                        unsafe_allow_html=True)
+            for _, w in active.head(6).iterrows():
+                sev = float(w.get("severity", 0.0) or 0.0)
+                color = ("#ef4444" if sev >= 0.85 else
+                         "#f97316" if sev >= 0.70 else
+                         "#eab308")
+                text = (w.get("text") or "").strip().replace("\n", " ")
+                snippet = (text[:140] + "…") if len(text) > 140 else text
+                navarea = w.get("navArea", "") or "—"
+                year = w.get("msgYear", "") or ""
+                st.markdown(f"""
+<div style="border-left:3px solid {color};padding:6px 10px;margin:4px 0;
+            background:rgba(255,255,255,0.02);border-radius:0 3px 3px 0">
+  <div style="display:flex;justify-content:space-between;font-size:9px;color:#666;margin-bottom:2px">
+    <span>NAVAREA {navarea} · {year}</span>
+    <span style="color:{color};font-weight:700">SEV {sev:.2f}</span>
+  </div>
+  <div style="font-size:11px;color:#ccc;line-height:1.4">{snippet}</div>
+</div>""", unsafe_allow_html=True)
+
     # Recommended actions
     alerts = RiskAnalytics.get_regional_alerts(filtered_events, threshold_hours=48)
     if alerts:
@@ -144,31 +174,60 @@ with feed_right:
 
     active_topic = st.session_state.get("news_topic_filter", "All")
     disp = news_feed_df if active_topic == "All" else news_feed_df[news_feed_df["topic"] == active_topic]
-    st.markdown(f'<div style="font-size:9px;color:#555;margin-bottom:6px">{len(disp)} articles</div>',
-                unsafe_allow_html=True)
+    sources_n = disp["source"].nunique() if len(disp) > 0 else 0
+    st.markdown(
+        f'<div style="font-size:9px;color:#555;margin-bottom:6px">'
+        f'{len(disp)} articles · {sources_n} sources</div>',
+        unsafe_allow_html=True,
+    )
 
-    news_html = ""
-    for _, art in disp.head(30).iterrows():
+    def _render_article(art) -> str:
         topic  = art.get("topic", "other")
         tc_    = TOPIC_COLOR.get(topic, "#666")
         icon   = TOPIC_ICON.get(topic, "📰")
         try:   ts = pd.Timestamp(art["date"]).strftime("%b %d %H:%M")
         except: ts = ""
-        title  = str(art["title"])[:90] + ("…" if len(str(art["title"])) > 90 else "")
-        source = str(art["source"])[:20]
-        url    = str(art["url"])
-        news_html += f"""
-<div class="tw-news" style="border-left-color:{tc_}">
-  <div style="color:#555;font-size:9px;margin-bottom:2px">{icon} {ts} · {source}</div>
-  <a href="{url}" target="_blank"
-     style="color:#ccc;text-decoration:none;font-size:11px;line-height:1.4">
-    {title}
-  </a>
-</div>"""
+        title_full = str(art.get("title", ""))
+        title  = title_full[:90] + ("…" if len(title_full) > 90 else "")
+        source = str(art.get("source", ""))[:20]
+        url    = str(art.get("url", "#"))
+        return (
+            f'<div class="tw-news" style="border-left-color:{tc_}">'
+            f'<div style="color:#555;font-size:9px;margin-bottom:2px">'
+            f'{icon} {ts} · {source}</div>'
+            f'<a href="{url}" target="_blank" '
+            f'style="color:#ccc;text-decoration:none;font-size:11px;line-height:1.4">'
+            f'{title}</a></div>'
+        )
 
-    if news_html:
+    if len(disp) > 0:
+        regions = cluster_news_by_region(disp)
+        # Build the scrolling HTML with collapsible region sections
+        sections_html = ""
+        for region, region_df in regions.items():
+            count = len(region_df)
+            mode_topic = region_df["topic"].mode() if count else None
+            top_topic = mode_topic.iat[0] if mode_topic is not None and len(mode_topic) else "other"
+            top_color = TOPIC_COLOR.get(top_topic, "#666")
+            articles_html = "".join(_render_article(r) for _, r in region_df.head(20).iterrows())
+            sections_html += (
+                f'<details {"open" if count >= 3 else ""} '
+                f'style="margin-bottom:8px;border:1px solid #1a1a1a;border-radius:3px;'
+                f'background:rgba(255,255,255,0.01)">'
+                f'<summary style="cursor:pointer;padding:6px 10px;font-size:11px;'
+                f'font-weight:700;color:#e8e8e8;display:flex;justify-content:space-between;'
+                f'align-items:center;list-style:none">'
+                f'<span>{region}</span>'
+                f'<span style="display:flex;gap:6px;align-items:center">'
+                f'<span class="tw-badge" style="background:{top_color}18;color:{top_color};'
+                f'border:1px solid {top_color}33;font-size:9px">{top_topic}</span>'
+                f'<span style="color:#666;font-size:9px">{count}</span>'
+                f'</span></summary>'
+                f'<div style="padding:4px 6px 8px 6px">{articles_html}</div>'
+                f'</details>'
+            )
         st.markdown(
-            f'<div style="height:560px;overflow-y:auto;padding-right:4px">{news_html}</div>',
+            f'<div style="height:600px;overflow-y:auto;padding-right:4px">{sections_html}</div>',
             unsafe_allow_html=True,
         )
     else:

@@ -23,6 +23,7 @@ EVENT_COLORS = {
     "🌊 Weather":    "#1A5276",
     "🏛 Political":  "#9B59B6",
     "📦 Trade":      "#3498DB",
+    "🌋 Seismic":    "#E91E63",
 }
 
 TRAFFIC_COLORS = {

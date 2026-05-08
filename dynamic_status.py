@@ -264,13 +264,47 @@ def compute_risk_summary(events_json: str) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def _ais_anchored_count(ais_df: pd.DataFrame, lat: float, lon: float, radius_km: float) -> int:
-    """Count AIS positions within radius_km that are at anchor (SOG < 0.5 kn)."""
+# ITU-R AIS ship-type codes that are NOT commercial cargo/tanker queue.
+# When `ship_type` is known and falls in this set, the vessel is excluded
+# from the anchorage-queue count. Codes 70-79 (cargo) and 80-89 (tanker)
+# are intentionally NOT in this set — those count as commercial queue.
+# When `ship_type` is unknown (NULL / NaN), the vessel is INCLUDED — the
+# filter degrades gracefully so the metric keeps working while the AIS
+# Type-5 (ShipStaticData) backlog populates.
+_NON_COMMERCIAL_SHIP_TYPES: frozenset[int] = frozenset({
+    30,                                      # Fishing
+    31, 32,                                  # Towing / large tow
+    33, 34, 35,                              # Dredging / Diving / Military
+    36, 37,                                  # Sailing / Pleasure craft
+    50, 51, 52, 53, 54, 55, 58, 59,          # Pilot/SAR/Tug/Port tender etc.
+    60, 61, 62, 63, 64, 65, 66, 67, 68, 69,  # Passenger
+})
+
+
+def _ais_anchored_count(
+    ais_df: pd.DataFrame,
+    lat: float,
+    lon: float,
+    radius_km: float,
+    exclude_types: frozenset[int] = _NON_COMMERCIAL_SHIP_TYPES,
+) -> int:
+    """Count AIS positions within radius_km that are at anchor (SOG < 0.5 kn).
+
+    `exclude_types` removes known non-commercial vessels (fishing, pleasure
+    craft, ferries, tugs, pilot boats, etc.). Vessels with unknown
+    `ship_type` are kept — see comment on `_NON_COMMERCIAL_SHIP_TYPES`.
+    """
     if ais_df is None or len(ais_df) == 0:
         return 0
     sub = ais_df[ais_df["sog_kn"].fillna(0) < 0.5]
     if len(sub) == 0:
         return 0
+    if exclude_types and "ship_type" in sub.columns:
+        # Cast to int for set membership; NaN → -1 (treated as unknown → kept)
+        st = sub["ship_type"].fillna(-1).astype(int)
+        sub = sub[~st.isin(exclude_types)]
+        if len(sub) == 0:
+            return 0
     # Crude bounding box pre-filter to skip haversine on far rows
     dlat = radius_km / 111.0
     box = sub[(sub["lat"].between(lat - dlat, lat + dlat))
@@ -315,13 +349,24 @@ def compute_port_congestion(events_json: str) -> pd.DataFrame:
         if col not in events_df.columns:
             events_df[col] = 0 if col != "impact" else "Low"
 
-    # ── Single batched GDELT call for all ports ──────────────────────────────
+    # ── Batched GDELT calls covering ALL ports ──────────────────────────────
+    # Each batch quotes full port names (not first-word splits) so multi-word
+    # ports like "Los Angeles" match correctly; congestion-class keywords are
+    # required at the query level, then re-checked per-port below.
     port_names = list(PORT_BASELINES.keys())
-    quoted = " OR ".join(f'"{n.split(" ")[0]}"' for n in port_names[:25])  # GDELT query length cap
-    gdelt_query = (
-        f"({quoted}) AND port AND (congestion OR delay OR backlog OR queue OR disruption)"
-    )
-    articles = APIClient.get_gdelt_articles(gdelt_query, timespan="48H")
+    articles: list[dict] = []
+    BATCH = 12
+    _CONGEST_KW = ("congestion", "delay", "backlog", "queue", "closure", "strike")
+    for _i in range(0, len(port_names), BATCH):
+        _quoted = " OR ".join(f'"{n}"' for n in port_names[_i:_i + BATCH])
+        _q = (
+            f"({_quoted}) AND "
+            f"(congestion OR delay OR backlog OR queue OR \"port closure\" OR strike)"
+        )
+        try:
+            articles.extend(APIClient.get_gdelt_articles(_q, timespan="48H") or [])
+        except Exception:  # noqa: BLE001
+            continue
 
     # Pre-index articles by lowercase title text for substring matching
     article_titles = [(a.get("title") or "").lower() for a in articles]
@@ -369,32 +414,44 @@ def compute_port_congestion(events_json: str) -> pd.DataFrame:
         wx_mult = 1.5 if wx_hazard else 1.0
         wx_label = f"Wave {wave_m:.1f}m / Swell {swell_m:.1f}m" if marine else "n/a"
 
-        # 3. News signal — count articles whose title mentions this port name
-        port_first = port_name.split(" ")[0].lower()
-        news_hits = sum(1 for t in article_titles if port_first in t and "port" in t)
+        # 3. News signal — title must contain the FULL port name AND a
+        # congestion-class keyword. Avoids false positives from substring
+        # matches on common first-words (e.g. "Los", "New", "Port").
+        port_lc = port_name.lower()
+        news_hits = sum(
+            1 for t in article_titles
+            if port_lc in t and any(k in t for k in _CONGEST_KW)
+        )
 
         # 4. Conflict events within 100 km
         nearby = _events_within_radius(events_df, lat, lon, 100)
 
-        # 5. Expected delay (days) — only when AIS queue is known
+        # 5. Expected delay (days) — only when AIS queue is known.
+        # The raw queue/berths ratio is clamped at 5× because beyond that
+        # the count is almost always inflated (ambient AIS contacts within
+        # the anchorage radius rather than a genuine 17-day port wait).
+        # 5× × baseline_turnaround = realistic upper bound on real-world
+        # observed delay for any modern major port.
         if queue is None:
             expected_delay_d: float | None = None
         else:
-            expected_delay_d = round(
-                (queue / max(1, berths)) * baseline_d * wx_mult, 1
-            )
+            ratio = min(queue / max(1, berths), 5.0)
+            expected_delay_d = round(ratio * baseline_d * wx_mult, 1)
 
         # 6. Score derived from real delay + event/news multipliers.
-        # When AIS data is not yet available (queue=None) we still compute a
-        # meaningful score from news signals and conflict proximity so the UI
-        # shows "Low / Medium / High" instead of the uninformative "Unknown".
+        # `delay × 5` (was × 10) means the score caps at 100 only when
+        # observed delay reaches 20 days — previously it saturated at 10
+        # days and pinned every busy port to 100.
         event_bump = len(nearby) * 4
-        news_bump = min(20, news_hits * 3)
         if expected_delay_d is None:
+            news_bump = min(12, news_hits * 2)
             score = int(min(100, event_bump + news_bump))
+            confidence = "News-only"
         else:
-            base = expected_delay_d * 10           # 1 day delay → 10 points
+            news_bump = min(20, news_hits * 3)
+            base = expected_delay_d * 5
             score = int(min(100, base + event_bump + news_bump))
+            confidence = "Live AIS"
 
         if   score >= 70: congestion = "Critical"
         elif score >= 40: congestion = "High"
@@ -406,6 +463,7 @@ def compute_port_congestion(events_json: str) -> pd.DataFrame:
             "Country":          ref["country"],
             "Type":             ref["port_type"].title(),
             "Congestion":       congestion,
+            "Confidence":       confidence,
             "Score":            score,
             "Queue (anchored)": queue_label,
             "Berths":           berths,
@@ -445,6 +503,45 @@ def get_news_feed(keywords: str = "shipping port conflict military supply chain 
                 "source": "The Guardian",
                 "date":   date,
                 "url":    url,
+                "topic":  _classify_topic(title),
+            })
+
+    # ── Maritime industry RSS (free, no key) ─────────────────────────────────
+    rss_df = APIClient.get_maritime_rss()
+    if len(rss_df) > 0:
+        for _, row in rss_df.iterrows():
+            title = row.get("title", "")
+            records.append({
+                "title":  title,
+                "source": row.get("source", "Maritime"),
+                "date":   row.get("date", pd.Timestamp.now(tz="UTC")),
+                "url":    row.get("url", "#"),
+                "topic":  _classify_topic(title),
+            })
+
+    # ── GNews (optional, key-gated) ──────────────────────────────────────────
+    gnews_df = APIClient.get_gnews(query=keywords)
+    if len(gnews_df) > 0:
+        for _, row in gnews_df.iterrows():
+            title = row.get("title", "")
+            records.append({
+                "title":  title,
+                "source": row.get("source", "GNews"),
+                "date":   row.get("date", pd.Timestamp.now(tz="UTC")),
+                "url":    row.get("url", "#"),
+                "topic":  _classify_topic(title),
+            })
+
+    # ── NewsData.io (optional, key-gated) ────────────────────────────────────
+    newsdata_df = APIClient.get_newsdata(query=keywords)
+    if len(newsdata_df) > 0:
+        for _, row in newsdata_df.iterrows():
+            title = row.get("title", "")
+            records.append({
+                "title":  title,
+                "source": row.get("source", "NewsData"),
+                "date":   row.get("date", pd.Timestamp.now(tz="UTC")),
+                "url":    row.get("url", "#"),
                 "topic":  _classify_topic(title),
             })
 
@@ -517,6 +614,7 @@ def get_news_feed(keywords: str = "shipping port conflict military supply chain 
 
     if classifications and len(classifications) == len(df.head(40)):
         head = df.head(40).copy().reset_index(drop=True)
+        tail = df.iloc[40:].copy().reset_index(drop=True)
         head["_cluster"]  = [c["cluster"]  for c in classifications]
         head["_severity"] = [c["severity"] for c in classifications]
         head["_fresh"]    = [c["fresh"]    for c in classifications]
@@ -530,10 +628,71 @@ def get_news_feed(keywords: str = "shipping port conflict military supply chain 
             recency = 1.0 / (1.0 + (age_h.fillna(0) / 12.0))
             fresh["_score"] = fresh["_severity"] * recency
             fresh = fresh.sort_values("_score", ascending=False)
-            return fresh.drop(columns=[c for c in ("_cluster", "_severity", "_fresh", "_score")
-                                       if c in fresh.columns]).reset_index(drop=True)
+            top = fresh.drop(columns=[c for c in ("_cluster", "_severity", "_fresh", "_score")
+                                      if c in fresh.columns]).reset_index(drop=True)
+            # Keep the long tail (articles beyond head[40]) so the feed isn't
+            # gutted to a handful of cluster-leaders. Tail stays sorted newest
+            # first underneath the Groq-ranked top.
+            if len(tail) > 0:
+                tail = tail.sort_values("date", ascending=False).reset_index(drop=True)
+                return pd.concat([top, tail], ignore_index=True).drop_duplicates(
+                    subset="title").reset_index(drop=True)
+            return top
         # Groq marked everything stale — fall through to unfiltered sort
 
     # Sort newest first (fallback path)
     df = df.sort_values("date", ascending=False).reset_index(drop=True)
     return df
+
+
+# ── Region clusterer for the Intel Feed ───────────────────────────────────────
+_REGION_KEYWORDS: list[tuple[str, tuple[str, ...]]] = [
+    ("Suez / Red Sea",          ("suez", "red sea", "bab el-mandeb", "bab al-mandab",
+                                 "houthi", "port said", "yemen", "djibouti")),
+    ("Strait of Hormuz",        ("hormuz", "iran", "gulf of oman", "persian gulf",
+                                 "strait of oman", "tehran")),
+    ("Malacca / Singapore",     ("malacca", "singapore strait", "lombok", "sunda")),
+    ("Panama Canal",            ("panama canal", "panama drought", "gatun", "neopanamax")),
+    ("English Channel / N. Europe", ("english channel", "dover strait", "rotterdam",
+                                     "antwerp", "hamburg", "felixstowe", "north sea")),
+    ("Far East / Taiwan",       ("taiwan", "south china sea", "luzon", "scs",
+                                 "shanghai", "ningbo", "busan", "yokohama")),
+    ("Black Sea",               ("black sea", "bosphorus", "bosporus", "odesa",
+                                 "ukraine grain", "novorossiysk")),
+    ("Americas",                ("los angeles", "long beach", "houston", "savannah",
+                                 "santos", "buenaventura", "vancouver")),
+]
+
+
+def cluster_news_by_region(news_df: pd.DataFrame) -> dict[str, pd.DataFrame]:
+    """Group articles by maritime region based on title keyword matching.
+
+    Each article is assigned to the FIRST matching region (so order in
+    `_REGION_KEYWORDS` is the priority order). Articles with no match land
+    in the "Other" bucket. Returns dict {region_name: DataFrame} keyed in
+    insertion order, with empty regions omitted.
+    """
+    if news_df is None or len(news_df) == 0:
+        return {}
+    titles = news_df["title"].fillna("").str.lower()
+    buckets: dict[str, list[int]] = {}
+    for region, kws in _REGION_KEYWORDS:
+        buckets[region] = []
+    buckets["Other"] = []
+
+    for idx, t in titles.items():
+        placed = False
+        for region, kws in _REGION_KEYWORDS:
+            if any(kw in t for kw in kws):
+                buckets[region].append(idx)
+                placed = True
+                break
+        if not placed:
+            buckets["Other"].append(idx)
+
+    out: dict[str, pd.DataFrame] = {}
+    for region, idxs in buckets.items():
+        if not idxs:
+            continue
+        out[region] = news_df.loc[idxs].sort_values("date", ascending=False).reset_index(drop=True)
+    return out

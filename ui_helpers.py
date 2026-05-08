@@ -1,6 +1,113 @@
 """Shared CSS, color maps, header/nav/footer rendering for TradeWatch pages."""
+import base64
+import random
+from contextlib import contextmanager
+from pathlib import Path
+
 import streamlit as st
+import streamlit.components.v1 as components
 from datetime import datetime
+
+# ── Lottie loader (centered ship animation + rotating quip) ──────────────────
+_LOTTIE_PATH = Path(__file__).resolve().parent / "assets" / "Ship.lottie"
+_LOTTIE_B64_CACHE: str | None = None
+
+# Quirky maritime status lines, one drawn at random per loader render.
+LOADER_QUIPS: list[str] = [
+    "Charting safer routes…",
+    "Hailing the harbormaster…",
+    "Plotting waypoints across the deep…",
+    "Reading the tides…",
+    "Triangulating chokepoint signals…",
+    "Sounding the depths for fresh data…",
+    "Asking the bridge for sitrep…",
+    "Reeling in the latest events…",
+    "Bunkering up on intel…",
+    "Tightening the rigging…",
+    "Scanning the horizon for trouble…",
+    "Pinging every port we know…",
+    "Calling all crow's nests…",
+    "Setting the compass true…",
+    "Hoisting the data sails…",
+    "Reckoning by dead reckoning…",
+    "Steering between rocks and hard places…",
+    "Squaring the yards and trimming the sheets…",
+    "Listening for the foghorn of fresh news…",
+    "Pulling intel from the wireless…",
+]
+
+
+def _lottie_b64() -> str | None:
+    global _LOTTIE_B64_CACHE
+    if _LOTTIE_B64_CACHE is None and _LOTTIE_PATH.exists():
+        _LOTTIE_B64_CACHE = base64.b64encode(_LOTTIE_PATH.read_bytes()).decode()
+    return _LOTTIE_B64_CACHE
+
+
+@contextmanager
+def lottie_loader(message: str | None = None, height_px: int = 320):
+    """Centered ship-Lottie loading screen with a randomised quip.
+
+    Use as a context manager around a block of slow data calls:
+
+        with lottie_loader():
+            events_df, oil, idx, fx = load_core_data()
+            shipping_df = compute_shipping_status(events_df.to_json())
+
+    The loader renders inside an `st.empty()` placeholder and is wiped
+    once the `with` block exits, so the loader vanishes when content is
+    ready.
+    """
+    placeholder = st.empty()
+    quip = message or random.choice(LOADER_QUIPS)
+    b64 = _lottie_b64()
+    src = f"data:application/zip;base64,{b64}" if b64 else ""
+    iframe_height = height_px + 90
+    html = f"""
+<!doctype html>
+<html><head>
+  <script type="module"
+    src="https://unpkg.com/@dotlottie/player-component@2.7.12/dist/dotlottie-player.mjs"></script>
+  <style>
+    html, body {{
+      margin: 0; padding: 0; background: transparent;
+      font-family: 'Fira Code', 'SF Mono', monospace;
+    }}
+    .tw-lottie-wrap {{
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      height: 100vh; gap: 16px;
+    }}
+    dotlottie-player {{ background: transparent; }}
+    .tw-lottie-quip {{
+      font-size: 13px; font-weight: 600; letter-spacing: 0.06em;
+      color: #3b82f6; text-align: center; max-width: 90%;
+      animation: tw-fade-in 0.5s ease both;
+    }}
+    .tw-lottie-sub {{
+      font-size: 10px; color: #6b7280; letter-spacing: 0.18em;
+      text-transform: uppercase; text-align: center;
+    }}
+    @keyframes tw-fade-in {{
+      from {{ opacity: 0; transform: translateY(4px); }}
+      to   {{ opacity: 1; transform: translateY(0); }}
+    }}
+  </style>
+</head><body>
+  <div class="tw-lottie-wrap">
+    <dotlottie-player src="{src}" autoplay loop
+      style="width:{height_px}px;height:{height_px}px"></dotlottie-player>
+    <div class="tw-lottie-quip">{quip}</div>
+    <div class="tw-lottie-sub">TradeWatch · live feeds</div>
+  </div>
+</body></html>
+"""
+    with placeholder.container():
+        components.html(html, height=iframe_height, scrolling=False)
+    try:
+        yield
+    finally:
+        placeholder.empty()
 
 # ── Color maps ────────────────────────────────────────────────────────────────
 SC = {

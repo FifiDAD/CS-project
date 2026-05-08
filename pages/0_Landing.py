@@ -1,18 +1,20 @@
-"""TradeWatch — Landing Page"""
+"""TradeWatch — Landing Page (static tutorial / informational)
+
+Pure-static welcome page: no live API fetches, no globe, no interactive
+demos. Renders instantly. While the user reads, a daemon thread warms
+every cache the rest of the dashboard hits, so clicking "Open Main
+Dashboard →" feels instant.
+"""
 
 import sys
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-import plotly.graph_objects as go
 import streamlit as st
-import pandas as pd
 
-from data_loader import load_core_data
-from dynamic_status import compute_shipping_status
-from maps import create_dashboard_map
-from ui_helpers import inject_css, risk_col
+from data_loader import prefetch_full_dashboard
+from ui_helpers import inject_css
 
 
 # ── Page config ───────────────────────────────────────────────────────────────
@@ -27,7 +29,6 @@ inject_css()
 
 st.markdown("""
 <style>
-/* ── Base ── */
 .stApp { background: #f2f5fa !important; }
 p, span, div, label, li, td, th,
 .stMarkdown, .stText { color: #1e3a5f !important; }
@@ -62,7 +63,7 @@ h1, h2, h3 { color: #0f2744 !important; }
   font-size: 19px !important;
   font-weight: 400 !important;
   color: #e8f4fd !important;
-  max-width: 600px;
+  max-width: 640px;
   margin: 0 auto 22px auto;
   line-height: 1.65;
 }
@@ -107,35 +108,162 @@ h1, h2, h3 { color: #0f2744 !important; }
   line-height: 1.7;
 }
 
-/* ── Risk panel ── */
-.tw-risk-panel {
+/* ── Section headers ── */
+.tw-section-title {
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  color: #0f2744 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  margin: 32px 0 14px 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #cfdce9;
+}
+
+/* ── Workflow steps ── */
+.tw-step {
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 18px 18px 14px 18px;
+  box-shadow: 0 2px 10px rgba(15,39,68,0.07);
+  border-left: 3px solid #1a6ea8;
+  height: 100%;
+}
+.tw-step-num {
+  display: inline-block;
+  width: 26px; height: 26px; line-height: 26px;
+  text-align: center;
+  background: #1a6ea8;
+  color: #ffffff !important;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+.tw-step-title {
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  color: #0f2744 !important;
+  margin-bottom: 6px;
+}
+.tw-step-body {
+  font-size: 12px !important;
+  color: #3d5a7a !important;
+  line-height: 1.6;
+}
+.tw-step-tag {
+  display: inline-block;
+  font-size: 10px;
+  background: #e8f1fb;
+  color: #1a6ea8 !important;
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-top: 8px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+/* ── Feature page tiles ── */
+.tw-feature {
   background: #ffffff;
   border-radius: 12px;
   padding: 20px 20px 16px 20px;
   box-shadow: 0 2px 12px rgba(15,39,68,0.09);
+  border-top: 3px solid #0e6e85;
   height: 100%;
 }
-.tw-risk-panel-header {
-  font-size: 13px;
-  font-weight: 700;
-  color: #0f2744;
+.tw-feature-icon {
+  font-size: 28px;
+  margin-bottom: 8px;
+  display: block;
+}
+.tw-feature-title {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  color: #0f2744 !important;
+  margin-bottom: 4px;
+}
+.tw-feature-sub {
+  font-size: 11px !important;
+  color: #6b8faf !important;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  margin-bottom: 14px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  margin-bottom: 10px;
 }
-.tw-live-badge {
-  background: rgba(220,38,38,0.1);
-  color: #dc2626;
-  border: 1px solid rgba(220,38,38,0.28);
-  border-radius: 4px;
-  font-size: 9px;
+.tw-feature-body {
+  font-size: 13px !important;
+  color: #3d5a7a !important;
+  line-height: 1.65;
+}
+.tw-feature-list {
+  font-size: 12px !important;
+  color: #3d5a7a !important;
+  margin: 10px 0 0 0;
+  padding-left: 16px;
+  line-height: 1.7;
+}
+
+/* ── Quick-start tutorial ── */
+.tw-tutorial {
+  background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+  border-radius: 12px;
+  padding: 24px 28px 20px 28px;
+  box-shadow: 0 2px 12px rgba(15,39,68,0.09);
+  border: 1px solid #e0eaf4;
+}
+.tw-tutorial-step {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 10px 0;
+  border-bottom: 1px dashed #e0eaf4;
+}
+.tw-tutorial-step:last-child { border-bottom: none; }
+.tw-tutorial-num {
+  flex: 0 0 32px;
+  width: 32px; height: 32px; line-height: 32px;
+  text-align: center;
+  background: #0e6e85;
+  color: #ffffff !important;
+  border-radius: 50%;
+  font-size: 13px;
   font-weight: 700;
-  padding: 2px 6px;
-  letter-spacing: 0.08em;
+}
+.tw-tutorial-text {
+  flex: 1;
+  font-size: 13px !important;
+  color: #3d5a7a !important;
+  line-height: 1.65;
+}
+.tw-tutorial-text b { color: #0f2744 !important; }
+
+/* ── Risk-priority callout ── */
+.tw-priority-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-top: 12px;
+}
+.tw-priority {
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 14px 14px 12px 14px;
+  border-top: 3px solid #1a6ea8;
+  box-shadow: 0 1px 6px rgba(15,39,68,0.06);
+}
+.tw-priority-icon { font-size: 22px; }
+.tw-priority-name {
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  color: #0f2744 !important;
+  margin: 4px 0 4px 0;
   text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.tw-priority-body {
+  font-size: 11px !important;
+  color: #3d5a7a !important;
+  line-height: 1.55;
 }
 
 /* ── Bottom CTA button ── */
@@ -155,49 +283,11 @@ h1, h2, h3 { color: #0f2744 !important; }
 """, unsafe_allow_html=True)
 
 
-# ── ISO-3 country codes for hover choropleth layer ────────────────────────────
-# fmt: off
-_ALL_ISO3 = [
-    "AFG","ALB","DZA","AND","AGO","ATG","ARG","ARM","AUS","AUT","AZE","BHS","BHR",
-    "BGD","BRB","BLR","BEL","BLZ","BEN","BTN","BOL","BIH","BWA","BRA","BRN","BGR",
-    "BFA","BDI","CPV","KHM","CMR","CAN","CAF","TCD","CHL","CHN","COL","COM","COD",
-    "COG","CRI","CIV","HRV","CUB","CYP","CZE","DNK","DJI","DOM","ECU","EGY","SLV",
-    "GNQ","ERI","EST","SWZ","ETH","FJI","FIN","FRA","GAB","GMB","GEO","DEU","GHA",
-    "GRC","GRD","GTM","GIN","GNB","GUY","HTI","HND","HUN","ISL","IND","IDN","IRN",
-    "IRQ","IRL","ISR","ITA","JAM","JPN","JOR","KAZ","KEN","KIR","PRK","KOR","XKX",
-    "KWT","KGZ","LAO","LVA","LBN","LSO","LBR","LBY","LIE","LTU","LUX","MDG","MWI",
-    "MYS","MDV","MLI","MLT","MHL","MRT","MUS","MEX","FSM","MDA","MCO","MNG","MNE",
-    "MAR","MOZ","MMR","NAM","NRU","NPL","NLD","NZL","NIC","NER","NGA","MKD","NOR",
-    "OMN","PAK","PLW","PAN","PNG","PRY","PER","PHL","POL","PRT","QAT","ROU","RUS",
-    "RWA","KNA","LCA","VCT","WSM","SMR","STP","SAU","SEN","SRB","SYC","SLE","SGP",
-    "SVK","SVN","SLB","SOM","ZAF","SSD","ESP","LKA","SDN","SUR","SWE","CHE","SYR",
-    "TWN","TJK","TZA","THA","TLS","TGO","TON","TTO","TUN","TUR","TKM","TUV","UGA",
-    "UKR","ARE","GBR","USA","URY","UZB","VUT","VEN","VNM","YEM","ZMB","ZWE",
-]
-# fmt: on
-
-
-# ── Data loading ──────────────────────────────────────────────────────────────
-with st.spinner("Initializing global shipping intelligence..."):
-    events_df, oil_price, shipping_index, exchange_rates = load_core_data()
-
-events_json = events_df.to_json() if len(events_df) > 0 else pd.DataFrame().to_json()
-
-with st.spinner("Computing route risk signals..."):
-    shipping_df = compute_shipping_status(events_json)
-
-
-# ── Helper: route action text ─────────────────────────────────────────────────
-def route_action(status: str) -> str:
-    if status == "Critical - Avoid":
-        return "Avoid or compare alternative routing before dispatch."
-    if status == "Operational - High Risk":
-        return "Proceed only with monitoring and contingency planning."
-    if status == "Operational - Alert":
-        return "Monitor before final route confirmation."
-    if status == "Unavailable":
-        return "Data unavailable — manual review required."
-    return "Proceed normally under current conditions."
+# ── Background warm-up ────────────────────────────────────────────────────────
+# Kick off the daemon thread that warms every cache the rest of the dashboard
+# hits. The Landing page itself doesn't await it — by the time the user clicks
+# "Open Main Dashboard →" the slow paths are already cached.
+prefetch_full_dashboard()
 
 
 # ── Hero ──────────────────────────────────────────────────────────────────────
@@ -206,9 +296,11 @@ st.markdown("""
   <div class="tw-hero-eyebrow">Shipping Route Intelligence</div>
   <div class="tw-hero-title">🌍 TradeWatch</div>
   <div class="tw-hero-subtitle">
-    Shipping Route Intelligence for Safer, Smarter Global Trade
+    Live geopolitical, weather, and market intelligence for global shipping
+    routes — so planners can pick the right route based on their priorities,
+    not just the shortest line on the map.
   </div>
-  <div class="tw-scroll-cue">Scroll to explore live risks ↓</div>
+  <div class="tw-scroll-cue">Scroll to see what TradeWatch does ↓</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -250,153 +342,247 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# ── How to use TradeWatch ─────────────────────────────────────────────────────
+# ── How TradeWatch works (4-step workflow) ────────────────────────────────────
+st.markdown('<div class="tw-section-title">How TradeWatch Works</div>',
+            unsafe_allow_html=True)
+
 st.markdown("""
-<div style="background:#ffffff;border-radius:12px;padding:26px 28px 22px 28px;
-            margin-bottom:28px;box-shadow:0 2px 12px rgba(15,39,68,0.09);">
-  <div style="font-size:15px;font-weight:700;color:#0f2744;text-transform:uppercase;
-              letter-spacing:0.08em;margin-bottom:18px;">How to use TradeWatch</div>
-  <div style="display:flex;gap:16px;">
-    <div style="flex:1;background:#f2f7fc;border-radius:10px;padding:18px 16px;
-                border-top:3px solid #1a6ea8;text-align:center;">
-      <div style="font-size:22px;font-weight:800;color:#1a6ea8;margin-bottom:6px;">1</div>
-      <div style="font-size:13px;font-weight:700;color:#0f2744;margin-bottom:6px;">Check live global risks</div>
-      <div style="font-size:12px;color:#3d5a7a;line-height:1.55;">
-        See which routes and regions have active geopolitical, weather, or port disruption signals right now.
-      </div>
+<div class="tw-card-row">
+  <div class="tw-step">
+    <div class="tw-step-num">1</div>
+    <div class="tw-step-title">Aggregate Live Signals</div>
+    <div class="tw-step-body">
+      Pull geocoded events from <b>GDELT</b>, official maritime warnings from
+      <b>NGA</b>, vessel positions from <b>AIS</b>, and weather from
+      <b>Open-Meteo</b> — every 15 minutes.
     </div>
-    <div style="flex:1;background:#f2f7fc;border-radius:10px;padding:18px 16px;
-                border-top:3px solid #0e6e85;text-align:center;">
-      <div style="font-size:22px;font-weight:800;color:#0e6e85;margin-bottom:6px;">2</div>
-      <div style="font-size:13px;font-weight:700;color:#0f2744;margin-bottom:6px;">Compare affected routes</div>
-      <div style="font-size:12px;color:#3d5a7a;line-height:1.55;">
-        Review risk scores and status for each shipping lane side-by-side in the Route Status panel.
-      </div>
+    <span class="tw-step-tag">9 live feeds</span>
+  </div>
+  <div class="tw-step">
+    <div class="tw-step-num">2</div>
+    <div class="tw-step-title">Score Chokepoint Risk</div>
+    <div class="tw-step-body">
+      For each major chokepoint (Suez, Hormuz, Malacca, Panama, Bosphorus,
+      English Channel) compute a 0–100 risk score from nearby events,
+      news mentions, NGA severity, and AIS transit-volume drop.
     </div>
-    <div style="flex:1;background:#f2f7fc;border-radius:10px;padding:18px 16px;
-                border-top:3px solid #1a8a5a;text-align:center;">
-      <div style="font-size:22px;font-weight:800;color:#1a8a5a;margin-bottom:6px;">3</div>
-      <div style="font-size:13px;font-weight:700;color:#0f2744;margin-bottom:6px;">Review delay &amp; cost exposure</div>
-      <div style="font-size:12px;color:#3d5a7a;line-height:1.55;">
-        Understand estimated delay hours and financial cost impact per route before committing.
-      </div>
+    <span class="tw-step-tag">Auto-updates</span>
+  </div>
+  <div class="tw-step">
+    <div class="tw-step-num">3</div>
+    <div class="tw-step-title">Plan Routes With Tradeoffs</div>
+    <div class="tw-step-body">
+      Feed those risk scores into a graph-based router that surfaces four
+      named alternatives — <b>Recommended</b>, <b>Fastest</b>, <b>Safest</b>,
+      <b>Cheapest</b> — with full economics for each.
     </div>
-    <div style="flex:1;background:#f2f7fc;border-radius:10px;padding:18px 16px;
-                border-top:3px solid #7c3aed;text-align:center;">
-      <div style="font-size:22px;font-weight:800;color:#7c3aed;margin-bottom:6px;">4</div>
-      <div style="font-size:13px;font-weight:700;color:#0f2744;margin-bottom:6px;">Choose the safest route</div>
-      <div style="font-size:12px;color:#3d5a7a;line-height:1.55;">
-        Use route recommendations and the full analytics dashboard to make confident dispatch decisions.
-      </div>
+    <span class="tw-step-tag">MariNav engine</span>
+  </div>
+  <div class="tw-step">
+    <div class="tw-step-num">4</div>
+    <div class="tw-step-title">Decide & Document</div>
+    <div class="tw-step-body">
+      Pick the route that matches the cargo's risk tolerance, urgency, and
+      budget. Every choice comes with a "why" narrative + per-leg breakdown
+      you can hand to operations.
     </div>
+    <span class="tw-step-tag">Audit trail</span>
   </div>
 </div>
 """, unsafe_allow_html=True)
 
-# ── Map + live risks ──────────────────────────────────────────────────────────
-map_col, story_col = st.columns([1.45, 1], gap="large")
 
-with map_col:
-    route_statuses = {}
-    if len(shipping_df) > 0:
-        route_statuses = dict(zip(shipping_df["Route"], shipping_df["Status"]))
+# ── Feature tour: the 4 pages ─────────────────────────────────────────────────
+st.markdown('<div class="tw-section-title">What\'s Inside</div>',
+            unsafe_allow_html=True)
 
-    globe_fig = create_dashboard_map(
-        events_df,
-        show_routes=True,
-        show_ports=False,
-        show_events=True,
-        show_vessels=False,
-        show_daynight=False,
-        show_piracy=False,
-        route_statuses=route_statuses,
-    )
+f1, f2 = st.columns(2, gap="large")
 
-    # Transparent choropleth for country hover names (no rivers, country borders kept)
-    globe_fig.add_trace(
-        go.Choropleth(
-            locations=_ALL_ISO3,
-            z=[0] * len(_ALL_ISO3),
-            locationmode="ISO-3",
-            colorscale=[[0, "rgba(0,0,0,0)"], [1, "rgba(0,0,0,0)"]],
-            showscale=False,
-            marker=dict(line=dict(width=0)),
-            hovertemplate="%{location}<extra></extra>",
-            geo="geo",
-        )
-    )
-
-    globe_fig.update_geos(
-        projection_rotation=dict(lon=20, lat=20, roll=0),
-        bgcolor="#dce8f5",
-        landcolor="#d0dfc8",
-        oceancolor="#a8c8e8",
-        showrivers=False,
-        showlakes=False,
-        showcountries=True,
-        countrycolor="#9ab0c8",
-    )
-
-    globe_fig.update_layout(
-        height=530,
-        paper_bgcolor="#f2f5fa",
-        margin=dict(l=0, r=0, t=0, b=0),
-    )
-
-    st.plotly_chart(
-        globe_fig,
-        use_container_width=True,
-        config={"scrollZoom": False, "displayModeBar": False},
-    )
-
-with story_col:
+with f1:
     st.markdown("""
-<div class="tw-risk-panel">
-  <div class="tw-risk-panel-header">
-    Live Route Risk Examples
-    <span class="tw-live-badge">live</span>
+<div class="tw-feature" style="border-top-color:#1a6ea8">
+  <span class="tw-feature-icon">🌍</span>
+  <div class="tw-feature-title">Main Dashboard</div>
+  <div class="tw-feature-sub">Globe view · live status</div>
+  <div class="tw-feature-body">
+    A 3-D globe of the world with every monitored shipping lane,
+    chokepoint, and active event plotted in real time.
   </div>
-""", unsafe_allow_html=True)
-
-    if len(shipping_df) > 0:
-        top_risks = shipping_df.sort_values("Risk Score", ascending=False).head(3)
-
-        for _, row in top_risks.iterrows():
-            score = int(row["Risk Score"])
-            color = risk_col(score)
-            action = route_action(row["Status"])
-
-            st.markdown(f"""
-<div style="background:#f7f9fc;border:1px solid #d8e4f0;
-            border-left:4px solid {color};border-radius:8px;
-            padding:12px 14px;margin-bottom:10px">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-    <span style="font-size:14px;font-weight:700;color:#0f2744">{row["Route"]}</span>
-    <span style="font-size:13px;font-weight:700;color:{color}">{score}/100</span>
-  </div>
-  <div style="font-size:13px;color:#3d5a7a;line-height:1.65">
-    Status: <b>{row["Status"]}</b><br>
-    Delay exposure: <b>{row["Average Delay"]}</b><br>
-    Cost impact: <b>{row["Cost Impact"]}</b><br>
-    Signals: {row["Nearby Events"]} events · {row["News Signals"]} news signals<br>
-    <span style="color:#1a6ea8;font-weight:600">Action: {action}</span>
-  </div>
-</div>
-""", unsafe_allow_html=True)
-    else:
-        st.markdown("""
-<div style="font-size:13px;color:#6b8faf;padding:10px 0">
-  No live route risks available at the moment.
+  <ul class="tw-feature-list">
+    <li>Routes coloured by current risk score</li>
+    <li>Port markers sized by live anchorage queue</li>
+    <li>AIS vessel layer + day/night terminator</li>
+    <li>Top 5 live events panel + recommended route</li>
+  </ul>
 </div>
 """, unsafe_allow_html=True)
 
-    st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
+
+    st.markdown("""
+<div class="tw-feature" style="border-top-color:#0e6e85">
+  <span class="tw-feature-icon">📊</span>
+  <div class="tw-feature-title">Market & Costs</div>
+  <div class="tw-feature-sub">Bunker · freight · fleet impact</div>
+  <div class="tw-feature-body">
+    Live oil price, IMF freight index, FX rates, and Ship & Bunker bunker
+    prices with daily change indicators.
+  </div>
+  <ul class="tw-feature-list">
+    <li>VLSFO / IFO380 / MGO at 8 major bunker ports</li>
+    <li>Fleet-wide cost-impact model (oil × event multipliers)</li>
+    <li>Per-chokepoint delay & cost-Δ table</li>
+    <li>Port congestion ranked by score</li>
+  </ul>
+</div>
+""", unsafe_allow_html=True)
+
+with f2:
+    st.markdown("""
+<div class="tw-feature" style="border-top-color:#a855f7">
+  <span class="tw-feature-icon">📡</span>
+  <div class="tw-feature-title">Intel Feed</div>
+  <div class="tw-feature-sub">Events · news · NGA warnings</div>
+  <div class="tw-feature-body">
+    Every event and news article relevant to maritime shipping, clustered
+    by region and topic with a rule-based intelligence brief on top.
+  </div>
+  <ul class="tw-feature-list">
+    <li>Regional risk table + recommended actions</li>
+    <li>NGA Maritime Safety Broadcast Warnings (severity ≥ 0.55)</li>
+    <li>Live news feed clustered by Suez/Hormuz/Malacca/Panama/etc.</li>
+    <li>Topic filters: conflict / shipping / trade / weather</li>
+  </ul>
+</div>
+""", unsafe_allow_html=True)
+
+    st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
+
+    st.markdown("""
+<div class="tw-feature" style="border-top-color:#22c55e">
+  <span class="tw-feature-icon">🧭</span>
+  <div class="tw-feature-title">MariNav Router <span style="font-size:9px;background:#22c55e;color:#fff;padding:1px 6px;border-radius:3px;letter-spacing:0.05em">FLAGSHIP</span></div>
+  <div class="tw-feature-sub">Interactive route planner with tradeoffs</div>
+  <div class="tw-feature-body">
+    Pick origin + destination + vessel, get four ranked alternatives —
+    each with full economics, a "why this route" narrative, and a
+    per-leg breakdown.
+  </div>
+  <ul class="tw-feature-list">
+    <li>4 named objectives: Recommended / Fastest / Safest / Cheapest</li>
+    <li>Full cost: fuel + risk surcharge + canal toll + opex</li>
+    <li>Monte Carlo P10 / P50 / P90 confidence on fuel + ETA</li>
+    <li>All four routes drawn on the globe — pick yours</li>
+  </ul>
+</div>
+""", unsafe_allow_html=True)
+
+
+# ── Quick-start: 4 steps to plan your first route ────────────────────────────
+st.markdown('<div class="tw-section-title">Quick Start: Plan Your First Route</div>',
+            unsafe_allow_html=True)
+
+st.markdown("""
+<div class="tw-tutorial">
+  <div class="tw-tutorial-step">
+    <div class="tw-tutorial-num">1</div>
+    <div class="tw-tutorial-text">
+      Open <b>MariNav Router</b> from the navigation bar. Pick an
+      <b>Origin Port</b> and <b>Destination Port</b> (e.g. Rotterdam → Singapore).
+    </div>
+  </div>
+  <div class="tw-tutorial-step">
+    <div class="tw-tutorial-num">2</div>
+    <div class="tw-tutorial-text">
+      In the sidebar, choose your <b>vessel class</b> (Panamax / Suezmax / VLCC /
+      ULCV / MR), <b>service speed</b>, and confirm the <b>daily OPEX</b>. These
+      drive the fuel + cost calculations for every alternative.
+    </div>
+  </div>
+  <div class="tw-tutorial-step">
+    <div class="tw-tutorial-num">3</div>
+    <div class="tw-tutorial-text">
+      Click <b>Calculate Route</b>. The router runs Dijkstra under four
+      objectives in parallel and shows you four cards: <b>Recommended</b>,
+      <b>Fastest</b>, <b>Safest</b>, <b>Cheapest</b> — with distance, days,
+      max chokepoint risk, and total cost for each.
+    </div>
+  </div>
+  <div class="tw-tutorial-step">
+    <div class="tw-tutorial-num">4</div>
+    <div class="tw-tutorial-text">
+      Pick the alternative that matches your priorities. The map updates,
+      the <b>Why this route</b> narrative explains the tradeoff, and the
+      <b>Per-leg breakdown</b> table shows distance / fuel / wind / sea
+      state for every segment.
+    </div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+
+# ── Priority profiles — explains the 4 named alternatives ────────────────────
+st.markdown('<div class="tw-section-title">Pick The Route That Fits Your Priorities</div>',
+            unsafe_allow_html=True)
+
+st.markdown("""
+<div style="font-size:13px;color:#3d5a7a;line-height:1.65;margin-bottom:8px">
+  Different cargo, different priorities. A perishable container has different
+  constraints than a crude tanker. TradeWatch surfaces all four objectives so
+  you can pick consciously instead of trusting a single "best" path.
+</div>
+<div class="tw-priority-grid">
+  <div class="tw-priority" style="border-top-color:#3b82f6">
+    <span class="tw-priority-icon">⚖️</span>
+    <div class="tw-priority-name">Recommended</div>
+    <div class="tw-priority-body">
+      Balanced default. Distance × live risk × weather. Best when you have
+      no specific priority and want the lowest expected total exposure.
+    </div>
+  </div>
+  <div class="tw-priority" style="border-top-color:#f97316">
+    <span class="tw-priority-icon">⏱</span>
+    <div class="tw-priority-name">Fastest</div>
+    <div class="tw-priority-body">
+      Pure shortest distance. Pick this when contractual ETAs or
+      perishable cargo make every day count more than the toll or risk.
+    </div>
+  </div>
+  <div class="tw-priority" style="border-top-color:#22c55e">
+    <span class="tw-priority-icon">🛡</span>
+    <div class="tw-priority-name">Safest</div>
+    <div class="tw-priority-body">
+      Cubic risk penalty — heavily avoids active chokepoints. Pick this
+      for hazardous cargo, capital-intensive vessels, or insurance-driven
+      voyages.
+    </div>
+  </div>
+  <div class="tw-priority" style="border-top-color:#a855f7">
+    <span class="tw-priority-icon">💰</span>
+    <div class="tw-priority-name">Cheapest</div>
+    <div class="tw-priority-body">
+      Lowest dollars on the docket. Pools k-shortest paths, then picks
+      whichever has the smallest fuel + opex + canal toll + war-risk
+      surcharge total.
+    </div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
 
 
 # ── Bottom CTA ────────────────────────────────────────────────────────────────
-st.markdown("<br>", unsafe_allow_html=True)
+st.markdown("<br><br>", unsafe_allow_html=True)
+st.markdown(
+    '<div style="text-align:center;font-size:12px;color:#6b8faf;'
+    'letter-spacing:0.06em;margin-bottom:6px">'
+    'Ready when you are.'
+    '</div>',
+    unsafe_allow_html=True,
+)
 
 col_l, col_btn, col_r = st.columns([1, 2, 1])
 with col_btn:
     if st.button("Open Main Dashboard →", use_container_width=True, type="primary"):
         st.switch_page("app.py")
+
+st.markdown("<div style='height:24px'></div>", unsafe_allow_html=True)

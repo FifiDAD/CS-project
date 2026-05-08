@@ -43,6 +43,14 @@ def _risk_score_color(score: int) -> str:
     return "#00CC44"
 
 
+def _hours_since(when) -> float:
+    """Hours between `when` and now (UTC). Handles tz-naive and tz-aware inputs."""
+    ts = pd.Timestamp(when)
+    if ts.tzinfo is None:
+        ts = ts.tz_localize("UTC")
+    return (pd.Timestamp.now(tz="UTC") - ts).total_seconds() / 3600
+
+
 # ── Route Intelligence Card ───────────────────────────────────────────────────
 
 def render_route_card(row: pd.Series, selected_route: str | None, port_cong_df: pd.DataFrame | None = None) -> None:
@@ -145,7 +153,7 @@ def render_alert_strip(events_df: pd.DataFrame, max_alerts: int = 4) -> None:
         color = ALERT_COLORS.get(row["impact"], "#6b9cc4")
         icon  = ALERT_ICONS.get(row["impact"], "ℹ️")
         try:
-            age_h = (pd.Timestamp.now(tz="UTC") - pd.Timestamp(row["date"]).tz_localize("UTC") if pd.Timestamp(row["date"]).tzinfo is None else pd.Timestamp.now(tz="UTC") - pd.Timestamp(row["date"])).total_seconds() / 3600
+            age_h = _hours_since(row["date"])
             age_str = f"{int(age_h)}h ago" if age_h < 48 else f"{int(age_h/24)}d ago"
         except Exception:
             age_str = ""

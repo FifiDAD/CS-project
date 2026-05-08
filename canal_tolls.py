@@ -17,17 +17,30 @@ from __future__ import annotations
 SUEZ_TOLLS_USD = {
     "Panamax":   450_000,   # ~70k DWT bulk
     "Capesize":  750_000,   # ~180k DWT bulk
+    "Suezmax":   900_000,   # ~160k DWT crude — namesake of the canal
     "VLCC":     1_100_000,  # ~300k DWT crude
     "ULCV":     1_400_000,  # 24k+ TEU container
     "Handysize": 250_000,
+    "MR":        300_000,   # ~50k DWT product tanker
 }
 
 PANAMA_TOLLS_USD = {
     "Panamax":   350_000,
     "Capesize":  None,       # Capesize bulkers don't fit Neopanamax locks reliably
+    "Suezmax":   None,       # Suezmax tankers exceed Neopanamax beam (49m)
     "VLCC":      None,       # VLCC > Neopanamax beam (49m); cannot transit
     "ULCV":     1_000_000,
     "Handysize": 180_000,
+    "MR":        220_000,    # MR product tanker fits comfortably
+}
+
+# Map vessel_physics.VesselProfile names → toll-table keys.
+_VESSEL_NAME_ALIASES = {
+    "Panamax bulker":    "Panamax",
+    "Suezmax tanker":    "Suezmax",
+    "VLCC tanker":       "VLCC",
+    "ULCV container":    "ULCV",
+    "MR product tanker": "MR",
 }
 
 
@@ -36,7 +49,9 @@ def estimate_toll_usd(canal: str, vessel_class: str) -> int | None:
     table = {"suez": SUEZ_TOLLS_USD, "panama": PANAMA_TOLLS_USD}.get(canal.lower())
     if not table:
         return 0
-    return table.get(vessel_class)
+    # Accept both short names ("VLCC") and physics-profile names ("VLCC tanker")
+    key = _VESSEL_NAME_ALIASES.get(vessel_class, vessel_class)
+    return table.get(key)
 
 
 def can_transit(canal: str, vessel_class: str) -> bool:

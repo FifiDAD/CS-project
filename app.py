@@ -11,7 +11,7 @@ from dynamic_status import compute_shipping_status, compute_port_congestion
 from data_loader import load_core_data
 from ui_helpers import (
     inject_css, render_header, render_nav, render_footer,
-    SC, SBG, risk_col, IMPACT_COL, IMPACT_ICON,
+    SC, SBG, risk_col, IMPACT_COL, IMPACT_ICON, lottie_loader,
 )
 import ais_consumer
 
@@ -34,10 +34,11 @@ if "has_seen_welcome" not in st.session_state:
     st.switch_page("pages/0_Landing.py")
 
 # ── Data loading ──────────────────────────────────────────────────────────────
-with st.spinner(""):
+with lottie_loader():
     events_df, oil_price, shipping_index, exchange_rates = load_core_data()
-
-events_json = events_df.to_json() if len(events_df) > 0 else pd.DataFrame().to_json()
+    events_json = events_df.to_json() if len(events_df) > 0 else pd.DataFrame().to_json()
+    shipping_df  = compute_shipping_status(events_json)
+    port_cong_df = compute_port_congestion(events_json)
 
 # Surface live-feed health rather than silently substituting defaults.
 if events_df is None or len(events_df) == 0:
@@ -46,10 +47,6 @@ if events_df is None or len(events_df) == 0:
         "**Unavailable** rather than default to Operational. "
         "Check GDELT connectivity in test_apis.py."
     )
-
-with st.spinner(""):
-    shipping_df  = compute_shipping_status(events_json)
-    port_cong_df = compute_port_congestion(events_json)
 
 analytics       = RiskAnalytics.get_summary_metrics(events_df, oil_price, shipping_index)
 filtered_events = filter_events(events_df)

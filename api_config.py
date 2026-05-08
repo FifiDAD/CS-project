@@ -1,5 +1,7 @@
 """API Configuration — endpoints + monitoring constants. Secrets live in secrets.py."""
 
+import os
+
 # Re-export keys for backwards compatibility with existing imports.
 from app_secrets import (
     NEWSAPI_KEY,
@@ -8,6 +10,20 @@ from app_secrets import (
     GUARDIAN_API_KEY,
     AISSTREAM_KEY,
 )
+
+# Optional generic news APIs — gated on env vars. Empty string when unset
+# means the corresponding APIClient method returns an empty DataFrame and the
+# rest of the news feed continues to work.
+GNEWS_KEY    = os.getenv("GNEWS_KEY", "")
+NEWSDATA_KEY = os.getenv("NEWSDATA_KEY", "")
+
+# Maritime industry RSS feeds (no key required). Each entry: (display_source, url).
+MARITIME_RSS_FEEDS: list[tuple[str, str]] = [
+    ("gCaptain",            "https://gcaptain.com/feed/"),
+    ("Maritime Executive",  "https://www.maritime-executive.com/articles.rss"),
+    ("Splash247",           "https://splash247.com/feed/"),
+    ("The Maritime Standard", "https://www.themaritimestandard.com/feed/"),
+]
 
 # ============================================
 # API ENDPOINTS

@@ -30,7 +30,7 @@ from api_config import (
     CACHE_TTL_NEWS, CACHE_TTL_EVENTS, CACHE_TTL_PRICES,
     KEY_REGIONS, TRADE_MONITOR_COUNTRIES,
     CRITICAL_PORTS, NOAA_ALERTS_URL, OPENWEATHER_URL,
-    OPEN_METEO_MARINE, SHIPANDBUNKER_URL, GDELT_LASTUPDATE,
+    OPEN_METEO_MARINE, SHIPANDBUNKER_URL,
 )
 
 _GDELT_HEADERS = {"User-Agent": "LogisticsDashboard/1.0 (contact: ops@example.com)"}
@@ -160,6 +160,219 @@ class APIClient:
             return pd.DataFrame()
         except Exception:
             return pd.DataFrame()
+
+    # ── USGS Earthquakes (no key, M4.5+ last 7 days) ─────────────────────────
+    @staticmethod
+    @st.cache_data(ttl=CACHE_TTL_EVENTS)
+    def get_earthquakes(min_mag: float = 4.5, days: int = 7) -> pd.DataFrame:
+        """USGS Earthquake Hazards Program — recent significant quakes.
+
+        Free, no key. Returns canonical event-schema columns so the result
+        can be concatenated into the main events feed and rendered on the
+        globe with the existing Event layer.
+
+        Filters to coastal-relevant quakes (within ~300 km of any port in
+        port_baselines) so we don't drown the map in continental tremors.
+        """
+        feed = {
+            (4.5, 7):  "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_week.geojson",
+            (2.5, 1):  "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson",
+        }.get((min_mag, days),
+              "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_week.geojson")
+        try:
+            r = requests.get(feed, timeout=15)
+            r.raise_for_status()
+            features = r.json().get("features", [])
+        except (requests.RequestException, ValueError):
+            return pd.DataFrame()
+
+        from port_baselines import PORT_BASELINES
+        from math import asin, cos, radians, sin, sqrt
+        port_pts = [(p["lat"], p["lon"]) for p in PORT_BASELINES.values()]
+
+        def _near_port(lat: float, lon: float, max_km: float = 500.0) -> bool:
+            for plat, plon in port_pts:
+                dphi = radians(plat - lat)
+                dlam = radians(plon - lon)
+                a = (sin(dphi / 2) ** 2
+                     + cos(radians(lat)) * cos(radians(plat)) * sin(dlam / 2) ** 2)
+                d = 6371.0 * 2 * asin(min(1.0, sqrt(a)))
+                if d <= max_km:
+                    return True
+            return False
+
+        rows = []
+        for f in features:
+            p = f.get("properties") or {}
+            g = f.get("geometry") or {}
+            coords = g.get("coordinates") or []
+            if len(coords) < 2:
+                continue
+            lon, lat = float(coords[0]), float(coords[1])
+            mag = float(p.get("mag") or 0.0)
+            if mag < min_mag:
+                continue
+            if not _near_port(lat, lon):
+                continue
+            ts_ms = p.get("time") or 0
+            try:
+                date = pd.to_datetime(int(ts_ms), unit="ms", utc=True)
+            except (TypeError, ValueError):
+                date = pd.Timestamp.now(tz="UTC")
+            place = p.get("place", "") or ""
+            url   = p.get("url", "") or ""
+            impact = ("Critical" if mag >= 6.5 else
+                      "High"     if mag >= 5.5 else
+                      "Medium"   if mag >= 4.5 else
+                      "Low")
+            rows.append({
+                "date":            date,
+                "latitude":        lat,
+                "longitude":       lon,
+                "type":            "🌋 Seismic",
+                "subtype":         f"M{mag:.1f} earthquake",
+                "location":        place,
+                "impact":          impact,
+                "description":     f"M{mag:.1f} · {place}",
+                "business_impact": (f"Tsunami / port-shutdown risk for nearby terminals"
+                                    if mag >= 6.0 else
+                                    f"Monitoring · low immediate port impact"),
+                "url":             url,
+                "source":          "USGS",
+            })
+        return pd.DataFrame(rows)
+
+    # ── Maritime industry RSS (no key) ───────────────────────────────────────
+    @staticmethod
+    @st.cache_data(ttl=CACHE_TTL_NEWS)
+    def get_maritime_rss() -> pd.DataFrame:
+        """Pull recent articles from maritime-industry RSS feeds.
+
+        Free, no key. One slow/dead feed doesn't poison the others — each is
+        wrapped individually. Returns DataFrame: title, source, date, url.
+        """
+        try:
+            import feedparser
+        except ImportError:
+            return pd.DataFrame()
+        from api_config import MARITIME_RSS_FEEDS
+
+        rows = []
+        for source_name, url in MARITIME_RSS_FEEDS:
+            try:
+                parsed = feedparser.parse(url, request_headers=_GDELT_HEADERS)
+            except Exception:  # noqa: BLE001
+                continue
+            for entry in (parsed.entries or [])[:25]:
+                title = (entry.get("title") or "").strip()
+                link  = entry.get("link") or ""
+                if not title or not link:
+                    continue
+                # feedparser exposes parsed dates as time.struct_time
+                pub_struct = entry.get("published_parsed") or entry.get("updated_parsed")
+                if pub_struct:
+                    try:
+                        date = pd.Timestamp(*pub_struct[:6], tz="UTC")
+                    except Exception:  # noqa: BLE001
+                        date = pd.Timestamp.now(tz="UTC")
+                else:
+                    date = pd.Timestamp.now(tz="UTC")
+                rows.append({
+                    "title":  title,
+                    "source": source_name,
+                    "date":   date,
+                    "url":    link,
+                })
+        if not rows:
+            return pd.DataFrame(columns=["title", "source", "date", "url"])
+        return pd.DataFrame(rows)
+
+    # ── GNews (free tier 100 req/day, requires key) ──────────────────────────
+    @staticmethod
+    @st.cache_data(ttl=CACHE_TTL_NEWS)
+    def get_gnews(query: str = "shipping OR maritime OR port OR sanctions") -> pd.DataFrame:
+        """Fetch articles from GNews. Requires GNEWS_KEY env var.
+
+        Returns empty DataFrame when the key is unset or the call fails.
+        Sign up at https://gnews.io/ for a free key (100 req/day).
+        """
+        from api_config import GNEWS_KEY
+        if not GNEWS_KEY:
+            return pd.DataFrame()
+        try:
+            r = requests.get(
+                "https://gnews.io/api/v4/search",
+                params={
+                    "q":     query,
+                    "lang":  "en",
+                    "max":   25,
+                    "token": GNEWS_KEY,
+                },
+                timeout=10,
+            )
+            r.raise_for_status()
+            articles = r.json().get("articles", [])
+        except (requests.RequestException, ValueError):
+            return pd.DataFrame()
+
+        rows = []
+        for a in articles:
+            title = (a.get("title") or "").strip()
+            url   = a.get("url") or ""
+            if not title or not url:
+                continue
+            try:
+                date = pd.to_datetime(a.get("publishedAt"), utc=True)
+            except Exception:  # noqa: BLE001
+                date = pd.Timestamp.now(tz="UTC")
+            src = (a.get("source") or {}).get("name", "GNews")
+            rows.append({"title": title, "source": src, "date": date, "url": url})
+        return pd.DataFrame(rows) if rows else pd.DataFrame(
+            columns=["title", "source", "date", "url"]
+        )
+
+    # ── NewsData.io (free tier 200 req/day, requires key) ────────────────────
+    @staticmethod
+    @st.cache_data(ttl=CACHE_TTL_NEWS)
+    def get_newsdata(query: str = "shipping OR maritime OR port OR sanctions") -> pd.DataFrame:
+        """Fetch articles from NewsData.io. Requires NEWSDATA_KEY env var.
+
+        Returns empty DataFrame when the key is unset or the call fails.
+        Sign up at https://newsdata.io/ for a free key (200 req/day).
+        """
+        from api_config import NEWSDATA_KEY
+        if not NEWSDATA_KEY:
+            return pd.DataFrame()
+        try:
+            r = requests.get(
+                "https://newsdata.io/api/1/news",
+                params={
+                    "q":        query,
+                    "language": "en",
+                    "apikey":   NEWSDATA_KEY,
+                },
+                timeout=10,
+            )
+            r.raise_for_status()
+            results = r.json().get("results", []) or []
+        except (requests.RequestException, ValueError):
+            return pd.DataFrame()
+
+        rows = []
+        for a in results[:30]:
+            title = (a.get("title") or "").strip()
+            url   = a.get("link") or ""
+            if not title or not url:
+                continue
+            try:
+                date = pd.to_datetime(a.get("pubDate"), utc=True)
+            except Exception:  # noqa: BLE001
+                date = pd.Timestamp.now(tz="UTC")
+            src = a.get("source_id") or a.get("source_name") or "NewsData"
+            rows.append({"title": title, "source": src, "date": date, "url": url})
+        return pd.DataFrame(rows) if rows else pd.DataFrame(
+            columns=["title", "source", "date", "url"]
+        )
 
     @staticmethod
     @st.cache_data(ttl=CACHE_TTL_PRICES)
@@ -354,6 +567,35 @@ class APIClient:
             return {}
 
     @staticmethod
+    @st.cache_data(ttl=3600)
+    def get_wind_at(lat: float, lon: float) -> dict:
+        """Open-Meteo Forecast — surface wind speed/direction. Free, no key.
+
+        Returns {"wind_speed_ms": float|None, "wind_dir_deg": float|None}.
+        Empty dict on failure. Cached 1h (Open-Meteo updates hourly).
+        """
+        try:
+            r = requests.get(
+                "https://api.open-meteo.com/v1/forecast",
+                params={
+                    "latitude": lat,
+                    "longitude": lon,
+                    "current": "wind_speed_10m,wind_direction_10m",
+                    "wind_speed_unit": "ms",
+                    "timezone": "UTC",
+                },
+                timeout=10,
+            )
+            r.raise_for_status()
+            cur = r.json().get("current", {}) or {}
+            return {
+                "wind_speed_ms": cur.get("wind_speed_10m"),
+                "wind_dir_deg":  cur.get("wind_direction_10m"),
+            }
+        except (requests.RequestException, ValueError):
+            return {}
+
+    @staticmethod
     @st.cache_data(ttl=CACHE_TTL_PRICES)
     def get_bunker_prices() -> pd.DataFrame:
         """Scrape Ship & Bunker daily prices for major ports.
@@ -399,48 +641,57 @@ class APIClient:
     @staticmethod
     @st.cache_data(ttl=CACHE_TTL_EVENTS)
     def get_piracy_incidents(days: int = 90) -> pd.DataFrame:
-        """Pull recent piracy incidents.
+        """Authoritative piracy / vessel-attack incidents.
 
-        IMB's Live Piracy Map is JS-rendered, so we use IMO/UKMTO + GDELT as a
-        proxy: query GDELT DOC for piracy keywords, geocode by sourcecountry/title
-        heuristics. Returns DataFrame with columns: date, lat, lon, title, url.
+        Source: NGA Maritime Safety Broadcast Warnings (msi.nga.mil) — the
+        official US government channel for navigational hazards including
+        piracy, hijacking, and armed robbery at sea. Real coordinates are
+        parsed from each warning's free-text body.
+
+        Returns DataFrame with columns: date, lat, lon, title, url,
+        source_country (NAVAREA designator). Only rows with parsed
+        coordinates are returned — no country-centroid fallbacks.
         """
-        articles = APIClient.get_gdelt_articles(
-            "piracy OR \"armed robbery at sea\" OR hijack ship", timespan=f"{days*24}H",
-        )
-        if not articles:
+        import re
+        from nga_warnings import fetch_warnings
+
+        warnings_df = fetch_warnings()
+        if warnings_df is None or len(warnings_df) == 0:
             return pd.DataFrame()
-        # Region centroids for crude geocoding when only sourcecountry is known.
-        region_hint = {
-            "Somalia": (5.0, 49.0),
-            "Yemen": (13.5, 45.0),
-            "Nigeria": (3.0, 6.5),
-            "Indonesia": (1.0, 105.0),
-            "Singapore": (1.3, 103.8),
-            "Malaysia": (3.5, 101.5),
-            "Philippines": (8.0, 124.0),
-            "Bangladesh": (22.0, 91.5),
-            "India": (15.0, 72.0),
-        }
+
+        pat = re.compile(r"\b(pirac|hijack|armed robbery|boarded|skiff)\b", re.I)
         rows = []
-        for a in articles:
-            country = a.get("sourcecountry") or ""
-            coord = region_hint.get(country)
-            if not coord:
+        for _, w in warnings_df.iterrows():
+            text = w.get("text", "") or ""
+            if not pat.search(text):
                 continue
-            seen = a.get("seendate", "")
+            if float(w.get("severity", 0.0) or 0.0) < 0.6:
+                continue
+            lats = w.get("lats") or []
+            lons = w.get("lons") or []
+            if not lats or not lons:
+                continue
+            issued = w.get("issued") or ""
             try:
-                dt = datetime.strptime(seen, "%Y%m%dT%H%M%SZ") if seen else datetime.now()
-            except ValueError:
+                dt = pd.to_datetime(issued, errors="coerce")
+                if pd.isna(dt):
+                    dt = datetime.now()
+                else:
+                    dt = dt.to_pydatetime() if hasattr(dt, "to_pydatetime") else dt
+            except Exception:  # noqa: BLE001
                 dt = datetime.now()
-            rows.append({
-                "date": dt,
-                "lat": coord[0],
-                "lon": coord[1],
-                "title": a.get("title", ""),
-                "url": a.get("url", ""),
-                "source_country": country,
-            })
+            title = text.strip().replace("\n", " ")
+            if len(title) > 140:
+                title = title[:137] + "…"
+            for lat, lon in zip(lats, lons):
+                rows.append({
+                    "date": dt,
+                    "lat": float(lat),
+                    "lon": float(lon),
+                    "title": title,
+                    "url": "",
+                    "source_country": w.get("navArea", "") or "",
+                })
         return pd.DataFrame(rows)
 
     @staticmethod
@@ -457,18 +708,16 @@ class APIClient:
         Returns columns: date, latitude, longitude, type, subtype, location,
         impact, description, business_impact, url, source.
         """
-        # ONE batched English-only query covering all shipping disruption
-        # signals. Each returned article is locally classified into one of
-        # the five buckets by keyword sniffing of its title.
-        # Rationale: 8 sequential GDELT calls would each be rate-limited;
-        # one call returns up to 75 articles in under 2 seconds.
-        BIG_QUERY = (
-            'sourcelang:english '
-            '(port OR vessel OR tanker OR shipping OR maritime OR cargo OR '
-            'strait OR canal OR harbour OR harbor OR Houthi) AND '
-            '(strike OR "closed" OR blocked OR attack OR hijack OR drone OR '
-            'missile OR sanctions OR embargo OR typhoon OR cyclone OR '
-            'hurricane OR "supply chain" OR "freight rates")'
+        # GDELT DOC rejects very long boolean queries ("Your query was too
+        # short or too long"). We instead issue several focused, English-only
+        # queries — each one returns up to 75 articles — and merge the
+        # results, deduplicating by URL further down.
+        QUERIES = (
+            'sourcelang:english (port OR harbor OR harbour OR terminal) AND (strike OR "closed" OR blocked OR closure)',
+            'sourcelang:english (vessel OR tanker OR ship OR cargo) AND (attack OR hijack OR drone OR missile)',
+            'sourcelang:english (strait OR canal OR Houthi) AND (attack OR drone OR missile OR blocked OR closed)',
+            'sourcelang:english (shipping OR maritime OR freight) AND (sanctions OR embargo OR "supply chain")',
+            'sourcelang:english (port OR shipping OR maritime) AND (typhoon OR cyclone OR hurricane)',
         )
         # Bucket classification rules — first match wins.
         BUCKET_RULES = [
@@ -539,7 +788,14 @@ class APIClient:
             "Pakistan": (30, 70),        "Bangladesh": (24, 90), "Sri Lanka": (8, 81),
         }
 
-        articles = APIClient.get_gdelt_articles(BIG_QUERY, timespan=timespan)
+        articles: list[dict] = []
+        _seen_urls: set[str] = set()
+        for _q in QUERIES:
+            for _a in APIClient.get_gdelt_articles(_q, timespan=timespan) or []:
+                _u = _a.get("url") or ""
+                if _u and _u not in _seen_urls:
+                    _seen_urls.add(_u)
+                    articles.append(_a)
         rows = []
         for a in articles:
             title = a.get("title") or ""
@@ -547,8 +803,11 @@ class APIClient:
             # Hard sanity filter — title must mention a maritime concept.
             if not any(kw in title_lower for kw in MARITIME_KEYWORDS):
                 continue
-            # Classify into bucket
-            bucket, subtype = "⚠️ Threat", "Maritime incident"
+            # Classify into bucket. When no rule matches the title we default
+            # to a soft "Shipping news" rather than escalating every untyped
+            # article into a Threat — those defaults were the source of
+            # spurious "armed conflict" markers on the dashboard.
+            bucket, subtype = "📦 Trade", "Shipping news"
             for b, s, kws in BUCKET_RULES:
                 if any(kw in title_lower for kw in kws):
                     bucket, subtype = b, s
@@ -569,12 +828,23 @@ class APIClient:
                 continue
             seen = a.get("seendate", "")
             try:
-                dt = datetime.strptime(seen, "%Y%m%dT%H%M%SZ") if seen else datetime.now()
-            except ValueError:
-                dt = datetime.now()
-            impact = ("Critical" if bucket == "⚠️ Threat" else
-                      "High" if bucket in ("🛑 Disruption", "🌊 Weather") else
-                      "Medium")
+                dt = (pd.to_datetime(seen, format="%Y%m%dT%H%M%SZ", utc=True)
+                      if seen else pd.Timestamp.now(tz="UTC"))
+            except (ValueError, TypeError):
+                dt = pd.Timestamp.now(tz="UTC")
+            # Threat severity: only the explicitly-named subtypes earn
+            # Critical. The generic "Maritime incident" fallback (kept for
+            # backward compatibility) drops to High.
+            if bucket == "⚠️ Threat":
+                impact = "Critical" if subtype in (
+                    "Houthi / Red Sea", "Vessel attack",
+                ) else "High"
+            elif bucket in ("🛑 Disruption", "🌊 Weather"):
+                impact = "High"
+            elif bucket == "🏛 Political":
+                impact = "Medium"
+            else:
+                impact = "Low"
             rows.append({
                 "date": dt,
                 "latitude": lat,
@@ -595,117 +865,6 @@ class APIClient:
         # Deduplicate by URL
         df = df.drop_duplicates(subset="url").reset_index(drop=True)
         return df
-
-    # GDELT v2 raw events CSV — auth-free, geocoded, updated every 15 min.
-    _GDELT_EVENT_COLS = [
-        "GLOBALEVENTID", "SQLDATE", "MonthYear", "Year", "FractionDate",
-        "Actor1Code", "Actor1Name", "Actor1CountryCode", "Actor1KnownGroupCode",
-        "Actor1EthnicCode", "Actor1Religion1Code", "Actor1Religion2Code",
-        "Actor1Type1Code", "Actor1Type2Code", "Actor1Type3Code",
-        "Actor2Code", "Actor2Name", "Actor2CountryCode", "Actor2KnownGroupCode",
-        "Actor2EthnicCode", "Actor2Religion1Code", "Actor2Religion2Code",
-        "Actor2Type1Code", "Actor2Type2Code", "Actor2Type3Code",
-        "IsRootEvent", "EventCode", "EventBaseCode", "EventRootCode",
-        "QuadClass", "GoldsteinScale", "NumMentions", "NumSources",
-        "NumArticles", "AvgTone",
-        "Actor1Geo_Type", "Actor1Geo_Fullname", "Actor1Geo_CountryCode",
-        "Actor1Geo_ADM1Code", "Actor1Geo_ADM2Code", "Actor1Geo_Lat",
-        "Actor1Geo_Long", "Actor1Geo_FeatureID",
-        "Actor2Geo_Type", "Actor2Geo_Fullname", "Actor2Geo_CountryCode",
-        "Actor2Geo_ADM1Code", "Actor2Geo_ADM2Code", "Actor2Geo_Lat",
-        "Actor2Geo_Long", "Actor2Geo_FeatureID",
-        "ActionGeo_Type", "ActionGeo_Fullname", "ActionGeo_CountryCode",
-        "ActionGeo_ADM1Code", "ActionGeo_ADM2Code", "ActionGeo_Lat",
-        "ActionGeo_Long", "ActionGeo_FeatureID",
-        "DATEADDED", "SOURCEURL",
-    ]
-
-    @staticmethod
-    @st.cache_data(ttl=CACHE_TTL_EVENTS)
-    def get_gdelt_events_csv(max_files: int = 4) -> pd.DataFrame:
-        """Fetch the latest N GDELT v2 export.CSV.zip files (15 min each).
-
-        Returns DataFrame with the canonical events schema:
-            date, latitude, longitude, country, event_type, fatalities,
-            notes, source, goldstein, num_mentions, avg_tone, url
-        Filtered to high-impact rows (QuadClass in {3,4} = verbal/material conflict
-        or with abs(GoldsteinScale) >= 4) so we don't drown the map in trivia.
-        """
-        import io
-        import zipfile
-
-        try:
-            r = requests.get(GDELT_LASTUPDATE, timeout=10)
-            r.raise_for_status()
-        except requests.RequestException:
-            return pd.DataFrame()
-
-        urls = []
-        for line in r.text.strip().splitlines():
-            parts = line.split()
-            if len(parts) >= 3 and parts[2].endswith(".export.CSV.zip"):
-                urls.append(parts[2])
-        if not urls:
-            return pd.DataFrame()
-        urls = urls[:max_files]
-
-        frames = []
-        for url in urls:
-            try:
-                resp = requests.get(url, timeout=20)
-                resp.raise_for_status()
-                with zipfile.ZipFile(io.BytesIO(resp.content)) as zf:
-                    name = zf.namelist()[0]
-                    with zf.open(name) as fh:
-                        df = pd.read_csv(
-                            fh, sep="\t", header=None,
-                            names=APIClient._GDELT_EVENT_COLS,
-                            dtype=str, on_bad_lines="skip",
-                        )
-                frames.append(df)
-            except (requests.RequestException, zipfile.BadZipFile, ValueError):
-                continue
-        if not frames:
-            return pd.DataFrame()
-
-        raw = pd.concat(frames, ignore_index=True)
-        for col in ("ActionGeo_Lat", "ActionGeo_Long", "GoldsteinScale",
-                    "AvgTone", "NumMentions", "QuadClass"):
-            raw[col] = pd.to_numeric(raw[col], errors="coerce")
-        raw = raw.dropna(subset=["ActionGeo_Lat", "ActionGeo_Long"])
-
-        # Strict filter for shipping operators: only keep events that are
-        #  - in the disruption-relevant CAMEO root codes (Threaten / Protest /
-        #    Force posture / Coerce / Assault / Fight / Mass violence)
-        #  - severe (|GoldsteinScale| >= 5)
-        #  - corroborated (>=10 article mentions)
-        relevant_roots = {"13", "14", "15", "17", "18", "19", "20"}
-        signal = raw[
-            raw["EventRootCode"].isin(relevant_roots)
-            & (raw["GoldsteinScale"].abs() >= 5)
-            & (raw["NumMentions"] >= 10)
-        ]
-        if signal.empty:
-            return pd.DataFrame()
-
-        signal = signal.assign(
-            date=pd.to_datetime(signal["SQLDATE"], format="%Y%m%d", errors="coerce"),
-            latitude=signal["ActionGeo_Lat"],
-            longitude=signal["ActionGeo_Long"],
-            country=signal["ActionGeo_CountryCode"].fillna(""),
-            event_type=signal["EventRootCode"].fillna("00"),
-            fatalities=0,  # GDELT doesn't supply per-event fatality counts
-            notes=signal["Actor1Name"].fillna("") + " ~ " + signal["Actor2Name"].fillna(""),
-            source="GDELT",
-            goldstein=signal["GoldsteinScale"],
-            num_mentions=signal["NumMentions"],
-            avg_tone=signal["AvgTone"],
-            url=signal["SOURCEURL"],
-        )
-        cols = ["date", "latitude", "longitude", "country", "event_type",
-                "fatalities", "notes", "source", "goldstein",
-                "num_mentions", "avg_tone", "url"]
-        return signal[cols].reset_index(drop=True)
 
 
 class DataProcessor:

@@ -115,11 +115,20 @@ with top_right:
         for _, p in port_cong_df.sort_values("Score", ascending=False).iterrows():
             cc    = CONG_COL.get(p["Congestion"], "#666")
             score = int(p["Score"])
+            conf  = p.get("Confidence", "Live AIS")
+            low_conf = conf == "News-only"
+            name_color = "#888" if low_conf else "#e8e8e8"
+            conf_badge = (
+                '<span title="No live AIS yet — score from news/events only" '
+                'style="font-size:9px;color:#888;margin-left:6px;'
+                'border:1px solid #333;border-radius:2px;padding:0 4px">news</span>'
+                if low_conf else ""
+            )
             ports_html += f"""
 <div style="display:flex;align-items:center;justify-content:space-between;
             padding:5px 8px;margin:2px 0;border-radius:3px;border-left:3px solid {cc};
             background:rgba(255,255,255,0.01)">
-  <span style="font-size:11px;font-weight:600;color:#e8e8e8">{p['Port']}</span>
+  <span style="font-size:11px;font-weight:600;color:{name_color}">{p['Port']}{conf_badge}</span>
   <div style="flex:1;margin:0 10px">
     <div style="background:#111;border-radius:1px;height:3px">
       <div style="background:{cc};width:{score}%;height:3px;border-radius:1px"></div>

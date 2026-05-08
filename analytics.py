@@ -2,6 +2,18 @@
 
 import pandas as pd
 from datetime import datetime, timedelta
+
+
+def _utc_dates_and_now(events_df):
+    """Return (UTC-aware date Series, UTC-aware "now") for time-window math.
+
+    Live event sources mix tz-aware UTC datetimes (USGS, GDELT DOC) with
+    naive strptime results, and pandas coerces them inconsistently. This
+    helper normalises both sides so comparisons never raise TypeError.
+    """
+    dates = pd.to_datetime(events_df['date'], utc=True, errors='coerce')
+    now = pd.Timestamp.now(tz='UTC')
+    return dates, now
 from config import ROUTE_FLEET_SIZES
 
 class RiskAnalytics:
@@ -41,54 +53,24 @@ class RiskAnalytics:
         return metrics
 
     @staticmethod
-    def estimate_delay_impact(events_df, affected_routes):
-        """Estimate shipping delays from conflict events"""
-        
-        delay_estimates = {}
-        
-        for route in affected_routes:
-            # Find events near route
-            route_events = events_df  # In real scenario, filter by route coordinates
-            
-            if len(route_events) > 0:
-                max_impact_event = route_events.loc[route_events['impact'].isin(['Critical', 'High']).argmax()]
-                
-                if len(route_events) >= 3:
-                    estimated_delay = 14  # days
-                elif len(route_events) >= 1:
-                    estimated_delay = 7   # days
-                else:
-                    estimated_delay = 0   # days
-                
-                delay_estimates[route] = {
-                    'estimated_delay_days': estimated_delay,
-                    'affected_events': len(route_events),
-                    'cost_increase_percent': estimated_delay * 2,  # Rough estimate
-                }
-            else:
-                delay_estimates[route] = {
-                    'estimated_delay_days': 0,
-                    'affected_events': 0,
-                    'cost_increase_percent': 0,
-                }
-        
-        return delay_estimates
-
-    @staticmethod
     def get_regional_alerts(events_df, threshold_hours=48):
         """Get recent alerts within threshold hours"""
         
-        cutoff_time = datetime.now() - timedelta(hours=threshold_hours)
-        recent_events = events_df[events_df['date'] > cutoff_time]
-        
+        dates, now_utc = _utc_dates_and_now(events_df)
+        cutoff_time = now_utc - pd.Timedelta(hours=threshold_hours)
+        recent_events = events_df[dates > cutoff_time]
+
         alerts = []
         for idx, row in recent_events.iterrows():
+            row_dt = pd.to_datetime(row['date'], utc=True, errors='coerce')
+            time_ago_h = ((now_utc - row_dt).total_seconds() / 3600
+                          if pd.notna(row_dt) else 0.0)
             alert = {
-                'type': row.get('event_type', 'Unknown'),
+                'type': row.get('type', 'Unknown'),
                 'location': row.get('location', 'Unknown'),
-                'time_ago_hours': (datetime.now() - row['date']).total_seconds() / 3600,
+                'time_ago_hours': time_ago_h,
                 'impact': row.get('impact', 'Unknown'),
-                'action': RiskAnalytics._get_recommended_action(row.get('event_type'), row.get('impact')),
+                'action': RiskAnalytics._get_recommended_action(row.get('type'), row.get('impact')),
             }
             alerts.append(alert)
         
@@ -183,11 +165,14 @@ class RiskAnalytics:
                 'recommendation': 'Live event feed unavailable — chokepoint status driven by NGA + AIS only.',
             }
 
+        dates, now_utc = _utc_dates_and_now(events_df)
+        events_last_48h = int((dates > (now_utc - pd.Timedelta(hours=48))).sum())
+
         summary = {
             'total_events': len(events_df),
             'critical_events': len(events_df[events_df['impact'] == 'Critical']),
             'high_events': len(events_df[events_df['impact'] == 'High']),
-            'events_last_48h': len(events_df[events_df['date'] > datetime.now() - timedelta(hours=48)]),
+            'events_last_48h': events_last_48h,
             'oil_price_usd': round(oil_price, 2) if oil_price else None,
             'shipping_index': shipping_index,
             'worst_affected_region': 'TBD',

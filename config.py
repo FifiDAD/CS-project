@@ -4,14 +4,18 @@
 DEFAULT_MAP_CENTER = [20, 0]
 DEFAULT_MAP_ZOOM = 2
 
-# Event types and colors
+# Event types — keys MUST match the bucket strings emitted by
+# events_aggregator (which in turn come from api_integrations.get_shipping_events
+# and APIClient.get_earthquakes). The filter dropdowns in app.py and the
+# Route Planner page render `list(EVENT_TYPES.keys())` directly, so any
+# drift here means the user sees options that match zero live events.
 EVENT_TYPES = {
-    "Military Strike": {"color": "red", "icon": "💥"},
-    "Port Disruption": {"color": "orange", "icon": "🚢"},
-    "Terrorist Activity": {"color": "darkred", "icon": "⚠️"},
-    "Political Instability": {"color": "purple", "icon": "🏛️"},
-    "Supply Chain Alert": {"color": "blue", "icon": "📦"},
-    "Weather Hazard": {"color": "darkblue", "icon": "⛈️"},
+    "🛑 Disruption": {"color": "#FF8C00", "icon": "🛑"},
+    "⚠️ Threat":     {"color": "#FF2222", "icon": "⚠️"},
+    "🌊 Weather":    {"color": "#1A5276", "icon": "🌊"},
+    "🏛 Political":  {"color": "#9B59B6", "icon": "🏛"},
+    "📦 Trade":      {"color": "#3498DB", "icon": "📦"},
+    "🌋 Seismic":    {"color": "#E91E63", "icon": "🌋"},
 }
 
 # Impact levels

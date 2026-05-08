@@ -42,24 +42,6 @@ def classify_http_error(response):
 # Individual API tests
 # ---------------------------------------------------------------------------
 
-def test_gdelt_events_csv():
-    print("\n16. GDELT v2 raw events CSV...")
-    try:
-        df = APIClient.get_gdelt_events_csv(max_files=2)
-        if not isinstance(df, pd.DataFrame) or len(df) == 0:
-            record("GDELT-events-CSV", False, "EMPTY_RESPONSE")
-            return
-        required = {"date", "latitude", "longitude", "country", "event_type", "goldstein"}
-        missing = required - set(df.columns)
-        if missing:
-            record("GDELT-events-CSV", False, f"MISSING_COLS - {missing}")
-            return
-        record("GDELT-events-CSV", True,
-               f"{len(df)} rows; impact mix {df['goldstein'].describe()['min']:.1f}..{df['goldstein'].describe()['max']:.1f}")
-    except Exception as e:
-        record("GDELT-events-CSV", False, f"UNEXPECTED_ERROR - {e}")
-
-
 def test_events_aggregator():
     print("\n17. Events aggregator (GDELT)...")
     try:
@@ -409,7 +391,6 @@ def main():
     test_ship_and_bunker()
     test_piracy()
     test_aisstream_key()
-    test_gdelt_events_csv()
     test_events_aggregator()
 
     # Summary
