@@ -142,7 +142,7 @@ with top_right:
     if len(port_cong_df) > 0:
         with st.expander("View All Ports", expanded=False):
             full_ports_html = ""
-            for _, p in port_cong_df.sort_values("Score", ascending=False).iterrows():
+            for _, p in port_cong_df[port_cong_df["Score"] == 0].sort_values("Score", ascending=False).iterrows():
                 cc    = CONG_COL.get(p["Congestion"], "#666")
                 score = int(p["Score"])
                 full_ports_html += f"""
@@ -253,9 +253,11 @@ st.markdown(
 st.markdown('<hr style="margin:16px 0;border-color:#1e1e1e">', unsafe_allow_html=True)
 st.markdown('<div class="tw-label" style="margin-bottom:6px">Chokepoint — Delays & Costs</div>',
             unsafe_allow_html=True)
-if len(shipping_df) > 0:
+st.caption("Showing only routes with active risk")
+
+def _build_route_table(df):
     rows = ""
-    for _, row in shipping_df.sort_values("Risk Score", ascending=False).iterrows():
+    for _, row in df.sort_values("Risk Score", ascending=False).iterrows():
         sc_  = SC.get(row["Status"], "#666")
         rs   = int(row["Risk Score"])
         rc_  = risk_col(rs)
@@ -267,13 +269,27 @@ if len(shipping_df) > 0:
 <td style="padding:7px 8px;color:#aaa">{row['Cost Impact']}</td>
 <td style="padding:7px 8px;color:#666;text-align:center">{row['Nearby Events']}</td>
 </tr>"""
-    st.markdown(f"""
+    return f"""
 <table class="tw-table">
 <thead><tr>
   <th>Route</th><th>Status</th><th>Risk</th><th>Delay</th><th>Cost Δ</th><th>Events</th>
 </tr></thead>
 <tbody>{rows}</tbody>
-</table>""", unsafe_allow_html=True)
+</table>"""
+
+if len(shipping_df) > 0:
+    active_routes_df = shipping_df[shipping_df["Risk Score"] > 0]
+    if len(active_routes_df) > 0:
+        st.markdown(_build_route_table(active_routes_df), unsafe_allow_html=True)
+    else:
+        st.info("All routes operational — no active risk detected")
+
+    with st.expander("📋 View All Routes", expanded=False):
+        zero_routes_df = shipping_df[shipping_df["Risk Score"] == 0]
+        if len(zero_routes_df) > 0:
+            st.markdown(_build_route_table(zero_routes_df), unsafe_allow_html=True)
+        else:
+            st.info("All routes have active risk — none with Risk = 0.")
 
 
 render_footer()
