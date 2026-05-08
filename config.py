@@ -70,10 +70,12 @@ MAJOR_SHIPPING_ROUTES = {
     },
     "Cape of Good Hope": {
         "coords": [
-            # Mediterranean/Europe → Atlantic coast of Africa → Cape → Indian Ocean
-            [35.0, 14.0], [20.0, 10.0], [5.0, 3.0], [-10.0, 2.0],
-            [-25.0, 8.0], [-34.4, 18.5], [-35.0, 24.0],
-            [-30.0, 32.0], [-20.0, 38.0], [-10.0, 42.0],
+            # Mediterranean → Gibraltar → far offshore Atlantic → Cape → Indian Ocean
+            [35.0, 14.0], [36.2, -2.0], [36.0, -7.0],
+            [32.0, -11.0], [24.0, -18.0], [15.0, -21.0],
+            [5.0, -20.0], [-5.0, -14.0], [-15.0, -8.0],
+            [-25.0, 5.0], [-34.4, 18.5], [-36.0, 25.0],
+            [-32.0, 30.0], [-25.0, 36.0], [-18.0, 40.0], [-10.0, 44.0],
         ],
         "status": "operational", "traffic": "Medium",
     },
