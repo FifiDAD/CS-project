@@ -165,31 +165,6 @@ with map_col:
   <span style="font-size:10px;color:#666">lowest risk + delay composite</span>
 </div>""", unsafe_allow_html=True)
 
-    # Chokepoints strip
-    if len(shipping_df) > 0:
-        st.markdown('<div class="tw-label" style="margin-top:10px">Chokepoints</div>',
-                    unsafe_allow_html=True)
-        strip_cols = st.columns(len(shipping_df))
-        for col, (_, row) in zip(strip_cols, shipping_df.iterrows()):
-            with col:
-                sc      = SC.get(row["Status"], "#666")
-                score   = int(row["Risk Score"])
-                rc_fill = risk_col(score)
-                name    = (row["Route"]
-                           .replace("Canal", "C.").replace("Strait of", "Str.")
-                           .replace("Strait", "Str.").replace("English Channel", "Eng.Ch."))
-                st.markdown(f"""
-<div style="background:var(--surface);border:1px solid var(--border);border-top:2px solid {sc};
-            border-radius:3px;padding:7px 8px;text-align:center">
-  <div style="font-size:9px;font-weight:700;color:{sc};text-transform:uppercase;
-              letter-spacing:0.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{name}</div>
-  <div style="font-size:18px;font-weight:700;color:{rc_fill};line-height:1.2;margin-top:2px">{score}</div>
-  <div style="font-size:8px;color:#666">/100</div>
-  <div class="tw-risk-bar-bg" style="margin-top:4px">
-    <div class="tw-risk-bar-fill" style="width:{score}%;background:{rc_fill}"></div>
-  </div>
-  <div style="font-size:8px;color:#666;margin-top:3px">{row["Average Delay"]}</div>
-</div>""", unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # RIGHT — Route Status + Live Events
