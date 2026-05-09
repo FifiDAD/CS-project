@@ -208,79 +208,61 @@ with panels_col:
     </span>
   </div>""", unsafe_allow_html=True)
 
-        route_rows_html = ""
-        for _, row in shipping_df.sort_values("Risk Score", ascending=False).iterrows():
-            sc     = SC.get(row["Status"], "#666")
-            sbg    = SBG.get(row["Status"], "transparent")
-            score  = int(row["Risk Score"])
-            rc     = risk_col(score)
-            is_sel = st.session_state.get("selected_route") == row["Route"]
-            sel_bg = "background:rgba(59,130,246,0.05);" if is_sel else ""
-            route_rows_html += f"""
-<div class="tw-route-row" style="{sel_bg}border-left-color:{sc}">
-  <div>
-    <div style="font-size:11px;font-weight:600;color:#e8e8e8">{row['Route']}</div>
-    <div style="font-size:9px;color:#666;margin-top:1px">{row['Nearby Events']} events · {row['News Signals']} signals</div>
-  </div>
-  <div style="text-align:right">
-    <div style="font-size:15px;font-weight:700;color:{rc}">{score}</div>
-    <div style="font-size:8px;color:#555">/100</div>
-  </div>
-  <div>
-    <span class="tw-badge" style="background:{sbg};color:{sc};border:1px solid {sc}44">
-      {row['Status'].replace('Operational - ','').replace('Critical - ','')}
-    </span>
-    <div style="font-size:9px;color:#666;margin-top:2px;text-align:right">
-      {row['Cost Impact']} · {row['Average Delay']}
-    </div>
-  </div>
-</div>"""
+        def _brief_recommendation(s):
+            if s == "Critical - Avoid":
+                return "Avoid or compare alternative routing before dispatch."
+            if s == "Operational - High Risk":
+                return "Proceed only with monitoring and contingency planning."
+            if s == "Operational - Alert":
+                return "Monitor before final route confirmation."
+            if s == "Unavailable":
+                return "Data unavailable — manual review required."
+            return "Proceed normally under current conditions."
 
-        st.markdown(route_rows_html + "</div>", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
-        sel_cols = st.columns(len(shipping_df))
-        for col, (_, row) in zip(sel_cols, shipping_df.sort_values("Risk Score", ascending=False).iterrows()):
-            with col:
-                if st.button("Details", key=f"sel_{row['Route']}", use_container_width=True,
-                             help=f"View brief for {row['Route']}"):
-                    st.session_state["selected_route"] = row["Route"]
-                    st.rerun()
+        for i, (_, row) in enumerate(shipping_df.sort_values("Risk Score", ascending=False).iterrows()):
+            sc        = SC.get(row["Status"], "#666")
+            sbg       = SBG.get(row["Status"], "transparent")
+            score     = int(row["Risk Score"])
+            rc        = risk_col(score)
+            status    = row["Status"]
+            label     = row["Status"].replace("Operational - ", "").replace("Critical - ", "")
+            rec       = _brief_recommendation(status)
+            route_key = f"route_toggle_{i}_{row['Route'].replace(' ', '_')}"
+            is_open   = st.session_state.get(route_key, False)
 
-    # ── Selected Route Brief ──────────────────────────────────────────────────
-    sel_route = st.session_state.get("selected_route")
-    if sel_route and len(shipping_df) > 0:
-        match = shipping_df[shipping_df["Route"] == sel_route]
-        if not match.empty:
-            r = match.iloc[0]
-            score  = int(r["Risk Score"])
-            rc     = risk_col(score)
-            status = r["Status"]
+            if score >= 75:
+                border_col = "#ef4444"
+            elif score >= 40:
+                border_col = "#f97316"
+            elif score >= 1:
+                border_col = "#eab308"
+            else:
+                border_col = "#22c55e"
 
-            def _brief_recommendation(s):
-                if s == "Critical - Avoid":
-                    return "Avoid or compare alternative routing before dispatch."
-                if s == "Operational - High Risk":
-                    return "Proceed only with monitoring and contingency planning."
-                if s == "Operational - Alert":
-                    return "Monitor before final route confirmation."
-                if s == "Unavailable":
-                    return "Data unavailable — manual review required."
-                return "Proceed normally under current conditions."
+            info_col, btn_col = st.columns([11, 1])
+            with info_col:
+                st.markdown(f"""
+<div style="border-left:3px solid {border_col};padding:6px 10px;margin:2px 0;
+            background:rgba(255,255,255,0.02);border-radius:0 3px 3px 0;
+            display:flex;align-items:center;gap:8px">
+  <span style="font-size:11px;font-weight:600;color:#e8e8e8;flex:2;min-width:0;
+               overflow:hidden;white-space:nowrap;text-overflow:ellipsis">{row['Route']}</span>
+  <span style="font-size:9px;color:{rc};font-weight:700;white-space:nowrap">{score}/100</span>
+  <span class="tw-badge" style="background:{sbg};color:{sc};border:1px solid {sc}44;
+        font-size:9px;white-space:nowrap">{label}</span>
+  <span style="font-size:9px;color:#555;white-space:nowrap">{row['Nearby Events']} ev · {row['News Signals']} sig</span>
+</div>""", unsafe_allow_html=True)
+            with btn_col:
+                if st.button("▲" if is_open else "▼", key=f"btn_{i}_{row['Route'].replace(' ', '_')}",
+                             use_container_width=True):
+                    st.session_state[route_key] = not is_open
 
-            rec = _brief_recommendation(status)
-            sc  = SC.get(status, "#666")
-            sbg = SBG.get(status, "transparent")
-
-            st.markdown(f"""
-<div class="tw-panel" style="border-left:3px solid {sc};margin-top:4px">
-  <div class="tw-panel-title" style="margin-bottom:10px">
-    Route Brief
-    <span class="tw-panel-badge"
-          style="background:{sbg};color:{sc};border:1px solid {sc}44">
-      {status.replace('Operational - ','').replace('Critical - ','')}
-    </span>
-  </div>
-  <div style="font-size:13px;font-weight:700;color:#e0e8f0;margin-bottom:10px">{sel_route}</div>
+            if is_open:
+                st.markdown(f"""
+<div style="background:rgba(15,15,25,0.8);border:1px solid #1e1e2e;border-radius:3px;
+            padding:10px 12px;margin-bottom:6px">
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;margin-bottom:10px">
     <div>
       <div style="font-size:9px;color:#555;text-transform:uppercase;letter-spacing:0.3px">Operational Risk</div>
@@ -288,19 +270,19 @@ with panels_col:
     </div>
     <div>
       <div style="font-size:9px;color:#555;text-transform:uppercase;letter-spacing:0.3px">Expected Delay</div>
-      <div style="font-size:13px;font-weight:600;color:#c8d6e5">{r['Average Delay']}</div>
+      <div style="font-size:13px;font-weight:600;color:#c8d6e5">{row['Average Delay']}</div>
     </div>
     <div>
       <div style="font-size:9px;color:#555;text-transform:uppercase;letter-spacing:0.3px">Estimated Cost Impact</div>
-      <div style="font-size:13px;font-weight:600;color:#c8d6e5">{r['Cost Impact']}</div>
+      <div style="font-size:13px;font-weight:600;color:#c8d6e5">{row['Cost Impact']}</div>
     </div>
     <div>
       <div style="font-size:9px;color:#555;text-transform:uppercase;letter-spacing:0.3px">Nearby Incidents</div>
-      <div style="font-size:13px;font-weight:600;color:#c8d6e5">{r['Nearby Events']}</div>
+      <div style="font-size:13px;font-weight:600;color:#c8d6e5">{row['Nearby Events']}</div>
     </div>
     <div style="grid-column:1/-1">
       <div style="font-size:9px;color:#555;text-transform:uppercase;letter-spacing:0.3px">Disruption Signals</div>
-      <div style="font-size:13px;font-weight:600;color:#c8d6e5">{r['News Signals']} news signals</div>
+      <div style="font-size:13px;font-weight:600;color:#c8d6e5">{row['News Signals']} news signals</div>
     </div>
   </div>
   <div style="background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.2);
