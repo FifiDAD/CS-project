@@ -642,32 +642,6 @@ if compute or st.session_state.get("mnav_alternatives"):
                               if a["objective"] == alt["duplicate_of"]), "")
             cps_text = f"Same path as {dup_label}"
 
-        # Runner-up: the next-best path Dijkstra evaluated under this objective.
-        # Surfaced on duplicate cards as evidence the alternative *was* explored.
-        runner_html = ""
-        ru = alt.get("runner_up")
-        if ru and alt.get("duplicate_of"):
-            ru_econ = ru.get("economics", {})
-            ru_cps = ru.get("chokepoints_used") or []
-            ru_via = " · ".join(ru_cps) if ru_cps else "Open ocean detour"
-            d_km  = ru.get("total_dist_km", 0) - alt.get("total_dist_km", 0)
-            d_d   = ru_econ.get("voyage_days", 0) - e["voyage_days"]
-            d_usd = ru_econ.get("total_usd", 0) - e["total_usd"]
-            sign_km  = "+" if d_km  >= 0 else "−"
-            sign_d   = "+" if d_d   >= 0 else "−"
-            sign_usd = "+" if d_usd >= 0 else "−"
-            runner_html = (
-                f'<div style="font-size:9px;color:#666;margin-top:3px;line-height:1.35">'
-                f'<span style="color:#22c55e">✓</span> Next-best considered: '
-                f'<b style="color:#aaa">{ru_via}</b> '
-                f'<span style="color:#555">'
-                f'({sign_km}{abs(d_km):,.0f} km · '
-                f'{sign_d}{abs(d_d):.1f}d · '
-                f'{sign_usd}${abs(d_usd)/1000:,.0f}k)'
-                f'</span>'
-                f'</div>'
-            )
-
         # Predicted ETA delay (sum of XGBoost p50 across chokepoints, with p10/p90 spread).
         _pred = _eta_predictions.get(alt["objective"], {})
         if alt["chokepoints_used"] and _pred.get("p50"):
@@ -752,7 +726,6 @@ if compute or st.session_state.get("mnav_alternatives"):
   <div style="font-size:10px;color:#888;margin-top:3px;line-height:1.4">
     {cps_text}
   </div>
-  {runner_html}
   <div style="font-size:10px;margin-top:6px;border-top:1px solid #1a1a1a;padding-top:5px">
     Δ vs Recommended: {delta_html}
   </div>
