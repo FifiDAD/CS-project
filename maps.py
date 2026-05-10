@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 from datetime import datetime, timezone
-from config import EVENT_TYPES, MAJOR_SHIPPING_ROUTES, IMPACT_LEVELS, ROUTE_STATUS_COLORS
+from config import MAJOR_SHIPPING_ROUTES, ROUTE_STATUS_COLORS
 from api_config import CRITICAL_PORTS
 
 # Map event type to a color string for Plotly
@@ -383,7 +383,6 @@ def create_dashboard_map(
         first_event_type = True
         for event_type, group in events_df.groupby("type"):
             color = EVENT_COLORS.get(event_type, "#AAAAAA")
-            icon  = EVENT_TYPES.get(event_type, {}).get("icon", "📍")
 
             sizes = group["impact"].map({
                 "Critical": 18,
@@ -426,7 +425,7 @@ def create_dashboard_map(
                     line=dict(width=1, color="white"),
                     symbol="circle",
                 ),
-                name=f"{icon} {event_type}",
+                name=event_type,
                 hovertemplate="%{customdata}<extra></extra>",
                 customdata=hover_texts,
                 legendgroup="events",
