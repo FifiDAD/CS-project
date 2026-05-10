@@ -1,0 +1,68 @@
+{
+  "model_version": "1.0",
+  "trained_at": 1778414149.31858,
+  "n_train": 1248,
+  "n_test": 312,
+  "mae_minutes": 120.77,
+  "r2": 0.3486,
+  "per_chokepoint_mae": {
+    "Bab el-Mandeb": 19.8,
+    "Bosphorus": 43.4,
+    "English Channel": 154.8,
+    "Panama Canal": 52.0,
+    "Singapore Strait": 39.7,
+    "Strait of Hormuz": 42.8,
+    "Strait of Malacca": 51.0,
+    "Suez Canal": 163.5,
+    "Taiwan Strait": 98.4
+  },
+  "feature_names": [
+    "chokepoint_id_Bab el-Mandeb",
+    "chokepoint_id_Bosphorus",
+    "chokepoint_id_English Channel",
+    "chokepoint_id_Panama Canal",
+    "chokepoint_id_Singapore Strait",
+    "chokepoint_id_Strait of Hormuz",
+    "chokepoint_id_Strait of Malacca",
+    "chokepoint_id_Suez Canal",
+    "chokepoint_id_Taiwan Strait",
+    "ship_type_bulker",
+    "ship_type_container",
+    "ship_type_other",
+    "ship_type_tanker",
+    "ship_type_unknown",
+    "entry_sog_kn",
+    "queue_depth",
+    "hour_of_day",
+    "day_of_week",
+    "month",
+    "recent_throughput_24h",
+    "bbox_diagonal_km"
+  ],
+  "real_rows": 200,
+  "synthetic_rows": 1360,
+  "best_hp": {
+    "max_depth": 5,
+    "n_estimators": 300,
+    "learning_rate": 0.08
+  },
+  "hp_search_top5": [],
+  "cv_summary": null,
+  "vessel_mix": {
+    "container": 402,
+    "unknown": 364,
+    "tanker": 272,
+    "bulker": 265,
+    "other": 257
+  },
+  "sample_weight_schedule": {
+    "container": 1.0,
+    "tanker": 1.0,
+    "bulker": 1.0,
+    "other": 0.7,
+    "unknown": 0.5,
+    "_synthetic": 0.3
+  },
+  "used_synthetic": true,
+  "commercial_only": true
+}

@@ -41,6 +41,92 @@ from vessel_physics import (
 )
 from marinav_router import _haversine_km
 import math
+from datetime import datetime, timezone
+from pathlib import Path
+
+from eta_model import (
+    predict_total_for_route,
+    load_artifact as _load_eta_artifact,
+    CHOKEPOINT_BBOXES as _ETA_CHOKEPOINT_BBOXES,
+)
+
+
+def _vessel_to_ship_type_bin(name: str) -> str:
+    n = (name or "").lower()
+    if "tanker" in n:
+        return "tanker"
+    if "bulker" in n or "bulk" in n:
+        return "bulker"
+    if "container" in n or "ulcv" in n:
+        return "container"
+    return "other"
+
+
+@st.cache_resource(show_spinner=False)
+def _eta_artifact_meta() -> dict | None:
+    """Cached one-shot load of the ETA model artifact's metadata block."""
+    bundle = _load_eta_artifact()
+    if not bundle:
+        return None
+    return bundle.get("meta")
+
+
+def _render_interval_bar(p10_min: float, p50_min: float, p90_min: float, scale_max_min: float) -> str:
+    """CSS-only horizontal bar showing the [p10, p90] band with a p50 tick.
+
+    `scale_max_min` is the global scale (e.g. the largest p90 across all
+    alternatives) so bars are visually comparable card-to-card.
+    """
+    if scale_max_min <= 0:
+        scale_max_min = max(p90_min, 1.0)
+    pct = lambda x: max(0.0, min(100.0, 100.0 * x / scale_max_min))
+    left = pct(p10_min)
+    right = pct(p90_min)
+    width = max(right - left, 1.0)
+    p50_pct = pct(p50_min)
+    return (
+        '<div style="position:relative;height:8px;background:#1a1a1a;'
+        'border-radius:2px;margin-top:4px;overflow:hidden">'
+        f'<div style="position:absolute;left:{left:.1f}%;width:{width:.1f}%;'
+        'top:0;bottom:0;background:linear-gradient(90deg,'
+        '#a78bfa44,#a78bfa88,#a78bfa44)"></div>'
+        f'<div style="position:absolute;left:{p50_pct:.1f}%;width:2px;'
+        'top:0;bottom:0;background:#a78bfa;border-radius:1px"></div>'
+        '</div>'
+    )
+
+
+def _eta_features_per_chokepoint(ship_type_bin: str, speed_kn: float) -> dict[str, dict]:
+    """Build the feature dict for each chokepoint along a route.
+
+    queue_depth comes from the live AIS sightings table when available
+    (transits_24h is the closest proxy), and falls back to a moderate
+    default of 10 vessels otherwise. Time-of-day features are computed
+    from current UTC.
+    """
+    try:
+        from ais_consumer import transits_24h
+    except Exception:  # noqa: BLE001
+        transits_24h = None  # type: ignore[assignment]
+    now = datetime.now(timezone.utc)
+    out: dict[str, dict] = {}
+    for cp, bbox in _ETA_CHOKEPOINT_BBOXES.items():
+        live_queue = 0
+        if transits_24h is not None:
+            try:
+                live_queue = int(transits_24h(bbox))
+            except Exception:  # noqa: BLE001
+                live_queue = 0
+        out[cp] = {
+            "ship_type":              ship_type_bin,
+            "entry_sog_kn":           float(speed_kn),
+            "queue_depth":            live_queue if live_queue > 0 else 10,
+            "hour_of_day":            now.hour,
+            "day_of_week":            now.weekday(),
+            "month":                  now.month,
+            "recent_throughput_24h":  max(20, live_queue * 3),
+        }
+    return out
 
 # Default daily OPEX (excluding fuel) per vessel class — drives the
 # slow-steaming break-even on the Speed vs Cost chart. Indicative values
@@ -184,6 +270,138 @@ with st.sidebar:
                                 index=bunker_ports.index("Singapore") if "Singapore" in bunker_ports else 0,
                                 key="mn_bunker_port")
 
+    # ── ETA model UI controls ─────────────────────────────────────────────
+    st.checkbox(
+        "Compare ML vs heuristic baseline",
+        value=False, key="mn_compare_heuristic",
+        help="Show both the trained-model and heuristic-only prediction on each "
+             "alternative card so the model's lift vs the calibrated baseline is visible.",
+    )
+
+    # ── ML diagnostics ────────────────────────────────────────────────────
+    with st.expander("🤖 ML diagnostics (ETA predictor)", expanded=False):
+        _eta_meta = _eta_artifact_meta()
+        if not _eta_meta:
+            st.markdown(
+                "<span style='font-size:10px;color:#888'>Model artifact not loaded — "
+                "predictions will fall back to a per-chokepoint heuristic. Run "
+                "<code>python train_eta_model.py --seed</code> to train.</span>",
+                unsafe_allow_html=True,
+            )
+        else:
+            from datetime import datetime as _dt
+            trained_at = _eta_meta.get("trained_at")
+            trained_str = (
+                _dt.fromtimestamp(float(trained_at)).strftime("%Y-%m-%d %H:%M")
+                if trained_at else "—"
+            )
+            cv = _eta_meta.get("cv_summary") or {}
+            best_hp = _eta_meta.get("best_hp") or {}
+            cv_line = (
+                f"<b>CV ({cv.get('n_splits', '?')} folds):</b> "
+                f"MAE {cv.get('mean_mae', '?')} ± {cv.get('std_mae', '?')} min · "
+                f"R² {cv.get('mean_r2', '?')}<br>"
+                if cv else ""
+            )
+            hp_line = (
+                f"<b>Best HP:</b> max_depth={best_hp.get('max_depth', '?')}, "
+                f"n_estimators={best_hp.get('n_estimators', '?')}, "
+                f"lr={best_hp.get('learning_rate', '?')}<br>"
+                if best_hp else ""
+            )
+            st.markdown(
+                f"<div style='font-size:10px;color:#aaa;line-height:1.6'>"
+                f"<b>Model:</b> XGBoost quantile regressor (q10/q50/q90)<br>"
+                f"<b>Version:</b> {_eta_meta.get('model_version', '?')}<br>"
+                f"<b>Trained:</b> {trained_str}<br>"
+                f"<b>Rows:</b> {_eta_meta.get('n_train', 0):,} train / {_eta_meta.get('n_test', 0):,} test "
+                f"(real {_eta_meta.get('real_rows', 0):,} + synth {_eta_meta.get('synthetic_rows', 0):,})<br>"
+                f"<b>Hold-out MAE:</b> {_eta_meta.get('mae_minutes', 0):.1f} min · "
+                f"<b>R²:</b> {_eta_meta.get('r2', 0):.3f}<br>"
+                f"{cv_line}"
+                f"{hp_line}"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
+            _models_dir = Path(__file__).resolve().parent.parent / "models"
+
+            show_imp = st.checkbox("Show feature importances", value=False, key="mn_show_imp")
+            if show_imp:
+                _imp_path = _models_dir / "eta_feature_importance.png"
+                if _imp_path.exists():
+                    st.image(str(_imp_path), use_column_width=True)
+                else:
+                    st.caption("Plot not found — re-run the trainer.")
+
+            show_cal = st.checkbox("Show calibration plot", value=False, key="mn_show_cal")
+            if show_cal:
+                _cal_path = _models_dir / "eta_calibration.png"
+                if _cal_path.exists():
+                    st.image(str(_cal_path), use_column_width=True)
+                else:
+                    st.caption("Calibration plot not found — re-run the trainer.")
+
+            if cv.get("folds"):
+                show_cv = st.checkbox("Show CV fold-by-fold metrics", value=False, key="mn_show_cv")
+                if show_cv:
+                    cv_df = pd.DataFrame(cv["folds"])
+                    st.dataframe(cv_df, hide_index=True, use_container_width=True)
+
+            top5 = _eta_meta.get("hp_search_top5") or []
+            if top5:
+                show_hp = st.checkbox("Show hyperparameter sweep (top-5)", value=False, key="mn_show_hp")
+                if show_hp:
+                    st.dataframe(pd.DataFrame(top5), hide_index=True, use_container_width=True)
+
+            per_cp = _eta_meta.get("per_chokepoint_mae") or {}
+            if per_cp:
+                show_cp = st.checkbox("Per-chokepoint MAE", value=False, key="mn_show_cp_mae")
+                if show_cp:
+                    cp_df = pd.DataFrame(
+                        sorted(per_cp.items(), key=lambda kv: -kv[1]),
+                        columns=["Chokepoint", "MAE (min)"],
+                    )
+                    st.dataframe(cp_df, hide_index=True, use_container_width=True)
+
+            # ── Retrain controls ─────────────────────────────────────────
+            st.markdown(
+                "<div style='margin-top:8px;border-top:1px solid #1a1a1a;padding-top:6px'></div>",
+                unsafe_allow_html=True,
+            )
+            try:
+                from eta_scheduler import next_retrain_eta, retrain_now
+                _sched = next_retrain_eta()
+                _hours_left = _sched["seconds_until_cooldown_clears"] / 3600.0
+                if _sched["cooldown_elapsed"] and _sched["enough_data"]:
+                    _next_str = "ready now"
+                elif not _sched["enough_data"]:
+                    _next_str = f"waiting on data ({_sched['real_rows']} real rows / need ≥200)"
+                else:
+                    _next_str = f"in {_hours_left:.1f}h (24h cooldown)"
+                st.markdown(
+                    f"<div style='font-size:9px;color:#888;line-height:1.5'>"
+                    f"<b>Auto-retrain:</b> {_next_str}<br>"
+                    f"<b>Real rows in DB:</b> {_sched['real_rows']}"
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )
+                if st.button("Retrain now", key="mn_retrain_now", use_container_width=True):
+                    with st.spinner("Retraining ETA model — this may take a few minutes..."):
+                        ok, msg = retrain_now(use_seed_fallback=True)
+                    if ok:
+                        st.success(msg)
+                        # Bust caches so the freshly-trained model is picked up.
+                        st.cache_resource.clear()
+                        try:
+                            _eta_artifact_meta.clear()
+                        except AttributeError:
+                            pass
+                        st.rerun()
+                    else:
+                        st.error(msg)
+            except Exception as exc:  # noqa: BLE001
+                st.caption(f"Scheduler unavailable: {exc}")
+
 # Aliases used by downstream code
 vessel_class = vessel_name
 physics_profile = vessel
@@ -202,6 +420,8 @@ if len(bunker_df) > 0:
 if compute or st.session_state.get("mnav_alternatives"):
 
     if compute:
+        st.toast(f"Calculating {origin} → {destination}…", icon="🧭")
+
         # Weather provider — toggleable. When enabled, samples wind+wave at
         # each backbone-edge midpoint via Open-Meteo (cached). Adds ~2-3s on
         # first run for ~50 edges; cached afterwards for 1h (wind) / event-TTL
@@ -220,16 +440,49 @@ if compute or st.session_state.get("mnav_alternatives"):
 
         wx_provider = _wx_at if use_weather else None
 
-        spinner_msg = "Sampling weather along backbone + building graph…" if use_weather \
-                      else "Building risk-weighted shipping graph…"
-        with st.spinner(spinner_msg):
-            G = build_shipping_graph(MAJOR_SHIPPING_ROUTES, risk_scores,
-                                     weather_provider=wx_provider)
-        with st.spinner("Computing 4 route alternatives…"):
-            alternatives = find_route_alternatives(
-                origin, destination, G, risk_scores,
-                vessel, speed_kn, bunker, float(opex_per_day),
-            )
+        # ── ML-derived queue penalty per chokepoint ──────────────────────
+        # Convert each chokepoint's predicted excess-vs-baseline minutes into
+        # an equivalent-km penalty that gets distributed across edges in that
+        # corridor. A congested Singapore Strait then makes Dijkstra prefer
+        # the Cape of Good Hope or Taiwan Strait detour automatically — the
+        # same model the user sees in the diagnostics expander is what's
+        # driving the divergence between alternatives.
+        chokepoint_queue_penalty: dict[str, float] = {}
+        try:
+            from eta_model import HEURISTIC_MEAN_MIN as _ETA_BASELINE_MIN
+            from eta_model import predict_transit_minutes as _eta_predict_one
+            _ship_bin_pre = _vessel_to_ship_type_bin(vessel_name)
+            _eta_features_pre = _eta_features_per_chokepoint(_ship_bin_pre, speed_kn)
+            for _cp in _ETA_CHOKEPOINT_BBOXES:
+                try:
+                    _pred = _eta_predict_one(_cp, _eta_features_pre.get(_cp, {}))
+                    _excess_min = max(0.0, float(_pred["p50"]) - float(_ETA_BASELINE_MIN.get(_cp, 0.0)))
+                    chokepoint_queue_penalty[_cp] = _excess_min * float(speed_kn) / 60.0 * 1.852
+                except Exception:  # noqa: BLE001  per-chokepoint guard
+                    chokepoint_queue_penalty[_cp] = 0.0
+        except Exception as _exc:  # noqa: BLE001  ML/AIS failure must not block routing
+            st.warning(f"⚠ ML queue penalty unavailable, routing without it: {_exc}")
+
+        try:
+            spinner_msg = "Sampling weather along backbone + building graph…" if use_weather \
+                          else "Building risk-weighted shipping graph…"
+            with st.spinner(spinner_msg):
+                G = build_shipping_graph(
+                    MAJOR_SHIPPING_ROUTES, risk_scores,
+                    weather_provider=wx_provider,
+                    chokepoint_queue_penalty=chokepoint_queue_penalty,
+                )
+            with st.spinner("Computing 4 route alternatives…"):
+                alternatives = find_route_alternatives(
+                    origin, destination, G, risk_scores,
+                    vessel, speed_kn, bunker, float(opex_per_day),
+                )
+        except Exception as _exc:  # noqa: BLE001  surface routing errors visibly
+            import traceback as _tb
+            st.error(f"❌ Routing failed: {type(_exc).__name__}: {_exc}")
+            st.code(_tb.format_exc())
+            st.stop()
+
         # Filter out error responses
         alternatives = [a for a in alternatives if "error" not in a]
         if not alternatives:
@@ -275,10 +528,96 @@ if compute or st.session_state.get("mnav_alternatives"):
                    alternatives[0])
     rec_econ = rec_alt["economics"]
 
+    # ══════════════════════════════════════════════════════════════════════════
+    # AIS → ML PIPELINE PANEL — make the data flow visible
+    # ══════════════════════════════════════════════════════════════════════════
+    try:
+        from ais_consumer import (
+            last_sighting_age_sec as _ais_age,
+            total_distinct_vessels as _ais_vessels,
+            transits_24h as _ais_transits,
+        )
+        _meta_for_panel = _eta_artifact_meta() or {}
+        _ais_n_24h = _ais_vessels(86400)
+        _age = _ais_age()
+        _age_str = f"{_age:.0f}s ago" if _age is not None and _age < 60 else (
+            f"{_age/60:.1f} min ago" if _age is not None and _age < 3600 else (
+                f"{_age/3600:.1f}h ago" if _age is not None else "no data yet"
+            )
+        )
+        _live_queues = []
+        for _cp_name, _cp_bbox in _ETA_CHOKEPOINT_BBOXES.items():
+            _q = int(_ais_transits(_cp_bbox))
+            if _q > 0:
+                _live_queues.append((_cp_name, _q))
+        _live_queues.sort(key=lambda kv: -kv[1])
+        _queue_str = " · ".join(f"{name.replace(' Canal','').replace('Strait of ','').replace(' Strait','')} {n}"
+                                  for name, n in _live_queues[:6]) or "no live transits in monitored bboxes"
+        _real_n = int(_meta_for_panel.get("real_rows", 0))
+        _synth_n = int(_meta_for_panel.get("synthetic_rows", 0))
+        _train_str = f"{_real_n} real + {_synth_n} synthetic transits" if _real_n else f"{_synth_n} synthetic transits (no real data extracted yet)"
+        _hp = _meta_for_panel.get("best_hp") or {}
+        _hp_str = (f", HP: max_depth={_hp.get('max_depth','?')}, "
+                   f"n_est={_hp.get('n_estimators','?')}, lr={_hp.get('learning_rate','?')}") if _hp else ""
+        st.markdown(f"""
+<div style="background:#0a0a0a;border:1px solid #1a3a1a;border-left:3px solid #22c55e;
+            border-radius:4px;padding:10px 14px;margin-bottom:10px;font-size:10px;line-height:1.7">
+  <div><span style="color:#22c55e">🛰</span>
+    <b style="color:#aaa">AIS pipeline:</b>
+    <span style="color:#e8e8e8">{_ais_n_24h:,}</span> distinct vessels in last 24h ·
+    <span style="color:#888">last sighting {_age_str}</span>
+  </div>
+  <div><span style="color:#3b82f6">🌊</span>
+    <b style="color:#aaa">Live chokepoint queues (24h distinct MMSIs):</b>
+    <span style="color:#e8e8e8">{_queue_str}</span>
+  </div>
+  <div><span style="color:#a78bfa">🤖</span>
+    <b style="color:#aaa">ETA model:</b>
+    <span style="color:#e8e8e8">XGBoost q10/q50/q90 · trained on {_train_str}{_hp_str}</span>
+    <div style="color:#666;font-size:9px;margin-top:2px;padding-left:18px">
+      Live queue counts above feed the model's queue_depth feature, and the predicted excess minutes
+      become an equivalent-km penalty on chokepoint edges — when a chokepoint is congested, the
+      alternatives below diverge toward detours (Cape of Good Hope, Taiwan Strait) automatically.
+    </div>
+  </div>
+</div>""", unsafe_allow_html=True)
+    except Exception as _exc:  # noqa: BLE001
+        st.caption(f"AIS pipeline panel unavailable: {_exc}")
+
     st.markdown(
         '<div class="tw-label" style="margin:6px 0 4px 0">'
         'Route alternatives — pick the one that fits your priorities</div>',
         unsafe_allow_html=True,
+    )
+
+    # ── ML-predicted ETA delay per alternative (XGBoost or heuristic) ───────
+    _ship_type_bin = _vessel_to_ship_type_bin(vessel_name)
+    _eta_features = _eta_features_per_chokepoint(_ship_type_bin, speed_kn)
+    _eta_predictions: dict[str, dict] = {}
+    _eta_heuristic: dict[str, dict] = {}
+    _compare_heuristic = bool(st.session_state.get("mn_compare_heuristic", False))
+    for _alt in alternatives:
+        cps = _alt.get("chokepoints_used") or []
+        try:
+            _eta_predictions[_alt["objective"]] = predict_total_for_route(
+                cps, features_per_chokepoint=_eta_features,
+            )
+        except Exception:  # noqa: BLE001  never blank the page on an ML failure
+            _eta_predictions[_alt["objective"]] = {
+                "p10": 0, "p50": 0, "p90": 0, "n_train": 0, "confidence": "heuristic",
+            }
+        if _compare_heuristic:
+            try:
+                _eta_heuristic[_alt["objective"]] = predict_total_for_route(
+                    cps, features_per_chokepoint=_eta_features, force_heuristic=True,
+                )
+            except Exception:  # noqa: BLE001
+                _eta_heuristic[_alt["objective"]] = {"p10": 0, "p50": 0, "p90": 0, "n_train": 0, "confidence": "heuristic"}
+
+    # Global scale for the interval bars so cards are visually comparable.
+    _scale_max = max(
+        (p["p90"] for p in _eta_predictions.values() if p.get("p90")),
+        default=1,
     )
 
     alt_cols = st.columns(len(alternatives))
@@ -302,6 +641,78 @@ if compute or st.session_state.get("mnav_alternatives"):
             dup_label = next((a["label"] for a in alternatives
                               if a["objective"] == alt["duplicate_of"]), "")
             cps_text = f"Same path as {dup_label}"
+
+        # Runner-up: the next-best path Dijkstra evaluated under this objective.
+        # Surfaced on duplicate cards as evidence the alternative *was* explored.
+        runner_html = ""
+        ru = alt.get("runner_up")
+        if ru and alt.get("duplicate_of"):
+            ru_econ = ru.get("economics", {})
+            ru_cps = ru.get("chokepoints_used") or []
+            ru_via = " · ".join(ru_cps) if ru_cps else "Open ocean detour"
+            d_km  = ru.get("total_dist_km", 0) - alt.get("total_dist_km", 0)
+            d_d   = ru_econ.get("voyage_days", 0) - e["voyage_days"]
+            d_usd = ru_econ.get("total_usd", 0) - e["total_usd"]
+            sign_km  = "+" if d_km  >= 0 else "−"
+            sign_d   = "+" if d_d   >= 0 else "−"
+            sign_usd = "+" if d_usd >= 0 else "−"
+            runner_html = (
+                f'<div style="font-size:9px;color:#666;margin-top:3px;line-height:1.35">'
+                f'<span style="color:#22c55e">✓</span> Next-best considered: '
+                f'<b style="color:#aaa">{ru_via}</b> '
+                f'<span style="color:#555">'
+                f'({sign_km}{abs(d_km):,.0f} km · '
+                f'{sign_d}{abs(d_d):.1f}d · '
+                f'{sign_usd}${abs(d_usd)/1000:,.0f}k)'
+                f'</span>'
+                f'</div>'
+            )
+
+        # Predicted ETA delay (sum of XGBoost p50 across chokepoints, with p10/p90 spread).
+        _pred = _eta_predictions.get(alt["objective"], {})
+        if alt["chokepoints_used"] and _pred.get("p50"):
+            _p50_h = _pred["p50"] / 60.0
+            _p10_h = _pred["p10"] / 60.0
+            _p90_h = _pred["p90"] / 60.0
+            _badge = "XGBoost" if _pred["confidence"] == "model" else "heuristic"
+            _n = _pred.get("n_train", 0)
+            _n_str = f", n={_n:,}" if _n else ""
+            # Sum live queue depth across this alternative's chokepoints —
+            # makes the AIS connection visible on the card itself.
+            _alt_queue_total = sum(
+                int(_eta_features.get(_cp, {}).get("queue_depth", 0))
+                for _cp in alt.get("chokepoints_used") or []
+            )
+            _q_str = f", live queue={_alt_queue_total}" if _alt_queue_total else ""
+            interval_bar = _render_interval_bar(_pred["p10"], _pred["p50"], _pred["p90"], _scale_max)
+            ml_line = (
+                f'<div style="font-size:10px;color:#a78bfa">'
+                f'<span style="opacity:0.7">ML ETA:</span> '
+                f'<span style="font-weight:700">{_p50_h:.1f}h</span> '
+                f'<span style="color:#666;font-size:9px">({_p10_h:.1f}–{_p90_h:.1f}h, {_badge}{_q_str}{_n_str})</span>'
+                f'</div>'
+            )
+            comparison_html = ""
+            if _compare_heuristic:
+                _h = _eta_heuristic.get(alt["objective"], {})
+                if _h.get("p50"):
+                    _h_h = _h["p50"] / 60.0
+                    delta_h = _p50_h - _h_h
+                    sign = "+" if delta_h >= 0 else ""
+                    delta_color = "#f97316" if abs(delta_h) > 1 else "#888"
+                    comparison_html = (
+                        f'<div style="font-size:9px;color:#888">'
+                        f'<span style="opacity:0.7">Heuristic:</span> {_h_h:.1f}h '
+                        f'<span style="color:{delta_color}"> · Δ {sign}{delta_h:.1f}h</span>'
+                        f'</div>'
+                    )
+            eta_html = (
+                f'<div style="margin-top:4px">'
+                f'{ml_line}{comparison_html}{interval_bar}'
+                f'</div>'
+            )
+        else:
+            eta_html = ""
 
         if is_rec:
             delta_html = '<span style="color:#888">— reference</span>'
@@ -337,9 +748,11 @@ if compute or st.session_state.get("mnav_alternatives"):
   <div style="font-size:10px;margin-top:4px">
     Max chokepoint risk: <span style="color:{risk_color};font-weight:700">{int(e["max_chokepoint_risk"])}/100</span>
   </div>
+  {eta_html}
   <div style="font-size:10px;color:#888;margin-top:3px;line-height:1.4">
     {cps_text}
   </div>
+  {runner_html}
   <div style="font-size:10px;margin-top:6px;border-top:1px solid #1a1a1a;padding-top:5px">
     Δ vs Recommended: {delta_html}
   </div>
@@ -681,6 +1094,17 @@ if compute or st.session_state.get("mnav_alternatives"):
                     unsafe_allow_html=True)
 
         if chokepoints_used:
+            # Per-chokepoint ETA predictions (cached above as _eta_features /
+            # _eta_predictions for the alternatives loop, but recompute per
+            # chokepoint here to show queue depth + interval).
+            try:
+                from eta_model import predict_transit_minutes as _predict_cp
+                _ship_bin_panel = _vessel_to_ship_type_bin(vessel_name)
+                _feats_panel = _eta_features_per_chokepoint(_ship_bin_panel, speed_kn)
+            except Exception:  # noqa: BLE001
+                _predict_cp = None  # type: ignore[assignment]
+                _feats_panel = {}
+
             for cp in chokepoints_used:
                 cp_risk = risk_scores.get(cp, 0)
                 cp_col  = risk_col(cp_risk)
@@ -698,6 +1122,65 @@ if compute or st.session_state.get("mnav_alternatives"):
                     cp_delay, cp_cost = "—", "—"
 
                 sc_  = SC.get(cp_status, "#666")
+
+                # Build the ML prediction + live queue lines for this chokepoint.
+                cp_eta_html = ""
+                cp_queue_html = ""
+                if _predict_cp is not None:
+                    try:
+                        feats_cp = _feats_panel.get(cp, {})
+                        pred_cp = _predict_cp(cp, feats_cp)
+                        p50_h = pred_cp["p50"] / 60.0
+                        p10_h = pred_cp["p10"] / 60.0
+                        p90_h = pred_cp["p90"] / 60.0
+                        badge = "XGBoost" if pred_cp["confidence"] == "model" else "heuristic"
+                        n_val = pred_cp.get("n_train", 0)
+                        n_str = f", n={n_val:,}" if n_val else ""
+                        q_val = feats_cp.get("queue_depth", "—")
+
+                        # Live vs typical queue depth — fed straight from AIS.
+                        try:
+                            from ais_consumer import (
+                                CHOKEPOINT_BBOXES as _AIS_BBOXES,
+                                transits_24h as _t24,
+                                transits_baseline as _tbase,
+                            )
+                            _bbox = _AIS_BBOXES.get(cp)
+                            if _bbox:
+                                _live = int(_t24(_bbox))
+                                _typical = _tbase(_bbox, days=7)
+                                if _typical and _typical > 0:
+                                    _delta_pct = 100.0 * (_live - _typical) / _typical
+                                    _color = "#f97316" if _delta_pct > 30 else ("#22c55e" if _delta_pct < -20 else "#888")
+                                    _sign = "+" if _delta_pct >= 0 else ""
+                                    cp_queue_html = (
+                                        f'<div style="font-size:9px;color:#a78bfa;margin-top:3px">'
+                                        f'<span style="opacity:0.7">🛰 AIS live queue:</span> '
+                                        f'<b>{_live}</b> vessels '
+                                        f'<span style="color:#888">(typical {int(_typical)}, '
+                                        f'<span style="color:{_color}">{_sign}{_delta_pct:.0f}%</span>)</span>'
+                                        f'</div>'
+                                    )
+                                elif _live > 0:
+                                    cp_queue_html = (
+                                        f'<div style="font-size:9px;color:#a78bfa;margin-top:3px">'
+                                        f'<span style="opacity:0.7">🛰 AIS live queue:</span> '
+                                        f'<b>{_live}</b> vessels '
+                                        f'<span style="color:#888">(no 7d baseline yet)</span>'
+                                        f'</div>'
+                                    )
+                        except Exception:  # noqa: BLE001
+                            pass
+
+                        cp_eta_html = (
+                            f'<div style="font-size:9px;color:#a78bfa;margin-top:3px;font-style:italic">'
+                            f'Predicted transit: <b>{p50_h:.1f}h</b> '
+                            f'<span style="color:#888">({p10_h:.1f}–{p90_h:.1f}h, queue={q_val}, {badge}{n_str})</span>'
+                            f'</div>'
+                        )
+                    except Exception:  # noqa: BLE001
+                        cp_eta_html = ""
+
                 st.markdown(f"""
 <div style="border-left:3px solid {cp_col};padding:7px 10px;margin:4px 0;
             border-radius:0 3px 3px 0;background:rgba(255,255,255,0.02)">
@@ -713,7 +1196,43 @@ if compute or st.session_state.get("mnav_alternatives"):
   <div class="tw-risk-bar-bg" style="margin-top:4px">
     <div class="tw-risk-bar-fill" style="width:{cp_risk}%;background:{cp_col}"></div>
   </div>
+  {cp_queue_html}
+  {cp_eta_html}
 </div>""", unsafe_allow_html=True)
+
+                # SHAP "Why this prediction?" — explains the q50 forecast for this chokepoint.
+                if _predict_cp is not None and pred_cp.get("confidence") == "model":
+                    with st.expander(f"Why this prediction? ({cp})", expanded=False):
+                        try:
+                            from eta_model import explain_prediction as _explain
+                            contributions = _explain(feats_cp, top_k=4)
+                        except Exception:  # noqa: BLE001
+                            contributions = []
+                        if not contributions:
+                            st.caption(
+                                "SHAP unavailable — install `shap` and re-train the model "
+                                "to enable per-prediction explanations."
+                            )
+                        else:
+                            rows_html = []
+                            for label, contrib_min in contributions:
+                                sign = "+" if contrib_min >= 0 else "−"
+                                color = "#f97316" if contrib_min > 0 else "#22c55e"
+                                rows_html.append(
+                                    f'<div style="display:flex;justify-content:space-between;'
+                                    f'font-size:10px;padding:2px 0">'
+                                    f'<span style="color:#aaa">{label}</span>'
+                                    f'<span style="color:{color};font-weight:600">'
+                                    f'{sign}{abs(contrib_min):.0f} min</span>'
+                                    f'</div>'
+                                )
+                            st.markdown(
+                                "<div style='font-size:9px;color:#888;margin-bottom:4px'>"
+                                "Top SHAP contributions to the predicted transit time:"
+                                "</div>"
+                                + "".join(rows_html),
+                                unsafe_allow_html=True,
+                            )
         else:
             st.markdown(
                 '<div style="color:#555;font-size:11px;padding:8px">No major chokepoints on this route</div>',

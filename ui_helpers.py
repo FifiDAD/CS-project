@@ -142,9 +142,22 @@ _CSS = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600;700&display=swap');
 
-*, *::before, *::after {
+*, *::before, *::after { box-sizing: border-box; }
+
+body, p, span, div, label, input, textarea, select, button,
+li, td, th, h1, h2, h3, h4, h5, h6, code, pre,
+.stMarkdown, .stText, .stCaption,
+[data-testid="stMarkdownContainer"] {
   font-family: 'Fira Code', 'SF Mono', 'Cascadia Code', 'Monaco', monospace !important;
-  box-sizing: border-box;
+}
+
+[data-testid*="Icon"] *, [class*="material-icons"], [class*="MaterialIcon"],
+.material-icons, .material-symbols-outlined, .material-symbols-rounded,
+.material-symbols-sharp,
+span[data-testid="stIconMaterial"], span[data-testid="stIconMaterial"] *,
+[data-testid="stExpander"] svg, [data-testid="stExpander"] [class*="icon"] {
+  font-family: 'Material Symbols Outlined', 'Material Symbols Rounded',
+               'Material Symbols Sharp', 'Material Icons' !important;
 }
 
 :root {

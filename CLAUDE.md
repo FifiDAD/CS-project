@@ -24,6 +24,33 @@ python test_apis.py
 pip install -r requirements.txt
 ```
 
+**Train the ETA predictor (ML feature):**
+```bash
+python train_eta_model.py --seed         # cold start: synthetic seed + full CV + hyperparam sweep
+python train_eta_model.py --seed --no-cv # fast iteration (skip CV + sweep)
+python train_eta_model.py                # real AIS data; refuses if <200 rows
+```
+Pipeline: 5-fold time-series CV → 27-cell hyperparam sweep → train final
+q10/q50/q90 boosters with best config → SHAP backing data + calibration plot.
+Writes `models/`: `eta_xgb.joblib`, `eta_meta.json`, `eta_feature_importance.png`,
+`eta_calibration.png`, `eta_shap_values.npy` + X_test + feature_names.
+
+**Run tests:**
+```bash
+pytest tests/ -v   # 31 tests, ~8s
+```
+
+The MariNav Router page exposes:
+- Per-card ML ETA + interval bar (CSS p10/p50/p90)
+- "Compare ML vs heuristic baseline" toggle in sidebar
+- Per-chokepoint "Why this prediction?" expander (SHAP top-K contributions)
+- ML diagnostics expander: CV metrics, best HP, feature importance, calibration
+  plot, top-5 sweep, per-chokepoint MAE, "Retrain now" button.
+
+Predictions fall back to a calibrated heuristic when the artifact is missing.
+`eta_scheduler.start_eta_scheduler()` (called from `app.py`) auto-retrains
+once daily when ≥200 real AIS rows exist and the cooldown has elapsed.
+
 ## Architecture
 
 Streamlit-based shipping risk dashboard aggregating 9 external APIs. The goal is to help shipping companies plan routes based on geopolitical risk, port congestion, fuel costs, and weather.
@@ -66,6 +93,10 @@ All `dynamic_status.py` functions accept `events_df.to_json()` (a JSON string) r
 | `api_config.py` | API keys, cache TTLs, `STRAIT_COORDINATES`, `CRITICAL_PORTS`, `KEY_REGIONS` — **do not modify** |
 | `api_integrations.py` | `APIClient` static methods for every external API — **do not modify** |
 | `sample_data.py` | Fallback events returned when ACLED fails; always produces valid DataFrame schema |
+| `eta_model.py` | Chokepoint ETA Predictor — XGBoost quantile regression. Extracts labeled transits from `sightings`, exposes `predict_transit_minutes()` / `predict_total_for_route()` (with `force_heuristic` kwarg) / `explain_prediction()` (SHAP top-K contributions in minutes). Lazy-imports xgboost+joblib+shap so `app_simple.py` stays importable without ML libs. |
+| `train_eta_model.py` | Offline trainer with 5-fold time-series CV + 27-cell hyperparam sweep + SHAP backend + calibration plot. Saves `models/eta_xgb.joblib`, `eta_meta.json`, `eta_feature_importance.png`, `eta_calibration.png`, `eta_shap_values.npy`. CLI: `--db`, `--seed`, `--no-cv`, `--cv-splits`. |
+| `eta_scheduler.py` | Background daemon (`start_eta_scheduler()`, idempotent like `start_consumer()`) that retrains the ETA model once daily when ≥200 real AIS rows have accumulated. Exposes `retrain_now()` for the "Retrain now" UI button. |
+| `tests/` | pytest suite (31 tests). `conftest.py` builds in-memory SQLite with synthetic vessel tracks; `test_eta_model.py` covers extract_transits edges + encoding + inference fallbacks; `test_train_eta_model.py` smoke-tests the trainer. Run with `pytest tests/ -v`. |
 
 ### Map (`maps.py`)
 

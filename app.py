@@ -14,9 +14,13 @@ from ui_helpers import (
     SC, SBG, risk_col, IMPACT_COL, IMPACT_ICON, lottie_loader,
 )
 import ais_consumer
+import eta_scheduler
 
 # Start the AIS WebSocket once per process (idempotent — no-op on rerun).
 ais_consumer.start_consumer()
+# Start the ETA-model retraining scheduler (idempotent; no-op until enough
+# real AIS data accumulates and the 24h cooldown elapses).
+eta_scheduler.start_eta_scheduler()
 
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -115,13 +119,22 @@ with map_col:
             st.cache_data.clear()
             st.rerun()
 
-    # Header chip — surface event count + AIS status
+    # Header chip — surface event count + AIS status. We show the multi-source
+    # count separately so the user sees what made it onto the map vs. the full
+    # intel feed.
     n_events = len(filtered_events)
+    n_on_map = (
+        int(filtered_events["on_map"].fillna(False).sum())
+        if "on_map" in filtered_events.columns else n_events
+    )
+    map_chip = (
+        f"⚠ {n_on_map}/{n_events} multi-source events on map "
+        f"({n_events - n_on_map} single-source in Intel Feed)"
+    )
     chip_text = (
-        f"⚠ {n_events} high-signal events near shipping lanes · "
-        f"⛴ {ais_count} live vessels"
+        f"{map_chip} · ⛴ {ais_count} live vessels"
         if ais_count > 0
-        else f"⚠ {n_events} high-signal events near shipping lanes · ⛴ AIS connecting…"
+        else f"{map_chip} · ⛴ AIS connecting…"
     )
     st.markdown(f"""
 <div style="background:rgba(59,130,246,0.05);border:1px solid rgba(59,130,246,0.2);
@@ -130,8 +143,15 @@ with map_col:
   {chip_text}
 </div>""", unsafe_allow_html=True)
 
+    # Map shows only events corroborated by ≥2 distinct news sources
+    # (set by api_integrations.get_shipping_events). Single-source rumours
+    # stay off the map and live only in the Intel Feed page.
+    if "on_map" in filtered_events.columns:
+        map_events = filtered_events[filtered_events["on_map"].fillna(False)]
+    else:
+        map_events = filtered_events
     globe_fig = create_dashboard_map(
-        filtered_events,
+        map_events,
         show_routes=show_routes,
         show_ports=show_ports,
         show_events=show_events,
@@ -144,11 +164,12 @@ with map_col:
         piracy_df=piracy_df,
     )
     globe_fig.update_layout(
-        paper_bgcolor="#0a0a0a",
         margin=dict(l=0, r=0, t=0, b=0),
         height=560,
+        paper_bgcolor="#0a0a0a",
+        plot_bgcolor="#0a0a0a",
     )
-    globe_fig.update_geos(bgcolor="#0a0a0a", landcolor="#0a2018", oceancolor="#020a08")
+    globe_fig.update_geos(bgcolor="#0a0a0a")
     st.plotly_chart(globe_fig, use_container_width=True,
                     config={"scrollZoom": True, "displayModeBar": False})
 

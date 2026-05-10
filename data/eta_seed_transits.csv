@@ -1,0 +1,1531 @@
+chokepoint_id,ship_type,entry_sog_kn,queue_depth,hour_of_day,day_of_week,month,recent_throughput_24h,bbox_diagonal_km,transit_minutes,entry_ts,_synthetic
+Suez Canal,other,12.88,5,15,6,3,22,700.0,554.4,1710085482.2,True
+Suez Canal,bulker,8.87,9,17,0,3,39,700.0,955.2,1710179636.0,True
+Suez Canal,tanker,11.92,6,21,4,2,21,700.0,915.1,1707515188.8,True
+Suez Canal,other,10.61,14,21,3,2,49,700.0,896.3,1706823993.9,True
+Suez Canal,unknown,16.35,11,21,6,1,38,700.0,832.7,1705266955.1,True
+Suez Canal,bulker,8.9,9,1,3,1,33,700.0,943.8,1705540529.3,True
+Suez Canal,bulker,11.29,10,21,4,3,31,700.0,985.6,1710538852.2,True
+Suez Canal,other,12.58,11,15,0,1,34,700.0,833.2,1704124449.0,True
+Suez Canal,container,8.84,15,13,5,1,61,700.0,756.5,1705154261.5,True
+Suez Canal,tanker,12.98,12,19,0,2,34,700.0,926.4,1708371833.4,True
+Suez Canal,bulker,8.7,5,19,6,3,16,700.0,810.0,1710703262.3,True
+Suez Canal,other,10.23,12,13,0,3,28,700.0,824.4,1710162792.5,True
+Suez Canal,container,9.83,11,0,2,3,46,700.0,863.3,1709684266.3,True
+Suez Canal,bulker,10.8,8,7,6,2,16,700.0,733.0,1707030021.1,True
+Suez Canal,unknown,10.05,6,18,4,3,18,700.0,736.7,1711132323.5,True
+Suez Canal,container,10.15,6,12,3,1,19,700.0,554.5,1706184150.4,True
+Suez Canal,other,11.18,4,21,1,1,23,700.0,728.9,1705441785.2,True
+Suez Canal,tanker,11.45,5,11,2,2,17,700.0,936.3,1709120407.2,True
+Suez Canal,unknown,9.4,5,7,2,1,19,700.0,711.7,1704871261.5,True
+Suez Canal,other,8.46,4,1,2,1,28,700.0,783.4,1704244522.9,True
+Suez Canal,bulker,5.67,6,9,0,3,18,700.0,746.0,1711359738.5,True
+Suez Canal,tanker,11.39,14,22,1,1,35,700.0,918.8,1704235255.5,True
+Suez Canal,other,15.42,11,7,4,1,41,700.0,950.4,1706254073.9,True
+Suez Canal,other,16.32,7,8,3,1,26,700.0,849.5,1704358120.0,True
+Suez Canal,unknown,10.9,9,4,5,1,17,700.0,874.9,1706329377.1,True
+Suez Canal,unknown,14.95,10,7,5,3,41,700.0,846.1,1711783912.4,True
+Suez Canal,tanker,13.77,8,11,6,3,18,700.0,1018.2,1710070368.7,True
+Suez Canal,tanker,15.31,16,16,0,1,53,700.0,1021.5,1705940987.2,True
+Suez Canal,container,10.01,12,22,6,1,37,700.0,827.3,1706480276.9,True
+Suez Canal,container,5.87,12,20,4,1,39,700.0,766.1,1705092249.6,True
+Suez Canal,tanker,7.68,13,8,2,3,45,700.0,946.4,1710320072.3,True
+Suez Canal,unknown,10.61,15,15,3,2,55,700.0,946.7,1709221632.1,True
+Suez Canal,unknown,11.57,10,12,2,1,42,700.0,1025.7,1704890658.2,True
+Suez Canal,tanker,11.79,7,1,0,2,17,700.0,792.4,1707701559.3,True
+Suez Canal,bulker,9.68,5,18,5,2,10,700.0,898.3,1708194464.3,True
+Suez Canal,other,7.78,18,20,5,2,42,700.0,1181.3,1707596702.2,True
+Suez Canal,bulker,15.32,11,11,4,2,49,700.0,907.1,1708689516.2,True
+Suez Canal,tanker,7.56,9,14,4,1,22,700.0,878.0,1706281183.4,True
+Suez Canal,bulker,11.39,14,4,4,2,55,700.0,1000.0,1708663934.3,True
+Suez Canal,container,16.23,9,21,3,1,17,700.0,810.7,1704405262.1,True
+Suez Canal,tanker,12.2,11,0,5,3,41,700.0,1029.5,1710548173.7,True
+Suez Canal,other,11.13,11,4,2,3,40,700.0,852.7,1710303753.2,True
+Suez Canal,container,10.41,0,4,0,3,0,700.0,604.6,1710735681.0,True
+Suez Canal,bulker,7.17,16,12,2,2,46,700.0,1009.6,1707308931.7,True
+Suez Canal,container,12.46,15,17,5,1,62,700.0,1014.0,1706375711.5,True
+Suez Canal,container,10.26,13,17,2,2,45,700.0,801.2,1709141719.2,True
+Suez Canal,tanker,13.93,9,12,6,3,16,700.0,1065.9,1709469950.2,True
+Suez Canal,container,9.7,5,8,5,1,15,700.0,745.4,1705135684.1,True
+Suez Canal,container,9.32,5,19,1,1,21,700.0,629.3,1706037509.0,True
+Suez Canal,other,11.18,11,22,6,2,37,700.0,1007.5,1707690700.5,True
+Suez Canal,container,14.69,3,18,3,1,16,700.0,720.2,1704998248.4,True
+Suez Canal,bulker,11.59,10,0,2,1,30,700.0,829.5,1706661567.2,True
+Suez Canal,container,8.35,13,7,6,1,42,700.0,997.3,1705216363.5,True
+Suez Canal,unknown,11.03,13,5,0,3,60,700.0,999.9,1710134824.4,True
+Suez Canal,container,5.99,9,13,6,3,29,700.0,734.8,1710680949.9,True
+Suez Canal,container,7.0,4,6,4,3,18,700.0,705.6,1710485506.6,True
+Suez Canal,bulker,11.14,0,22,2,1,0,700.0,728.5,1704927135.5,True
+Suez Canal,bulker,12.33,10,3,1,1,44,700.0,891.0,1704770467.1,True
+Suez Canal,tanker,10.34,12,22,4,3,38,700.0,1042.7,1711148322.9,True
+Suez Canal,other,9.3,0,11,0,1,5,700.0,594.4,1705922186.7,True
+Suez Canal,container,14.38,9,10,5,3,17,700.0,700.6,1710583334.2,True
+Suez Canal,unknown,13.01,8,8,3,1,15,700.0,688.4,1705568290.6,True
+Suez Canal,tanker,6.42,9,19,3,1,20,700.0,847.5,1704396517.9,True
+Suez Canal,container,10.53,11,6,6,2,46,700.0,852.6,1707632967.6,True
+Suez Canal,unknown,10.17,14,0,3,2,50,700.0,979.3,1708561861.9,True
+Suez Canal,bulker,11.17,18,16,0,2,62,700.0,1180.1,1707754336.0,True
+Suez Canal,bulker,8.92,11,2,1,2,32,700.0,742.6,1709002076.0,True
+Suez Canal,container,13.76,17,15,2,2,64,700.0,983.3,1707320678.7,True
+Suez Canal,container,10.15,12,17,2,2,58,700.0,739.2,1709140519.4,True
+Suez Canal,unknown,11.23,15,3,4,2,49,700.0,961.7,1708054260.4,True
+Suez Canal,other,12.66,6,7,0,1,20,700.0,785.0,1706512368.6,True
+Suez Canal,tanker,6.42,13,13,1,1,61,700.0,810.8,1705412404.8,True
+Suez Canal,bulker,7.24,7,19,6,1,33,700.0,792.3,1705261693.9,True
+Suez Canal,container,7.1,11,23,6,1,31,700.0,829.0,1706485236.7,True
+Suez Canal,other,9.28,12,6,5,2,38,700.0,1030.6,1708150286.6,True
+Suez Canal,container,14.51,9,3,5,3,37,700.0,907.0,1711767941.3,True
+Suez Canal,unknown,8.65,8,5,0,2,26,700.0,853.5,1707716686.2,True
+Suez Canal,tanker,5.01,14,2,2,2,59,700.0,860.2,1707878976.1,True
+Suez Canal,tanker,10.6,8,10,2,2,31,700.0,789.2,1709114983.0,True
+Suez Canal,other,11.74,12,0,6,3,48,700.0,876.2,1710633867.7,True
+Suez Canal,container,8.78,5,12,6,3,14,700.0,718.1,1710678932.9,True
+Suez Canal,unknown,10.6,12,11,2,1,30,700.0,950.2,1706702141.4,True
+Suez Canal,container,8.75,11,15,0,1,47,700.0,689.1,1704124077.2,True
+Suez Canal,unknown,4.98,11,12,5,3,50,700.0,852.4,1709988099.6,True
+Suez Canal,container,8.91,5,22,2,3,23,700.0,833.0,1709762447.4,True
+Suez Canal,other,7.8,3,0,3,3,14,700.0,639.1,1709772867.2,True
+Suez Canal,tanker,9.56,12,0,4,3,51,700.0,911.5,1711671482.4,True
+Suez Canal,tanker,6.79,11,0,4,3,35,700.0,852.9,1710463606.1,True
+Suez Canal,other,7.79,6,15,6,3,25,700.0,773.7,1710083652.0,True
+Suez Canal,container,11.67,10,5,0,3,30,700.0,840.4,1710739982.4,True
+Suez Canal,bulker,4.97,5,10,4,3,5,700.0,1026.6,1709289661.2,True
+Suez Canal,tanker,10.53,8,17,0,2,17,700.0,932.2,1707153806.0,True
+Suez Canal,container,11.43,18,16,2,3,57,700.0,961.2,1710345788.2,True
+Suez Canal,tanker,15.62,8,7,0,2,24,700.0,1030.1,1707118262.1,True
+Suez Canal,bulker,11.44,6,14,1,1,26,700.0,790.1,1704204592.4,True
+Suez Canal,bulker,10.8,8,16,6,2,31,700.0,717.8,1708272901.2,True
+Suez Canal,bulker,11.68,13,19,3,3,42,700.0,854.7,1709839464.4,True
+Suez Canal,other,12.05,11,16,1,3,40,700.0,847.0,1710865868.5,True
+Suez Canal,tanker,9.91,7,12,5,3,16,700.0,929.2,1711802000.8,True
+Suez Canal,tanker,10.39,11,23,1,3,25,700.0,743.3,1711495997.2,True
+Suez Canal,container,8.71,6,3,1,1,10,700.0,810.2,1705980614.0,True
+Suez Canal,bulker,8.56,14,14,6,2,49,700.0,1045.5,1707057106.0,True
+Suez Canal,tanker,8.41,12,3,0,1,33,700.0,949.0,1704080113.7,True
+Suez Canal,bulker,8.44,8,19,3,2,16,700.0,964.7,1707421198.9,True
+Suez Canal,unknown,11.71,15,11,5,3,53,700.0,864.2,1709380217.0,True
+Suez Canal,unknown,10.53,12,12,6,1,38,700.0,915.0,1705237130.4,True
+Suez Canal,container,13.5,1,22,2,1,4,700.0,508.1,1704927454.7,True
+Suez Canal,other,12.29,17,19,6,3,49,700.0,913.6,1710703000.9,True
+Suez Canal,bulker,15.46,18,21,5,2,59,700.0,1000.3,1707601061.0,True
+Suez Canal,bulker,12.59,14,1,5,2,26,700.0,1052.5,1708738507.0,True
+Suez Canal,other,7.8,7,17,1,1,23,700.0,929.6,1704215209.5,True
+Suez Canal,other,11.51,10,10,4,2,28,700.0,875.7,1708684826.3,True
+Suez Canal,container,15.49,9,8,0,1,38,700.0,777.0,1704098363.1,True
+Suez Canal,tanker,10.62,5,6,6,2,17,700.0,701.5,1708236694.4,True
+Suez Canal,bulker,13.49,9,6,5,3,22,700.0,977.5,1710569842.5,True
+Suez Canal,other,11.95,11,19,0,2,37,700.0,961.0,1708371533.6,True
+Suez Canal,other,10.49,10,17,2,2,30,700.0,862.8,1707327462.1,True
+Suez Canal,tanker,11.61,8,1,3,3,30,700.0,777.5,1710985168.3,True
+Suez Canal,container,8.09,11,7,0,3,46,700.0,652.4,1710746650.7,True
+Suez Canal,other,4.32,14,12,4,2,36,700.0,1068.5,1708087543.5,True
+Suez Canal,bulker,10.18,6,21,0,3,24,700.0,984.6,1710797892.1,True
+Suez Canal,container,10.77,17,22,5,2,67,700.0,984.9,1706999877.0,True
+Suez Canal,container,10.1,13,19,1,2,43,700.0,945.8,1707248672.5,True
+Suez Canal,bulker,12.06,11,19,4,1,25,700.0,989.2,1705086701.2,True
+Suez Canal,bulker,9.27,10,19,4,3,32,700.0,786.4,1709926451.5,True
+Suez Canal,unknown,8.48,11,8,2,1,28,700.0,884.5,1706084604.2,True
+Suez Canal,unknown,10.74,9,17,1,1,34,700.0,855.1,1706030144.6,True
+Suez Canal,bulker,11.72,5,18,1,3,4,700.0,758.4,1711477721.3,True
+Suez Canal,bulker,9.98,7,12,6,2,26,700.0,813.1,1708863096.0,True
+Suez Canal,container,7.16,11,3,3,3,52,700.0,829.2,1709783566.4,True
+Suez Canal,tanker,10.44,18,17,0,3,71,700.0,1106.3,1711388606.1,True
+Suez Canal,other,9.44,12,5,2,2,46,700.0,988.2,1707283104.2,True
+Suez Canal,tanker,6.3,15,18,5,2,61,700.0,956.0,1708195092.7,True
+Suez Canal,container,10.58,17,14,4,2,47,700.0,931.1,1708092536.0,True
+Suez Canal,tanker,15.12,14,16,1,3,40,700.0,1065.1,1711471893.8,True
+Suez Canal,bulker,11.53,13,16,2,1,46,700.0,1017.4,1704300904.4,True
+Suez Canal,other,4.0,11,20,5,2,40,700.0,533.6,1708203146.2,True
+Suez Canal,bulker,9.22,5,20,5,3,18,700.0,753.6,1711226297.7,True
+Suez Canal,container,11.33,16,10,1,3,33,700.0,920.1,1710238508.7,True
+Suez Canal,tanker,13.31,7,6,4,1,27,700.0,832.5,1706251450.3,True
+Suez Canal,container,8.4,6,23,5,3,24,700.0,672.9,1711235524.7,True
+Suez Canal,container,11.57,3,12,1,3,0,700.0,677.7,1711454875.1,True
+Suez Canal,bulker,9.79,8,7,3,3,32,700.0,996.3,1711007184.3,True
+Suez Canal,container,12.92,11,6,1,2,36,700.0,831.8,1707202018.2,True
+Suez Canal,tanker,12.58,8,19,2,1,28,700.0,910.6,1706729410.3,True
+Suez Canal,tanker,7.91,11,15,3,2,41,700.0,900.9,1709221985.9,True
+Suez Canal,tanker,10.32,10,2,4,3,40,700.0,979.8,1709260395.1,True
+Suez Canal,unknown,5.73,12,5,4,1,36,700.0,704.6,1705642014.2,True
+Suez Canal,other,11.51,14,20,0,1,46,700.0,971.7,1706559339.3,True
+Suez Canal,other,13.01,7,22,5,2,28,700.0,688.1,1708812328.6,True
+Suez Canal,unknown,8.85,6,21,0,2,27,700.0,817.6,1708983206.6,True
+Suez Canal,container,11.27,9,1,4,3,27,700.0,652.0,1709860254.1,True
+Suez Canal,container,12.11,10,0,5,1,46,700.0,928.9,1706316953.4,True
+Suez Canal,other,8.32,9,2,1,1,24,700.0,948.1,1705371231.5,True
+Suez Canal,tanker,7.02,9,9,3,1,44,700.0,922.4,1704966915.6,True
+Suez Canal,tanker,11.61,15,23,6,3,46,700.0,1072.9,1711321436.5,True
+Suez Canal,tanker,7.14,4,17,3,2,14,700.0,767.1,1709226212.5,True
+Suez Canal,unknown,9.36,10,18,5,3,29,700.0,850.8,1709402802.8,True
+Suez Canal,container,13.83,14,21,3,3,48,700.0,939.9,1711661739.9,True
+Suez Canal,container,9.01,4,20,0,3,14,700.0,741.6,1710190519.1,True
+Suez Canal,unknown,11.26,9,5,2,2,27,700.0,936.8,1707887217.9,True
+Suez Canal,container,11.01,11,1,6,1,26,700.0,798.8,1704592223.7,True
+Suez Canal,unknown,10.39,9,1,4,3,28,700.0,754.3,1710467838.0,True
+Suez Canal,bulker,14.22,9,8,1,1,31,700.0,888.6,1704788471.3,True
+Suez Canal,bulker,6.0,0,19,6,2,2,700.0,688.5,1707680548.9,True
+Suez Canal,container,13.58,14,20,1,1,36,700.0,972.6,1705438041.7,True
+Suez Canal,unknown,11.0,10,9,5,2,22,700.0,636.2,1707556520.6,True
+Suez Canal,container,7.23,8,1,3,2,42,700.0,676.5,1709168830.5,True
+Suez Canal,container,8.13,8,9,2,1,26,700.0,743.5,1704273868.7,True
+Suez Canal,bulker,11.37,6,9,4,3,23,700.0,856.8,1710494930.9,True
+Panama Canal,bulker,10.97,12,21,4,3,48,400.0,615.5,1709328848.9,True
+Panama Canal,unknown,13.52,16,2,3,3,56,400.0,775.1,1710989892.6,True
+Panama Canal,tanker,14.71,6,14,3,1,22,400.0,382.8,1705587303.1,True
+Panama Canal,bulker,9.31,7,2,5,1,23,400.0,433.2,1705114565.2,True
+Panama Canal,unknown,10.54,8,22,5,2,12,400.0,295.9,1708814331.9,True
+Panama Canal,other,14.31,5,18,6,2,21,400.0,496.8,1708884970.5,True
+Panama Canal,unknown,12.82,12,23,3,1,46,400.0,648.8,1704410705.6,True
+Panama Canal,container,11.22,5,1,4,3,16,400.0,313.6,1711677059.1,True
+Panama Canal,container,14.19,16,9,3,1,58,400.0,807.3,1705569587.9,True
+Panama Canal,container,6.48,8,23,0,2,34,400.0,340.0,1708990568.0,True
+Panama Canal,bulker,9.19,11,13,6,2,44,400.0,669.3,1707658296.1,True
+Panama Canal,bulker,11.24,13,22,0,1,51,400.0,633.7,1705358503.0,True
+Panama Canal,container,12.63,12,9,4,3,50,400.0,684.3,1710496318.1,True
+Panama Canal,tanker,11.06,7,3,6,3,24,400.0,631.5,1711251449.5,True
+Panama Canal,container,5.96,1,21,3,3,0,400.0,265.5,1709848344.7,True
+Panama Canal,bulker,13.06,18,2,2,3,62,400.0,774.3,1710900465.9,True
+Panama Canal,other,7.06,13,6,6,2,48,400.0,537.2,1708238930.1,True
+Panama Canal,container,12.54,0,16,5,2,0,400.0,214.2,1706979031.6,True
+Panama Canal,tanker,10.13,0,5,3,2,2,400.0,374.3,1707371839.7,True
+Panama Canal,container,10.49,17,8,6,1,62,400.0,597.6,1706429522.5,True
+Panama Canal,tanker,7.09,9,3,4,3,23,400.0,638.6,1709264139.8,True
+Panama Canal,tanker,6.31,12,13,5,1,41,400.0,715.7,1705152913.5,True
+Panama Canal,unknown,12.64,11,16,3,3,39,400.0,562.8,1711644267.5,True
+Panama Canal,unknown,8.42,7,5,3,1,31,400.0,491.3,1704346349.7,True
+Panama Canal,other,12.41,8,6,4,3,35,400.0,510.4,1711088843.7,True
+Panama Canal,container,9.97,7,3,6,2,9,400.0,400.7,1708226568.0,True
+Panama Canal,unknown,11.94,8,23,6,1,38,400.0,594.4,1706482846.9,True
+Panama Canal,unknown,12.01,13,16,4,3,55,400.0,633.0,1710521429.1,True
+Panama Canal,other,14.68,11,21,6,2,36,400.0,353.0,1708293421.7,True
+Panama Canal,tanker,14.12,10,13,4,2,30,400.0,619.2,1706878994.1,True
+Panama Canal,bulker,12.16,7,2,6,2,19,400.0,638.9,1708827830.6,True
+Panama Canal,tanker,13.96,4,6,0,3,7,400.0,410.7,1711346911.8,True
+Panama Canal,container,12.63,11,4,2,2,56,400.0,579.5,1708488398.1,True
+Panama Canal,tanker,14.42,15,18,0,3,55,400.0,901.2,1710786728.0,True
+Panama Canal,tanker,10.48,9,1,6,2,29,400.0,671.1,1707008937.2,True
+Panama Canal,tanker,12.64,13,3,4,2,33,400.0,657.7,1707447891.8,True
+Panama Canal,container,10.79,10,18,2,2,40,400.0,291.3,1707936908.5,True
+Panama Canal,bulker,7.52,11,23,2,2,40,400.0,600.4,1707346852.9,True
+Panama Canal,tanker,9.52,8,5,0,2,28,400.0,576.2,1707714183.5,True
+Panama Canal,container,16.75,9,12,3,2,39,400.0,618.9,1707396648.9,True
+Panama Canal,other,12.15,6,10,2,3,17,400.0,431.0,1711536724.2,True
+Panama Canal,tanker,11.27,2,9,5,1,7,400.0,369.0,1705742890.2,True
+Panama Canal,tanker,7.36,18,12,3,1,58,400.0,945.9,1706186832.6,True
+Panama Canal,tanker,12.94,11,10,2,3,39,400.0,687.9,1710932051.6,True
+Panama Canal,container,10.94,7,14,3,1,12,400.0,348.6,1706193389.4,True
+Panama Canal,container,12.78,5,9,0,3,21,400.0,330.5,1710149674.3,True
+Panama Canal,bulker,12.25,9,20,1,1,28,400.0,552.0,1705438541.0,True
+Panama Canal,bulker,13.24,12,18,4,1,44,400.0,513.0,1705085003.2,True
+Panama Canal,unknown,6.16,8,19,2,2,33,400.0,288.6,1707939118.1,True
+Panama Canal,tanker,14.0,14,5,1,3,51,400.0,545.9,1710221526.8,True
+Panama Canal,tanker,8.09,13,3,2,2,44,400.0,606.0,1708485269.3,True
+Panama Canal,bulker,10.35,16,12,5,3,55,400.0,769.0,1711802953.1,True
+Panama Canal,bulker,8.99,2,11,0,3,2,400.0,388.9,1711367350.4,True
+Panama Canal,other,7.56,8,10,1,3,26,400.0,429.4,1711448906.4,True
+Panama Canal,container,11.35,8,19,2,1,20,400.0,371.0,1706125598.3,True
+Panama Canal,container,12.82,10,19,2,3,42,400.0,514.9,1711567298.9,True
+Panama Canal,tanker,7.84,4,1,6,2,19,400.0,503.2,1707009000.9,True
+Panama Canal,tanker,12.38,9,17,4,1,24,400.0,557.0,1705684593.0,True
+Panama Canal,container,9.86,6,23,2,1,19,400.0,295.3,1705535592.0,True
+Panama Canal,unknown,11.8,11,11,4,3,43,400.0,697.1,1711710908.2,True
+Panama Canal,tanker,7.45,15,19,1,1,47,400.0,835.9,1704827599.5,True
+Panama Canal,bulker,11.72,8,16,4,3,18,400.0,524.0,1711124735.6,True
+Panama Canal,container,6.56,21,4,1,2,59,400.0,764.0,1707193523.7,True
+Panama Canal,other,11.48,14,11,0,3,43,400.0,476.2,1710155071.4,True
+Panama Canal,other,8.92,5,1,1,3,25,400.0,398.7,1710812285.4,True
+Panama Canal,container,11.02,13,13,2,3,41,400.0,486.7,1709731043.7,True
+Panama Canal,container,11.13,4,14,3,1,9,400.0,432.7,1704983554.2,True
+Panama Canal,container,12.34,15,4,5,3,45,400.0,635.3,1711167883.6,True
+Panama Canal,unknown,11.32,13,10,2,3,58,400.0,552.3,1711537030.0,True
+Panama Canal,unknown,11.56,7,19,4,3,28,400.0,487.9,1711739225.1,True
+Panama Canal,other,12.13,10,4,4,3,38,400.0,418.9,1711687513.1,True
+Panama Canal,other,7.25,8,15,4,3,24,400.0,443.7,1710518133.9,True
+Panama Canal,container,11.62,7,8,3,2,10,400.0,494.5,1706775393.3,True
+Panama Canal,container,7.88,7,23,0,3,12,400.0,394.1,1710805950.3,True
+Panama Canal,container,9.77,5,10,2,1,27,400.0,198.6,1704278568.3,True
+Panama Canal,unknown,13.56,11,10,5,2,38,400.0,535.2,1707562762.7,True
+Panama Canal,unknown,11.32,5,16,5,1,7,400.0,371.2,1705163828.3,True
+Panama Canal,unknown,9.34,4,2,1,1,6,400.0,467.4,1704767050.8,True
+Panama Canal,unknown,11.09,10,5,3,2,28,400.0,548.5,1708579147.9,True
+Panama Canal,tanker,7.58,13,6,5,2,37,400.0,616.5,1707546126.0,True
+Panama Canal,other,7.72,12,4,1,1,33,400.0,537.9,1705982835.0,True
+Panama Canal,unknown,9.06,13,16,6,1,52,400.0,585.6,1706459606.7,True
+Panama Canal,container,16.67,16,21,0,2,58,400.0,686.3,1708377324.7,True
+Panama Canal,container,8.37,5,10,5,3,10,400.0,281.7,1709375005.2,True
+Panama Canal,container,11.18,8,20,3,3,31,400.0,585.0,1709844039.5,True
+Panama Canal,other,8.2,10,6,2,2,23,400.0,600.7,1707891534.6,True
+Panama Canal,unknown,14.03,12,22,5,3,39,400.0,487.4,1711234222.4,True
+Panama Canal,other,11.68,9,13,1,1,21,400.0,373.1,1704807378.3,True
+Panama Canal,container,9.89,7,21,6,1,24,400.0,462.2,1705266905.6,True
+Panama Canal,container,12.19,2,8,5,3,0,400.0,292.0,1709974184.4,True
+Panama Canal,bulker,10.98,11,3,6,1,54,400.0,576.5,1705808601.5,True
+Panama Canal,unknown,5.73,8,9,5,2,24,400.0,586.4,1708163388.6,True
+Panama Canal,unknown,14.9,13,6,6,1,53,400.0,617.8,1706424899.3,True
+Panama Canal,container,12.45,11,21,0,1,43,400.0,557.5,1706562130.2,True
+Panama Canal,tanker,11.03,7,0,2,1,13,400.0,397.7,1706660884.2,True
+Panama Canal,bulker,10.04,5,8,5,3,17,400.0,395.1,1709971836.4,True
+Panama Canal,tanker,9.27,11,20,5,1,23,400.0,700.3,1704572226.2,True
+Panama Canal,other,14.53,5,0,5,2,11,400.0,421.7,1707525094.1,True
+Panama Canal,bulker,11.59,8,8,4,3,25,400.0,485.1,1711095959.0,True
+Panama Canal,container,12.82,2,18,1,3,9,400.0,395.9,1711478881.8,True
+Panama Canal,container,11.25,8,16,3,2,30,400.0,477.0,1706806004.3,True
+Panama Canal,container,13.56,12,22,2,3,34,400.0,483.7,1710369801.3,True
+Panama Canal,tanker,12.13,3,2,6,1,18,400.0,317.3,1705805838.3,True
+Panama Canal,unknown,12.55,9,15,6,3,33,400.0,525.2,1711295559.0,True
+Panama Canal,tanker,12.27,6,12,4,3,7,400.0,263.2,1711111495.7,True
+Panama Canal,other,10.21,14,13,2,2,45,400.0,570.0,1707311764.1,True
+Panama Canal,unknown,8.02,9,12,0,2,32,400.0,446.5,1707741116.4,True
+Panama Canal,other,8.84,8,18,5,1,33,400.0,382.7,1705774650.9,True
+Panama Canal,unknown,9.0,7,15,6,3,16,400.0,473.9,1710690191.7,True
+Panama Canal,bulker,9.12,2,13,6,1,7,400.0,293.9,1705238252.3,True
+Panama Canal,container,9.37,2,15,4,1,0,400.0,212.2,1706284311.8,True
+Panama Canal,container,11.41,7,13,2,2,15,400.0,408.7,1709127778.7,True
+Panama Canal,container,10.78,10,6,4,1,33,400.0,572.7,1704435568.6,True
+Panama Canal,container,7.65,16,21,2,1,48,400.0,539.0,1704316371.0,True
+Panama Canal,bulker,9.6,10,2,6,2,35,400.0,564.3,1707617312.0,True
+Panama Canal,tanker,8.98,6,8,4,2,27,400.0,511.3,1708072877.1,True
+Panama Canal,other,11.98,10,2,5,2,54,400.0,533.1,1708743474.6,True
+Panama Canal,tanker,12.09,7,19,3,1,30,400.0,404.6,1704396483.4,True
+Panama Canal,container,12.56,14,17,5,2,48,400.0,758.3,1707585901.7,True
+Panama Canal,tanker,10.93,10,2,1,3,43,400.0,637.6,1711418759.3,True
+Panama Canal,other,10.83,10,9,3,3,17,400.0,429.6,1711618746.9,True
+Panama Canal,tanker,14.27,8,2,0,2,21,400.0,587.5,1707098980.5,True
+Panama Canal,container,13.49,8,0,4,1,28,400.0,479.1,1705623826.4,True
+Panama Canal,other,7.55,6,12,1,3,18,400.0,477.5,1709640661.6,True
+Panama Canal,tanker,7.94,13,20,2,1,52,400.0,892.3,1706731648.7,True
+Panama Canal,other,6.47,8,14,2,3,44,400.0,402.0,1710341998.3,True
+Panama Canal,tanker,10.23,11,15,0,1,30,400.0,694.3,1705333572.5,True
+Panama Canal,bulker,7.48,8,19,2,1,17,400.0,507.6,1706124529.6,True
+Panama Canal,bulker,11.13,9,8,3,1,26,400.0,486.6,1705567514.9,True
+Panama Canal,unknown,13.56,10,4,4,1,32,400.0,543.7,1705638840.8,True
+Panama Canal,unknown,12.57,10,15,6,3,44,400.0,612.2,1710085353.1,True
+Panama Canal,unknown,6.48,6,18,6,1,12,400.0,458.0,1706465782.0,True
+Panama Canal,container,9.72,8,1,3,1,22,400.0,378.5,1704332979.1,True
+Panama Canal,bulker,13.28,11,6,2,2,37,400.0,647.9,1707287844.4,True
+Panama Canal,bulker,12.93,10,7,3,1,33,400.0,586.5,1706169371.4,True
+Panama Canal,container,16.52,10,5,3,2,41,400.0,544.7,1707976034.4,True
+Panama Canal,other,11.81,8,6,3,3,32,400.0,457.6,1711608143.8,True
+Panama Canal,unknown,10.76,15,15,3,3,50,400.0,893.6,1710429735.9,True
+Panama Canal,tanker,13.34,6,7,5,1,21,400.0,491.6,1704524806.2,True
+Panama Canal,tanker,11.56,5,16,3,1,21,400.0,478.9,1704990035.2,True
+Panama Canal,unknown,8.64,7,20,4,2,32,400.0,510.2,1707509293.2,True
+Panama Canal,unknown,18.03,14,0,6,3,39,400.0,607.4,1711239453.0,True
+Panama Canal,unknown,7.96,8,17,5,2,33,400.0,498.7,1707585453.0,True
+Panama Canal,container,16.3,8,11,3,1,26,400.0,317.3,1704368530.4,True
+Panama Canal,bulker,9.83,9,20,1,3,23,400.0,596.4,1710881054.0,True
+Panama Canal,tanker,11.43,10,4,5,2,36,400.0,580.5,1706935598.3,True
+Panama Canal,bulker,10.56,7,2,3,2,29,400.0,544.6,1706752901.3,True
+Panama Canal,container,12.53,11,21,4,3,55,400.0,600.3,1711141786.0,True
+Panama Canal,other,11.03,6,8,1,1,16,400.0,420.6,1704788699.7,True
+Panama Canal,other,11.21,6,14,0,2,16,400.0,345.5,1708957899.8,True
+Panama Canal,container,11.69,18,11,5,1,65,400.0,656.2,1705748910.2,True
+Panama Canal,other,10.9,5,9,4,1,21,400.0,332.3,1705656299.8,True
+Panama Canal,bulker,13.36,4,17,0,3,12,400.0,368.7,1709574042.6,True
+Panama Canal,other,8.41,14,10,0,1,53,400.0,702.6,1704104970.7,True
+Panama Canal,container,11.62,11,5,1,1,45,400.0,582.3,1706591629.2,True
+Panama Canal,bulker,12.19,9,14,6,2,27,400.0,600.8,1707058498.7,True
+Panama Canal,container,8.27,11,17,5,3,17,400.0,609.1,1711215253.6,True
+Panama Canal,container,9.63,17,19,4,1,60,400.0,801.6,1705692069.9,True
+Panama Canal,unknown,11.91,11,11,5,1,32,400.0,749.6,1705144802.4,True
+Panama Canal,bulker,14.01,14,7,1,1,49,400.0,782.6,1705391601.2,True
+Panama Canal,tanker,10.23,7,4,5,3,18,400.0,443.2,1710564282.8,True
+Panama Canal,container,15.84,8,8,3,2,26,400.0,553.8,1707381674.9,True
+Panama Canal,container,11.14,15,15,4,1,47,400.0,680.5,1704469606.0,True
+Panama Canal,bulker,12.05,8,23,4,2,12,400.0,612.7,1706917734.3,True
+Panama Canal,tanker,14.67,1,11,6,1,0,400.0,417.0,1705233144.9,True
+Panama Canal,other,9.77,9,13,6,1,28,400.0,719.6,1705238270.2,True
+Panama Canal,bulker,10.52,15,11,6,1,50,400.0,709.1,1704626000.2,True
+Panama Canal,container,14.76,7,4,2,1,28,400.0,477.9,1706070433.1,True
+Panama Canal,container,5.53,5,7,3,3,23,400.0,397.3,1711007602.7,True
+Panama Canal,container,10.12,6,8,5,3,21,400.0,590.9,1709369622.6,True
+Strait of Hormuz,tanker,12.97,6,11,5,2,32,500.0,237.3,1708170100.3,True
+Strait of Hormuz,other,12.26,0,0,4,3,0,500.0,201.9,1711067762.5,True
+Strait of Hormuz,other,9.71,3,15,1,3,14,500.0,184.4,1709653094.0,True
+Strait of Hormuz,tanker,6.1,9,8,4,2,27,500.0,185.3,1707466307.7,True
+Strait of Hormuz,container,10.54,8,10,2,2,35,500.0,246.5,1708511726.6,True
+Strait of Hormuz,tanker,8.84,7,17,1,2,13,500.0,265.1,1709055871.1,True
+Strait of Hormuz,bulker,14.94,6,2,5,3,31,500.0,178.3,1709347504.9,True
+Strait of Hormuz,unknown,12.54,7,5,4,2,32,500.0,149.0,1708665635.7,True
+Strait of Hormuz,bulker,13.83,10,12,4,1,44,500.0,233.2,1704458952.8,True
+Strait of Hormuz,container,8.45,14,12,2,1,52,500.0,233.1,1704889513.1,True
+Strait of Hormuz,unknown,10.68,13,4,1,2,50,500.0,282.5,1707194225.7,True
+Strait of Hormuz,other,10.06,20,18,3,3,80,500.0,314.6,1710439249.1,True
+Strait of Hormuz,container,8.93,12,19,4,1,38,500.0,240.0,1704481855.9,True
+Strait of Hormuz,other,7.85,2,18,3,1,2,500.0,201.0,1704996031.0,True
+Strait of Hormuz,bulker,14.31,8,8,5,1,32,500.0,251.9,1705740060.4,True
+Strait of Hormuz,container,8.73,12,5,5,3,49,500.0,144.6,1711170060.1,True
+Strait of Hormuz,other,8.8,17,11,1,1,42,500.0,266.4,1704195365.6,True
+Strait of Hormuz,bulker,14.44,13,15,3,2,46,500.0,281.5,1708011110.4,True
+Strait of Hormuz,container,9.1,13,13,1,1,38,500.0,339.5,1705411882.7,True
+Strait of Hormuz,bulker,12.38,14,16,4,1,41,500.0,320.6,1706285079.2,True
+Strait of Hormuz,container,11.9,16,1,5,3,49,500.0,238.2,1709341743.3,True
+Strait of Hormuz,container,11.31,13,22,2,2,56,500.0,240.5,1709160448.3,True
+Strait of Hormuz,tanker,15.46,9,19,6,2,13,500.0,284.5,1708887666.7,True
+Strait of Hormuz,container,10.82,12,21,6,1,39,500.0,284.7,1704663933.6,True
+Strait of Hormuz,container,11.36,10,5,1,2,35,500.0,275.1,1707196036.0,True
+Strait of Hormuz,container,12.2,12,14,1,2,40,500.0,221.6,1707230911.0,True
+Strait of Hormuz,bulker,16.05,8,20,2,1,25,500.0,273.7,1704312776.4,True
+Strait of Hormuz,bulker,11.97,1,17,3,3,10,500.0,128.7,1710437761.0,True
+Strait of Hormuz,unknown,11.12,11,1,4,3,43,500.0,324.5,1710467373.8,True
+Strait of Hormuz,bulker,6.48,11,0,3,2,36,500.0,365.5,1707352521.8,True
+Strait of Hormuz,container,11.95,9,21,2,3,33,500.0,180.6,1710970434.8,True
+Strait of Hormuz,container,10.78,13,20,3,1,40,500.0,260.7,1705609825.9,True
+Strait of Hormuz,other,12.56,11,15,2,3,40,500.0,341.1,1709739095.7,True
+Strait of Hormuz,container,14.09,6,0,4,3,13,500.0,125.9,1709857052.2,True
+Strait of Hormuz,bulker,11.51,9,15,5,3,36,500.0,214.8,1710604453.4,True
+Strait of Hormuz,container,6.83,4,7,6,1,3,500.0,176.9,1704612409.8,True
+Strait of Hormuz,other,13.33,9,9,3,2,25,500.0,310.6,1708592825.2,True
+Strait of Hormuz,bulker,9.62,10,19,6,3,25,500.0,320.1,1710705187.6,True
+Strait of Hormuz,container,8.53,10,23,1,1,50,500.0,228.2,1706051049.3,True
+Strait of Hormuz,other,12.66,9,21,2,1,24,500.0,262.5,1704317193.7,True
+Strait of Hormuz,bulker,10.61,15,20,0,3,68,500.0,256.1,1709584726.1,True
+Strait of Hormuz,bulker,14.22,2,6,1,1,10,500.0,226.3,1705989867.1,True
+Strait of Hormuz,bulker,12.12,9,2,1,2,18,500.0,223.7,1708394435.8,True
+Strait of Hormuz,unknown,10.0,10,14,0,3,34,500.0,243.9,1710169096.5,True
+Strait of Hormuz,tanker,12.21,8,1,2,1,33,500.0,272.4,1706665113.9,True
+Strait of Hormuz,other,14.08,11,9,1,1,37,500.0,288.8,1704791218.2,True
+Strait of Hormuz,bulker,10.4,2,19,2,1,3,500.0,141.3,1705518684.5,True
+Strait of Hormuz,other,14.5,8,9,2,3,30,500.0,254.3,1710926236.3,True
+Strait of Hormuz,tanker,8.22,13,17,5,3,43,500.0,329.4,1711214196.8,True
+Strait of Hormuz,other,11.76,0,16,5,3,0,500.0,197.7,1710607749.6,True
+Strait of Hormuz,bulker,11.17,9,22,3,2,19,500.0,262.5,1706825544.1,True
+Strait of Hormuz,other,6.66,15,9,1,2,49,500.0,233.7,1709026655.4,True
+Strait of Hormuz,other,7.84,17,16,6,2,68,500.0,209.4,1707064181.1,True
+Strait of Hormuz,other,8.64,8,9,0,2,23,500.0,342.6,1708940932.9,True
+Strait of Hormuz,bulker,6.56,6,15,4,2,14,500.0,295.4,1708700591.4,True
+Strait of Hormuz,tanker,11.98,12,1,4,1,42,500.0,199.1,1704416841.9,True
+Strait of Hormuz,container,11.83,12,2,4,2,44,500.0,275.2,1707446682.1,True
+Strait of Hormuz,other,9.64,13,12,3,3,42,500.0,170.0,1709814244.3,True
+Strait of Hormuz,container,12.44,13,15,6,2,52,500.0,232.6,1707665924.5,True
+Strait of Hormuz,container,12.16,8,2,4,1,25,500.0,287.7,1704422269.9,True
+Strait of Hormuz,bulker,11.24,11,22,6,1,34,500.0,260.7,1705875532.2,True
+Strait of Hormuz,container,9.04,9,21,0,1,33,500.0,273.5,1706562027.7,True
+Strait of Hormuz,tanker,12.43,8,7,2,2,26,500.0,244.3,1707289786.5,True
+Strait of Hormuz,container,11.27,6,2,1,2,8,500.0,125.8,1708397916.6,True
+Strait of Hormuz,container,9.95,8,12,5,1,15,500.0,220.3,1705752991.3,True
+Strait of Hormuz,bulker,13.11,13,11,0,2,51,500.0,284.7,1708341460.4,True
+Strait of Hormuz,container,15.61,9,10,4,1,35,500.0,149.1,1705053653.6,True
+Strait of Hormuz,container,8.51,13,16,3,3,57,500.0,235.2,1711644918.9,True
+Strait of Hormuz,unknown,10.58,10,17,5,3,40,500.0,270.9,1711820408.6,True
+Strait of Hormuz,container,9.45,7,9,0,3,26,500.0,259.9,1709544590.1,True
+Strait of Hormuz,unknown,8.95,10,21,6,3,26,500.0,242.1,1710710958.3,True
+Strait of Hormuz,container,12.58,4,9,5,1,9,500.0,341.7,1704533688.7,True
+Strait of Hormuz,container,11.16,16,16,4,1,44,500.0,169.0,1705681786.7,True
+Strait of Hormuz,bulker,5.39,10,0,1,1,30,500.0,235.0,1705969420.6,True
+Strait of Hormuz,unknown,12.88,13,15,2,2,39,500.0,256.7,1707319724.4,True
+Strait of Hormuz,bulker,10.17,8,7,6,1,16,500.0,270.2,1705217635.2,True
+Strait of Hormuz,bulker,13.45,5,6,3,3,12,500.0,200.4,1711608315.9,True
+Strait of Hormuz,container,9.66,14,15,2,2,61,500.0,245.9,1708529421.1,True
+Strait of Hormuz,other,9.79,12,18,3,3,46,500.0,247.9,1710439849.5,True
+Strait of Hormuz,bulker,15.58,16,22,1,1,58,500.0,324.2,1704840987.0,True
+Strait of Hormuz,bulker,9.31,7,22,5,2,18,500.0,283.2,1708813727.3,True
+Strait of Hormuz,tanker,13.17,7,23,2,2,12,500.0,299.5,1709161365.6,True
+Strait of Hormuz,container,10.0,15,2,4,3,40,500.0,321.9,1709865568.8,True
+Strait of Hormuz,other,11.57,9,8,5,1,41,500.0,255.0,1706345069.6,True
+Strait of Hormuz,other,10.26,13,5,1,1,49,500.0,156.2,1704779169.3,True
+Strait of Hormuz,container,15.88,10,17,5,1,37,500.0,226.8,1705165865.3,True
+Strait of Hormuz,other,14.52,3,20,1,1,12,500.0,303.4,1706041457.1,True
+Strait of Hormuz,other,9.54,9,4,1,2,29,500.0,250.3,1709009169.1,True
+Strait of Hormuz,bulker,9.47,9,11,6,2,23,500.0,251.2,1707651786.9,True
+Strait of Hormuz,tanker,9.88,4,10,0,3,19,500.0,311.4,1710154549.5,True
+Strait of Hormuz,bulker,10.85,16,18,4,2,47,500.0,261.4,1707503422.7,True
+Strait of Hormuz,unknown,10.16,13,20,2,3,43,500.0,287.7,1709756331.7,True
+Strait of Hormuz,container,6.07,8,14,4,3,35,500.0,207.8,1711118533.2,True
+Strait of Hormuz,bulker,11.3,8,8,3,2,32,500.0,225.7,1709194027.2,True
+Strait of Hormuz,container,7.94,1,17,5,3,1,500.0,210.1,1711214021.5,True
+Strait of Hormuz,tanker,12.84,7,4,2,1,27,500.0,214.2,1706070974.8,True
+Strait of Hormuz,tanker,11.89,5,20,4,3,15,500.0,265.9,1709323923.4,True
+Strait of Hormuz,container,14.15,9,0,1,3,35,500.0,184.0,1709597201.9,True
+Strait of Hormuz,bulker,12.31,11,13,3,1,27,500.0,327.3,1706188772.6,True
+Strait of Hormuz,unknown,9.87,9,18,6,2,35,500.0,220.9,1708279759.1,True
+Strait of Hormuz,other,11.5,14,20,3,1,56,500.0,263.7,1704401238.5,True
+Strait of Hormuz,tanker,16.19,11,7,6,1,33,500.0,306.7,1706425953.4,True
+Strait of Hormuz,tanker,8.86,15,1,1,3,53,500.0,206.4,1709601512.3,True
+Strait of Hormuz,tanker,11.57,5,18,2,1,9,500.0,222.8,1705514615.0,True
+Strait of Hormuz,container,13.42,10,19,2,3,23,500.0,198.1,1711566117.9,True
+Strait of Hormuz,container,14.32,5,21,6,1,17,500.0,298.6,1704663142.2,True
+Strait of Hormuz,tanker,13.63,13,14,3,1,57,500.0,278.0,1704379651.9,True
+Strait of Hormuz,tanker,11.59,6,5,2,2,26,500.0,320.7,1707889206.4,True
+Strait of Hormuz,container,10.62,7,22,4,1,27,500.0,159.8,1706309165.2,True
+Strait of Hormuz,unknown,11.61,12,22,0,2,48,500.0,250.9,1708382959.7,True
+Strait of Hormuz,tanker,9.33,12,10,2,2,27,500.0,243.9,1709116877.0,True
+Strait of Hormuz,container,12.34,14,15,3,2,51,500.0,235.5,1706802037.8,True
+Strait of Hormuz,bulker,10.01,11,4,1,1,53,500.0,300.8,1704168236.3,True
+Strait of Hormuz,tanker,8.73,11,12,5,1,34,500.0,262.0,1705148103.5,True
+Strait of Hormuz,tanker,7.36,8,2,3,1,38,500.0,253.7,1704939069.7,True
+Strait of Hormuz,container,11.85,7,23,3,2,15,500.0,188.1,1706829268.8,True
+Strait of Hormuz,unknown,13.44,12,1,1,2,57,500.0,287.8,1708392354.7,True
+Strait of Hormuz,other,11.95,12,9,3,1,40,500.0,180.6,1706173877.0,True
+Strait of Hormuz,tanker,8.55,4,20,3,1,5,500.0,223.9,1704401374.6,True
+Strait of Hormuz,tanker,8.05,10,23,2,1,35,500.0,311.6,1705535144.7,True
+Strait of Hormuz,container,9.57,8,21,0,3,27,500.0,206.2,1709587587.5,True
+Strait of Hormuz,tanker,11.8,11,19,3,2,41,500.0,243.3,1709235442.1,True
+Strait of Hormuz,bulker,13.54,5,21,2,2,29,500.0,179.9,1707341323.0,True
+Strait of Hormuz,container,11.21,15,19,1,2,35,500.0,165.0,1707853972.7,True
+Strait of Hormuz,tanker,12.54,9,17,0,1,27,500.0,239.8,1706549096.8,True
+Strait of Hormuz,container,12.36,8,0,0,3,15,500.0,253.4,1711325227.9,True
+Strait of Hormuz,tanker,11.65,6,3,2,1,19,500.0,269.8,1704858687.8,True
+Strait of Hormuz,other,11.46,13,9,5,2,43,500.0,250.0,1708766293.6,True
+Strait of Hormuz,bulker,9.38,11,17,3,1,39,500.0,223.8,1706205373.5,True
+Strait of Hormuz,other,15.03,11,7,5,1,29,500.0,261.8,1706340422.1,True
+Strait of Hormuz,other,13.7,6,11,4,3,5,500.0,216.0,1709291797.9,True
+Strait of Hormuz,bulker,5.73,13,11,3,1,48,500.0,253.2,1704368306.9,True
+Strait of Hormuz,container,9.15,15,0,4,3,44,500.0,186.9,1709253497.8,True
+Strait of Hormuz,container,11.69,9,11,6,3,26,500.0,248.9,1709464094.0,True
+Strait of Hormuz,tanker,9.9,9,16,0,1,35,500.0,284.8,1705336073.3,True
+Strait of Hormuz,container,12.29,22,19,4,1,82,500.0,307.7,1706296920.6,True
+Strait of Hormuz,tanker,10.56,12,0,1,3,52,500.0,320.9,1711411862.7,True
+Strait of Hormuz,tanker,12.93,14,15,3,3,57,500.0,265.9,1709824903.1,True
+Strait of Hormuz,unknown,12.46,11,2,5,3,38,500.0,218.5,1710555671.3,True
+Strait of Hormuz,tanker,10.01,2,12,3,2,7,500.0,219.3,1708001665.5,True
+Strait of Hormuz,tanker,10.13,3,21,6,1,5,500.0,311.9,1705871857.7,True
+Strait of Hormuz,container,11.44,11,7,3,2,48,500.0,190.7,1709191615.6,True
+Strait of Hormuz,unknown,10.14,6,22,3,3,16,500.0,200.8,1710456063.8,True
+Strait of Hormuz,bulker,5.35,9,0,1,1,16,500.0,213.4,1706573706.3,True
+Strait of Hormuz,other,11.76,8,2,2,3,25,500.0,220.5,1710902062.0,True
+Strait of Hormuz,unknown,9.48,9,7,1,2,37,500.0,228.2,1708415867.6,True
+Strait of Hormuz,other,15.7,11,20,1,1,33,500.0,240.7,1704226164.6,True
+Strait of Hormuz,bulker,9.72,3,8,1,3,4,500.0,153.5,1710233729.7,True
+Strait of Hormuz,container,8.74,12,17,0,2,53,500.0,152.4,1708362139.5,True
+Strait of Hormuz,other,13.63,7,18,1,2,35,500.0,171.9,1708455167.3,True
+Strait of Hormuz,container,5.51,9,18,4,1,31,500.0,229.8,1705689626.1,True
+Strait of Hormuz,container,13.36,10,5,5,3,24,500.0,283.3,1709963737.2,True
+Strait of Hormuz,other,18.04,6,15,1,3,27,500.0,241.1,1709651735.0,True
+Strait of Hormuz,unknown,14.51,3,15,0,3,13,500.0,221.6,1709566909.7,True
+Strait of Hormuz,unknown,10.29,10,21,6,2,32,500.0,334.0,1708292300.6,True
+Strait of Hormuz,other,10.18,14,21,3,2,36,500.0,300.0,1707428961.5,True
+Strait of Hormuz,other,15.85,12,14,0,2,45,500.0,313.8,1707748944.7,True
+Strait of Hormuz,unknown,12.93,9,7,6,1,21,500.0,177.2,1706427858.7,True
+Strait of Hormuz,other,14.41,18,4,1,2,57,500.0,335.9,1707800302.7,True
+Strait of Hormuz,container,12.38,14,17,4,2,51,500.0,271.5,1708104702.2,True
+Strait of Hormuz,tanker,9.75,10,23,0,3,45,500.0,307.9,1709596475.3,True
+Strait of Hormuz,other,11.66,12,11,1,2,32,500.0,237.3,1707822291.3,True
+Strait of Hormuz,bulker,14.6,10,0,1,1,25,500.0,304.4,1706573558.1,True
+Strait of Hormuz,unknown,14.31,9,6,1,3,37,500.0,187.2,1710225972.7,True
+Strait of Hormuz,bulker,12.36,11,3,0,3,26,500.0,286.2,1710127484.3,True
+Strait of Hormuz,bulker,10.24,11,18,5,3,41,500.0,260.5,1711825124.3,True
+Strait of Hormuz,bulker,10.22,10,4,0,3,31,500.0,217.8,1711342043.5,True
+Strait of Hormuz,container,10.72,3,11,1,1,11,500.0,191.6,1706613933.9,True
+Strait of Hormuz,bulker,13.34,4,20,0,1,17,500.0,274.0,1706560061.7,True
+Strait of Hormuz,container,12.01,9,11,1,2,29,500.0,194.8,1708426836.5,True
+Bab el-Mandeb,tanker,9.14,12,21,4,2,39,650.0,235.0,1708723922.7,True
+Bab el-Mandeb,other,12.02,9,2,6,2,23,650.0,152.2,1708222526.8,True
+Bab el-Mandeb,other,14.45,9,12,3,2,28,650.0,198.5,1706789136.1,True
+Bab el-Mandeb,tanker,12.96,12,6,4,1,21,650.0,201.8,1705646891.1,True
+Bab el-Mandeb,bulker,12.39,10,18,4,3,29,650.0,213.8,1711130496.0,True
+Bab el-Mandeb,container,16.08,11,4,6,2,32,650.0,180.1,1707022067.5,True
+Bab el-Mandeb,bulker,15.5,15,1,2,3,57,650.0,198.1,1710896975.3,True
+Bab el-Mandeb,tanker,14.49,2,7,3,2,16,650.0,246.5,1707377540.6,True
+Bab el-Mandeb,tanker,6.88,13,7,6,2,55,650.0,230.6,1707033045.9,True
+Bab el-Mandeb,container,9.84,7,22,5,1,25,650.0,166.0,1706395423.8,True
+Bab el-Mandeb,bulker,11.87,7,14,5,3,19,650.0,195.2,1709388362.1,True
+Bab el-Mandeb,other,16.06,9,2,1,3,40,650.0,149.2,1710813641.0,True
+Bab el-Mandeb,container,9.37,14,3,2,3,57,650.0,177.9,1710302010.9,True
+Bab el-Mandeb,bulker,7.63,10,18,3,3,36,650.0,244.3,1710441395.4,True
+Bab el-Mandeb,tanker,14.56,4,14,4,3,19,650.0,221.0,1711119273.2,True
+Bab el-Mandeb,tanker,12.8,13,14,1,3,55,650.0,217.4,1710255302.0,True
+Bab el-Mandeb,bulker,11.04,10,12,1,3,25,650.0,181.5,1709642743.4,True
+Bab el-Mandeb,bulker,8.25,10,13,5,2,33,650.0,198.5,1707572135.5,True
+Bab el-Mandeb,tanker,7.6,2,20,0,1,1,650.0,142.6,1705350851.2,True
+Bab el-Mandeb,container,12.4,7,3,4,2,32,650.0,148.6,1708052811.4,True
+Bab el-Mandeb,other,17.57,11,14,3,3,34,650.0,204.6,1710426536.7,True
+Bab el-Mandeb,bulker,9.03,15,15,0,1,59,650.0,204.4,1704727963.7,True
+Bab el-Mandeb,bulker,9.15,6,12,4,1,14,650.0,198.1,1705061613.4,True
+Bab el-Mandeb,other,10.3,9,14,1,2,27,650.0,197.0,1708439874.1,True
+Bab el-Mandeb,tanker,12.92,6,14,4,1,23,650.0,199.7,1705673953.5,True
+Bab el-Mandeb,tanker,13.28,13,5,0,3,37,650.0,248.6,1711343076.0,True
+Bab el-Mandeb,other,9.16,10,2,0,2,40,650.0,265.4,1707101851.1,True
+Bab el-Mandeb,container,14.86,8,10,6,2,21,650.0,150.8,1708253369.2,True
+Bab el-Mandeb,container,18.0,12,4,0,2,33,650.0,127.0,1708922240.8,True
+Bab el-Mandeb,bulker,9.42,8,16,5,3,27,650.0,211.1,1709398365.2,True
+Bab el-Mandeb,other,7.82,9,17,5,2,31,650.0,123.4,1708796010.5,True
+Bab el-Mandeb,container,10.84,12,23,3,1,53,650.0,204.7,1706226579.1,True
+Bab el-Mandeb,tanker,7.64,8,13,0,3,20,650.0,208.4,1709558954.2,True
+Bab el-Mandeb,container,10.82,11,4,1,1,30,650.0,185.3,1706587589.9,True
+Bab el-Mandeb,container,7.96,17,0,3,1,72,650.0,193.3,1704934390.0,True
+Bab el-Mandeb,other,10.06,16,16,2,2,74,650.0,153.7,1707322125.7,True
+Bab el-Mandeb,bulker,13.1,5,19,4,3,18,650.0,169.8,1711741273.8,True
+Bab el-Mandeb,bulker,4.44,13,2,5,2,37,650.0,208.2,1708135354.1,True
+Bab el-Mandeb,container,9.68,8,21,5,1,32,650.0,199.5,1705181890.1,True
+Bab el-Mandeb,container,10.25,16,5,0,2,51,650.0,226.0,1708320798.2,True
+Bab el-Mandeb,container,13.14,8,10,6,1,18,650.0,172.1,1706438190.6,True
+Bab el-Mandeb,container,9.06,9,3,3,2,36,650.0,176.5,1706757702.7,True
+Bab el-Mandeb,container,7.54,9,21,4,3,31,650.0,176.9,1711142871.5,True
+Bab el-Mandeb,tanker,17.85,9,20,2,1,22,650.0,170.7,1706731943.3,True
+Bab el-Mandeb,bulker,11.23,8,17,5,2,31,650.0,153.9,1708797346.7,True
+Bab el-Mandeb,other,12.79,5,6,3,2,12,650.0,214.3,1707375286.4,True
+Bab el-Mandeb,bulker,11.79,16,5,1,3,59,650.0,212.9,1711430420.6,True
+Bab el-Mandeb,container,12.0,4,0,3,2,19,650.0,162.6,1706748876.5,True
+Bab el-Mandeb,bulker,11.81,15,23,4,2,36,650.0,186.7,1708125394.5,True
+Bab el-Mandeb,container,9.19,8,15,2,2,20,650.0,122.6,1709135717.5,True
+Bab el-Mandeb,unknown,7.58,3,19,5,1,13,650.0,143.5,1705778939.3,True
+Bab el-Mandeb,tanker,10.42,3,2,1,1,4,650.0,250.4,1706583307.0,True
+Bab el-Mandeb,bulker,14.38,4,10,1,3,0,650.0,162.1,1709635593.4,True
+Bab el-Mandeb,bulker,9.37,8,17,6,1,33,650.0,200.3,1705252779.6,True
+Bab el-Mandeb,container,11.03,12,20,1,2,40,650.0,200.7,1708461791.7,True
+Bab el-Mandeb,other,12.89,5,9,3,1,20,650.0,198.0,1705570964.6,True
+Bab el-Mandeb,bulker,11.17,11,4,1,2,35,650.0,200.9,1707799921.1,True
+Bab el-Mandeb,other,10.87,14,4,0,1,55,650.0,132.9,1706503618.4,True
+Bab el-Mandeb,bulker,10.83,19,5,6,3,70,650.0,222.2,1711257280.1,True
+Bab el-Mandeb,other,8.93,7,5,4,3,19,650.0,211.2,1709269635.1,True
+Bab el-Mandeb,other,8.51,6,13,0,2,14,650.0,149.5,1707139617.1,True
+Bab el-Mandeb,unknown,15.25,10,0,1,3,31,650.0,192.5,1710203568.5,True
+Bab el-Mandeb,container,11.82,13,18,2,2,43,650.0,169.3,1707330465.2,True
+Bab el-Mandeb,other,12.1,5,13,5,2,12,650.0,137.8,1707571792.2,True
+Bab el-Mandeb,tanker,12.5,7,12,6,2,24,650.0,219.3,1708260610.0,True
+Bab el-Mandeb,container,13.24,11,18,2,1,41,650.0,241.2,1705517076.4,True
+Bab el-Mandeb,bulker,8.9,11,13,5,1,33,650.0,208.2,1706361432.1,True
+Bab el-Mandeb,bulker,10.72,10,12,2,3,40,650.0,223.4,1709727146.0,True
+Bab el-Mandeb,unknown,7.61,11,2,6,3,34,650.0,160.0,1710038059.0,True
+Bab el-Mandeb,unknown,11.49,9,20,1,3,34,650.0,166.8,1710274095.3,True
+Bab el-Mandeb,container,16.5,10,20,1,3,35,650.0,150.2,1710275808.7,True
+Bab el-Mandeb,other,7.39,9,19,1,1,26,650.0,172.5,1704225585.3,True
+Bab el-Mandeb,bulker,13.22,10,0,3,1,41,650.0,206.4,1704327568.2,True
+Bab el-Mandeb,container,12.78,13,9,2,2,61,650.0,177.0,1707299513.6,True
+Bab el-Mandeb,bulker,11.45,7,13,5,2,22,650.0,160.7,1707573590.8,True
+Bab el-Mandeb,container,10.61,9,9,1,1,35,650.0,210.5,1706002488.8,True
+Bab el-Mandeb,container,10.01,8,14,5,3,36,650.0,198.2,1711809528.4,True
+Bab el-Mandeb,other,10.95,14,21,3,3,64,650.0,140.5,1711056400.2,True
+Bab el-Mandeb,container,9.09,10,8,2,1,42,650.0,187.6,1704876951.3,True
+Bab el-Mandeb,tanker,10.45,11,5,5,3,40,650.0,206.1,1710567041.9,True
+Bab el-Mandeb,container,4.95,13,10,4,1,54,650.0,224.1,1705661673.5,True
+Bab el-Mandeb,other,12.37,7,13,5,1,28,650.0,152.7,1704546388.2,True
+Bab el-Mandeb,tanker,9.39,7,1,2,2,30,650.0,159.0,1708480471.0,True
+Bab el-Mandeb,bulker,10.24,14,6,1,1,48,650.0,177.1,1704176800.0,True
+Bab el-Mandeb,tanker,8.37,9,2,1,2,31,650.0,236.5,1708395783.5,True
+Bab el-Mandeb,container,19.64,9,11,1,1,28,650.0,156.6,1705403656.2,True
+Bab el-Mandeb,other,10.71,17,18,3,2,51,650.0,189.1,1708023575.4,True
+Bab el-Mandeb,container,9.6,7,14,2,1,20,650.0,202.1,1706713047.9,True
+Bab el-Mandeb,unknown,12.33,4,20,6,2,6,650.0,158.8,1707684347.4,True
+Bab el-Mandeb,other,12.26,9,17,5,3,32,650.0,195.2,1709400504.1,True
+Bab el-Mandeb,container,12.02,7,14,0,3,27,650.0,99.0,1710773831.8,True
+Bab el-Mandeb,tanker,16.89,4,15,0,1,9,650.0,191.5,1704124339.1,True
+Bab el-Mandeb,tanker,13.51,18,11,5,1,54,650.0,239.3,1705749843.3,True
+Bab el-Mandeb,container,6.9,11,20,2,3,32,650.0,183.5,1710362487.9,True
+Bab el-Mandeb,tanker,14.47,18,5,1,3,70,650.0,222.3,1709618180.7,True
+Bab el-Mandeb,other,11.75,10,14,0,3,41,650.0,176.0,1711376504.6,True
+Bab el-Mandeb,other,12.19,14,18,6,2,60,650.0,180.4,1708885811.2,True
+Bab el-Mandeb,container,9.28,5,16,6,2,16,650.0,167.9,1708876968.9,True
+Bab el-Mandeb,tanker,12.76,14,19,5,3,61,650.0,252.2,1711223937.7,True
+Bab el-Mandeb,other,10.8,10,15,1,1,21,650.0,180.9,1704208964.8,True
+Bab el-Mandeb,other,9.12,5,2,0,1,20,650.0,164.2,1705889082.6,True
+Bab el-Mandeb,tanker,10.33,15,11,2,1,54,650.0,227.5,1705489455.2,True
+Bab el-Mandeb,bulker,13.79,3,5,0,1,17,650.0,162.3,1706507982.6,True
+Bab el-Mandeb,container,13.17,6,0,4,3,21,650.0,144.7,1709858012.8,True
+Bab el-Mandeb,container,7.82,9,16,3,1,37,650.0,179.8,1704991203.0,True
+Bab el-Mandeb,bulker,10.4,13,15,3,3,32,650.0,174.6,1711036712.9,True
+Bab el-Mandeb,other,9.97,8,8,5,3,22,650.0,152.6,1711184395.6,True
+Bab el-Mandeb,container,7.07,8,16,4,2,34,650.0,203.4,1708102403.1,True
+Bab el-Mandeb,tanker,15.19,7,1,0,3,20,650.0,175.7,1710119281.0,True
+Bab el-Mandeb,tanker,11.0,10,17,5,3,14,650.0,260.8,1711215071.0,True
+Bab el-Mandeb,tanker,11.11,10,13,6,1,38,650.0,197.1,1705238675.8,True
+Bab el-Mandeb,container,18.56,6,5,2,1,17,650.0,162.0,1705469301.8,True
+Bab el-Mandeb,unknown,13.61,8,7,0,1,35,650.0,194.7,1705909028.0,True
+Bab el-Mandeb,bulker,13.55,16,1,2,2,38,650.0,186.8,1708478995.7,True
+Bab el-Mandeb,container,5.9,9,0,2,3,28,650.0,165.6,1710893857.5,True
+Bab el-Mandeb,container,5.36,6,19,1,1,15,650.0,174.6,1704224732.1,True
+Bab el-Mandeb,other,8.43,4,9,6,1,11,650.0,187.3,1705225651.6,True
+Bab el-Mandeb,tanker,11.85,11,5,3,3,54,650.0,183.1,1711604895.8,True
+Bab el-Mandeb,tanker,10.66,9,12,4,3,28,650.0,148.4,1711109280.9,True
+Bab el-Mandeb,container,5.49,13,9,0,1,46,650.0,176.0,1705916608.0,True
+Bab el-Mandeb,tanker,12.19,11,19,0,3,37,650.0,222.7,1710789166.2,True
+Bab el-Mandeb,bulker,14.99,3,12,6,3,5,650.0,211.8,1710680152.9,True
+Bab el-Mandeb,container,11.16,11,1,0,3,37,650.0,143.6,1710724972.8,True
+Bab el-Mandeb,other,14.87,7,18,0,2,26,650.0,209.1,1707157958.5,True
+Bab el-Mandeb,bulker,14.57,3,23,1,3,8,650.0,195.8,1710890073.0,True
+Bab el-Mandeb,other,11.78,14,1,1,1,59,650.0,232.7,1705974387.2,True
+Bab el-Mandeb,container,8.49,7,4,2,3,20,650.0,167.1,1709698514.7,True
+Bab el-Mandeb,container,6.86,9,7,1,2,33,650.0,179.3,1707811191.8,True
+Bab el-Mandeb,bulker,7.51,13,16,2,1,57,650.0,213.4,1704297617.5,True
+Bab el-Mandeb,other,8.31,10,7,2,3,38,650.0,180.6,1709710308.5,True
+Bab el-Mandeb,tanker,7.64,9,3,4,3,37,650.0,212.7,1709868906.5,True
+Bab el-Mandeb,container,11.53,7,16,3,1,14,650.0,160.4,1706199679.1,True
+Bab el-Mandeb,tanker,10.97,12,19,2,2,51,650.0,276.8,1708545221.6,True
+Bab el-Mandeb,tanker,13.22,17,22,3,3,66,650.0,234.4,1710454205.3,True
+Bab el-Mandeb,container,11.54,11,7,4,3,41,650.0,186.9,1711697495.3,True
+Bab el-Mandeb,bulker,8.37,16,4,0,1,66,650.0,202.8,1705898074.9,True
+Bab el-Mandeb,container,11.81,6,8,2,1,28,650.0,144.6,1705480997.0,True
+Bab el-Mandeb,bulker,13.71,4,23,6,3,25,650.0,200.3,1709509796.3,True
+Bab el-Mandeb,bulker,8.71,5,7,6,1,20,650.0,171.5,1706428344.6,True
+Bab el-Mandeb,unknown,13.39,10,4,5,2,34,650.0,178.8,1707539935.9,True
+Bab el-Mandeb,tanker,8.36,13,1,0,2,44,650.0,202.9,1708910489.1,True
+Bab el-Mandeb,tanker,11.47,9,8,1,1,36,650.0,237.9,1706601893.0,True
+Bab el-Mandeb,container,10.98,4,21,5,1,6,650.0,125.6,1705785135.1,True
+Bab el-Mandeb,container,11.68,14,15,5,3,57,650.0,154.0,1711208648.9,True
+Bab el-Mandeb,unknown,14.11,8,4,4,1,25,650.0,153.0,1705034914.2,True
+Bab el-Mandeb,tanker,15.45,11,18,5,3,40,650.0,211.8,1709402541.5,True
+Bab el-Mandeb,tanker,9.16,12,15,2,1,46,650.0,197.2,1706713718.6,True
+Bab el-Mandeb,unknown,12.61,10,0,3,1,25,650.0,156.7,1704933174.0,True
+Bab el-Mandeb,other,12.09,11,8,3,3,25,650.0,193.9,1709799292.0,True
+Bab el-Mandeb,container,10.12,13,10,2,3,43,650.0,184.5,1709720474.4,True
+Bab el-Mandeb,bulker,14.75,12,19,6,3,44,650.0,186.6,1710099243.9,True
+Bab el-Mandeb,container,12.89,8,12,3,2,34,650.0,154.2,1707394505.8,True
+Bab el-Mandeb,tanker,11.11,12,0,3,2,43,650.0,220.7,1706748101.9,True
+Bab el-Mandeb,other,8.15,15,2,6,2,53,650.0,197.9,1708829576.3,True
+Bab el-Mandeb,bulker,15.15,7,11,0,1,30,650.0,155.3,1706527994.1,True
+Bab el-Mandeb,bulker,11.17,9,10,4,1,33,650.0,246.6,1704452383.7,True
+Bab el-Mandeb,container,8.42,7,10,6,1,13,650.0,115.0,1704623862.9,True
+Bab el-Mandeb,unknown,4.0,5,16,5,2,24,650.0,154.4,1708186929.6,True
+Bab el-Mandeb,container,10.95,13,20,5,1,41,650.0,154.9,1704574317.0,True
+Bab el-Mandeb,bulker,8.64,9,12,3,1,34,650.0,204.2,1706186071.3,True
+Bab el-Mandeb,tanker,11.18,6,9,0,1,14,650.0,157.7,1704101421.6,True
+Bab el-Mandeb,unknown,17.3,7,23,2,2,40,650.0,213.7,1709164300.9,True
+Bab el-Mandeb,container,9.88,0,16,0,1,6,650.0,145.5,1706546954.9,True
+Bab el-Mandeb,container,8.65,13,10,0,1,49,650.0,228.4,1706523105.6,True
+Bab el-Mandeb,other,9.23,7,18,4,1,20,650.0,126.0,1705690260.2,True
+Bab el-Mandeb,other,11.66,11,6,4,2,51,650.0,179.4,1707459452.9,True
+Bab el-Mandeb,container,11.02,14,10,1,1,56,650.0,168.3,1704190965.2,True
+Bab el-Mandeb,container,12.06,12,20,3,2,42,650.0,152.8,1709237491.0,True
+Bab el-Mandeb,other,8.79,14,19,4,3,42,650.0,241.1,1711135374.1,True
+Bab el-Mandeb,tanker,4.14,10,15,6,1,34,650.0,196.5,1704640258.8,True
+Strait of Malacca,tanker,8.36,8,14,3,2,20,650.0,496.4,1707403688.1,True
+Strait of Malacca,tanker,10.03,1,3,4,1,8,650.0,427.1,1705635526.0,True
+Strait of Malacca,container,10.72,8,17,0,2,25,650.0,439.3,1708967911.2,True
+Strait of Malacca,bulker,8.37,5,14,3,2,21,650.0,540.4,1709216567.7,True
+Strait of Malacca,container,9.48,17,0,1,1,47,650.0,549.3,1705968716.4,True
+Strait of Malacca,container,11.75,21,21,6,2,61,650.0,594.3,1707080404.2,True
+Strait of Malacca,container,15.0,4,2,6,3,15,650.0,261.0,1710641480.6,True
+Strait of Malacca,bulker,8.87,12,4,3,1,49,650.0,526.1,1706156729.0,True
+Strait of Malacca,unknown,11.78,6,21,2,2,21,650.0,372.2,1707946093.7,True
+Strait of Malacca,tanker,6.69,12,22,3,1,45,650.0,584.0,1705013463.7,True
+Strait of Malacca,unknown,13.12,11,3,1,1,38,650.0,470.0,1706586465.0,True
+Strait of Malacca,bulker,13.43,9,19,3,1,28,650.0,432.7,1706211525.9,True
+Strait of Malacca,other,11.17,9,19,4,1,34,650.0,473.0,1706296517.2,True
+Strait of Malacca,tanker,10.63,17,17,4,2,40,650.0,487.3,1706896085.3,True
+Strait of Malacca,container,12.9,7,13,4,3,33,650.0,410.8,1711717388.2,True
+Strait of Malacca,unknown,6.13,4,12,6,1,8,650.0,404.9,1705838659.5,True
+Strait of Malacca,tanker,14.0,5,20,0,1,9,650.0,509.2,1705956658.1,True
+Strait of Malacca,bulker,13.17,9,5,0,1,33,650.0,550.2,1705899676.3,True
+Strait of Malacca,container,16.09,9,8,6,1,23,650.0,435.9,1704617744.5,True
+Strait of Malacca,bulker,10.44,7,1,3,3,22,650.0,536.1,1710380390.5,True
+Strait of Malacca,unknown,8.75,10,22,1,1,19,650.0,618.8,1706655094.6,True
+Strait of Malacca,bulker,8.0,4,8,0,3,16,650.0,455.7,1709539714.0,True
+Strait of Malacca,other,9.65,5,8,6,2,15,650.0,412.3,1708851228.9,True
+Strait of Malacca,container,14.98,10,15,6,3,28,650.0,526.8,1710086011.3,True
+Strait of Malacca,container,8.86,6,8,2,3,23,650.0,468.9,1709714354.3,True
+Strait of Malacca,container,11.18,1,18,5,3,9,650.0,413.0,1711217024.4,True
+Strait of Malacca,tanker,9.72,6,23,0,1,17,650.0,457.5,1706571896.3,True
+Strait of Malacca,tanker,11.26,14,8,6,2,61,650.0,548.9,1708849344.8,True
+Strait of Malacca,bulker,11.47,13,13,6,1,44,650.0,451.5,1705239386.6,True
+Strait of Malacca,container,13.64,15,7,0,1,43,650.0,431.3,1705304499.6,True
+Strait of Malacca,container,11.64,7,17,3,1,21,650.0,480.0,1706203154.7,True
+Strait of Malacca,container,9.11,8,4,6,1,27,650.0,557.4,1706415950.6,True
+Strait of Malacca,container,13.82,13,6,3,2,63,650.0,469.4,1707979905.7,True
+Strait of Malacca,other,5.69,10,22,1,2,39,650.0,425.8,1707861702.7,True
+Strait of Malacca,other,9.38,8,15,4,1,33,650.0,443.4,1704468282.5,True
+Strait of Malacca,bulker,7.47,9,2,2,2,29,650.0,348.1,1707272705.5,True
+Strait of Malacca,container,13.82,12,21,1,2,21,650.0,503.2,1709070762.3,True
+Strait of Malacca,bulker,12.05,4,7,4,3,20,650.0,498.9,1710486045.6,True
+Strait of Malacca,tanker,9.59,9,2,6,2,31,650.0,547.7,1708827277.4,True
+Strait of Malacca,bulker,8.77,10,20,4,1,38,650.0,500.4,1704485352.1,True
+Strait of Malacca,unknown,6.87,3,18,3,1,13,650.0,398.7,1704392715.2,True
+Strait of Malacca,tanker,15.19,4,18,5,1,9,650.0,466.8,1705774064.3,True
+Strait of Malacca,unknown,9.06,13,22,6,2,52,650.0,483.6,1708899832.8,True
+Strait of Malacca,container,10.57,9,12,1,2,35,650.0,336.8,1707825613.1,True
+Strait of Malacca,container,13.53,9,15,5,1,19,650.0,492.8,1704555247.2,True
+Strait of Malacca,container,8.94,10,13,0,3,39,650.0,347.5,1711372946.7,True
+Strait of Malacca,container,8.38,5,4,4,1,13,650.0,487.2,1705032590.5,True
+Strait of Malacca,container,11.08,7,8,4,1,27,650.0,421.6,1704444293.9,True
+Strait of Malacca,unknown,13.0,5,6,0,1,19,650.0,446.5,1704092143.0,True
+Strait of Malacca,tanker,9.31,13,12,2,2,64,650.0,517.3,1708518878.9,True
+Strait of Malacca,container,11.1,14,20,4,2,36,650.0,484.2,1707512372.3,True
+Strait of Malacca,tanker,11.25,7,7,6,2,13,650.0,552.6,1707637760.6,True
+Strait of Malacca,unknown,16.08,4,14,5,2,13,650.0,482.4,1707575641.4,True
+Strait of Malacca,tanker,13.69,8,9,3,1,17,650.0,459.2,1704361646.9,True
+Strait of Malacca,tanker,10.66,14,5,1,2,39,650.0,503.0,1707803674.6,True
+Strait of Malacca,other,10.53,12,9,5,3,42,650.0,492.6,1711185648.6,True
+Strait of Malacca,bulker,10.5,13,9,4,2,32,650.0,575.6,1707470070.1,True
+Strait of Malacca,tanker,9.72,9,18,2,2,32,650.0,550.8,1709145422.4,True
+Strait of Malacca,unknown,11.03,6,5,2,1,18,650.0,383.6,1706074352.8,True
+Strait of Malacca,tanker,9.55,11,11,3,1,33,650.0,523.1,1705575744.3,True
+Strait of Malacca,container,11.28,3,12,1,1,6,650.0,368.4,1706616802.0,True
+Strait of Malacca,container,11.12,9,8,0,3,22,650.0,489.7,1710752305.5,True
+Strait of Malacca,bulker,5.71,7,4,2,3,19,650.0,411.6,1711513438.8,True
+Strait of Malacca,bulker,6.28,7,22,0,2,33,650.0,561.4,1708381522.3,True
+Strait of Malacca,bulker,8.61,8,14,5,3,28,650.0,495.1,1709995636.7,True
+Strait of Malacca,tanker,9.33,7,4,6,2,33,650.0,506.4,1708836681.4,True
+Strait of Malacca,bulker,12.54,10,13,2,1,32,650.0,563.6,1705497474.3,True
+Strait of Malacca,container,11.82,12,15,0,2,32,650.0,552.8,1707146954.4,True
+Strait of Malacca,tanker,10.45,7,17,0,3,24,650.0,481.3,1710784302.8,True
+Strait of Malacca,bulker,7.33,9,22,2,1,30,650.0,488.8,1706740638.9,True
+Strait of Malacca,bulker,9.91,7,13,6,3,24,650.0,457.6,1709472012.9,True
+Strait of Malacca,other,13.31,12,10,3,2,51,650.0,573.2,1708596173.6,True
+Strait of Malacca,container,10.31,10,4,5,3,35,650.0,437.3,1711168368.1,True
+Strait of Malacca,container,9.43,18,12,2,2,46,650.0,451.0,1707307221.3,True
+Strait of Malacca,other,9.25,13,14,2,3,41,650.0,547.3,1710945057.6,True
+Strait of Malacca,container,13.64,9,17,5,3,34,650.0,397.4,1711820077.0,True
+Strait of Malacca,other,12.96,15,11,5,1,35,650.0,539.2,1705749923.0,True
+Strait of Malacca,container,13.26,12,2,0,3,42,650.0,499.9,1710125510.7,True
+Strait of Malacca,container,12.85,1,1,4,3,0,650.0,454.3,1711675006.8,True
+Strait of Malacca,container,6.39,7,16,3,1,35,650.0,409.7,1704384737.6,True
+Strait of Malacca,other,8.51,11,22,3,2,39,650.0,503.9,1706825001.8,True
+Strait of Malacca,tanker,15.43,13,23,2,1,48,650.0,492.2,1705534784.3,True
+Strait of Malacca,tanker,9.15,15,15,6,2,53,650.0,595.2,1707059363.1,True
+Strait of Malacca,bulker,13.98,13,13,3,3,48,650.0,644.6,1710423221.0,True
+Strait of Malacca,bulker,8.54,12,20,2,3,33,650.0,559.9,1709756687.6,True
+Strait of Malacca,unknown,14.32,13,1,3,3,46,650.0,522.8,1710380348.6,True
+Strait of Malacca,container,11.05,6,8,6,2,19,650.0,553.4,1708246011.7,True
+Strait of Malacca,tanker,12.0,11,17,5,2,37,650.0,635.3,1708191586.8,True
+Strait of Malacca,other,11.79,13,13,2,1,36,650.0,509.3,1704893146.9,True
+Strait of Malacca,unknown,9.33,9,16,1,1,34,650.0,569.6,1704818559.8,True
+Strait of Malacca,unknown,13.48,11,20,4,1,31,650.0,483.6,1705697022.0,True
+Strait of Malacca,unknown,9.93,9,22,4,2,39,650.0,453.5,1706914431.9,True
+Strait of Malacca,bulker,15.99,11,3,0,1,41,650.0,633.3,1706498063.7,True
+Strait of Malacca,tanker,10.84,11,13,6,1,29,650.0,538.5,1706448674.3,True
+Strait of Malacca,container,10.21,15,17,1,3,51,650.0,545.5,1710870415.2,True
+Strait of Malacca,tanker,14.82,11,8,6,2,26,650.0,458.9,1708244367.3,True
+Strait of Malacca,bulker,7.44,16,2,6,1,62,650.0,516.1,1705199251.0,True
+Strait of Malacca,bulker,13.94,11,8,5,3,42,650.0,595.7,1711184151.2,True
+Strait of Malacca,container,11.59,10,13,5,3,19,650.0,360.9,1710596019.7,True
+Strait of Malacca,container,14.22,13,11,0,2,49,650.0,529.6,1708341115.7,True
+Strait of Malacca,tanker,10.35,13,9,4,3,36,650.0,602.6,1709284284.5,True
+Strait of Malacca,container,9.43,12,2,2,3,63,650.0,473.9,1710902334.2,True
+Strait of Malacca,bulker,8.28,11,2,2,1,27,650.0,468.1,1704854126.9,True
+Strait of Malacca,container,12.21,11,3,2,3,34,650.0,382.2,1710904156.4,True
+Strait of Malacca,other,6.99,7,9,4,3,21,650.0,539.8,1711705026.9,True
+Strait of Malacca,container,8.43,17,12,1,3,65,650.0,532.2,1709642270.0,True
+Strait of Malacca,tanker,12.4,13,9,3,2,44,650.0,482.2,1707385450.9,True
+Strait of Malacca,container,14.69,13,5,2,2,53,650.0,529.5,1707284299.7,True
+Strait of Malacca,container,11.67,8,7,0,2,35,650.0,391.1,1708328911.5,True
+Strait of Malacca,container,9.67,12,23,0,3,44,650.0,553.0,1709595062.6,True
+Strait of Malacca,bulker,8.54,7,12,5,2,25,650.0,485.1,1708776280.6,True
+Strait of Malacca,tanker,11.88,13,16,5,2,39,650.0,581.4,1708792640.3,True
+Strait of Malacca,container,8.27,1,20,2,2,1,650.0,406.4,1707338826.6,True
+Strait of Malacca,other,12.06,10,15,1,2,43,650.0,480.7,1708442778.9,True
+Strait of Malacca,tanker,9.98,7,5,3,2,27,650.0,514.5,1708580443.6,True
+Strait of Malacca,unknown,12.6,12,10,4,2,26,650.0,552.5,1706869529.3,True
+Strait of Malacca,tanker,10.43,10,16,2,2,38,650.0,484.9,1707321695.3,True
+Strait of Malacca,container,8.11,11,6,3,3,29,650.0,329.4,1711002522.7,True
+Strait of Malacca,container,12.51,11,10,4,2,44,650.0,458.1,1708078763.8,True
+Strait of Malacca,container,8.49,11,13,5,2,25,650.0,452.5,1706967762.8,True
+Strait of Malacca,tanker,11.62,10,5,6,3,50,650.0,493.2,1710049509.8,True
+Strait of Malacca,tanker,7.69,11,3,4,1,23,650.0,564.5,1705030573.4,True
+Strait of Malacca,unknown,13.16,10,6,5,3,31,650.0,395.8,1709966080.6,True
+Strait of Malacca,other,9.81,11,12,6,3,34,650.0,547.6,1710072351.3,True
+Strait of Malacca,other,9.62,5,16,5,3,12,650.0,416.1,1711817979.9,True
+Strait of Malacca,bulker,11.43,10,0,2,3,32,650.0,542.0,1710291497.7,True
+Strait of Malacca,tanker,11.72,7,18,2,3,29,650.0,611.4,1710959849.7,True
+Strait of Malacca,container,7.85,9,6,5,3,40,650.0,456.1,1711174935.1,True
+Strait of Malacca,unknown,9.29,7,2,6,1,17,650.0,517.9,1704593165.2,True
+Strait of Malacca,container,12.18,10,8,5,3,26,650.0,467.4,1709974414.9,True
+Strait of Malacca,other,12.01,14,18,4,1,51,650.0,562.5,1704480581.3,True
+Strait of Malacca,other,14.8,2,6,4,2,0,650.0,488.3,1706854175.1,True
+Strait of Malacca,other,11.91,14,10,5,2,58,650.0,479.3,1708165323.5,True
+Strait of Malacca,unknown,6.03,14,14,5,3,55,650.0,462.8,1711808411.6,True
+Strait of Malacca,other,12.94,4,7,3,3,1,650.0,411.1,1710402044.9,True
+Strait of Malacca,unknown,11.42,10,11,6,3,34,650.0,504.3,1710069666.5,True
+Strait of Malacca,container,11.79,9,11,5,2,32,650.0,411.2,1708773580.1,True
+Strait of Malacca,tanker,10.24,10,15,5,1,41,650.0,497.5,1704553602.7,True
+Strait of Malacca,bulker,9.67,13,10,1,3,45,650.0,513.6,1710239780.9,True
+Strait of Malacca,tanker,14.43,16,21,1,3,46,650.0,510.2,1709673059.8,True
+Strait of Malacca,bulker,12.65,15,6,1,3,50,650.0,563.3,1710224468.9,True
+Strait of Malacca,tanker,13.86,8,15,1,3,26,650.0,517.2,1710863358.6,True
+Strait of Malacca,unknown,11.42,11,1,2,2,31,650.0,547.6,1708479353.5,True
+Strait of Malacca,bulker,10.4,3,12,5,3,14,650.0,448.6,1711803242.3,True
+Strait of Malacca,container,11.04,13,5,4,2,40,650.0,483.1,1708061875.4,True
+Strait of Malacca,other,7.66,14,13,4,3,40,650.0,505.9,1709300652.2,True
+Strait of Malacca,tanker,12.13,2,1,5,1,11,650.0,373.1,1706317699.9,True
+Strait of Malacca,bulker,12.63,12,2,1,3,45,650.0,582.5,1709607573.6,True
+Strait of Malacca,other,11.97,9,18,3,1,35,650.0,541.0,1704394030.3,True
+Strait of Malacca,other,10.53,6,14,4,2,27,650.0,251.5,1708093144.6,True
+Strait of Malacca,tanker,10.13,17,12,5,1,57,650.0,540.8,1704542542.2,True
+Strait of Malacca,tanker,12.46,14,4,1,2,39,650.0,618.6,1709008298.0,True
+Strait of Malacca,other,14.28,10,12,3,1,36,650.0,463.3,1706186693.4,True
+Strait of Malacca,bulker,15.42,9,22,6,2,32,650.0,457.7,1707688882.7,True
+Strait of Malacca,unknown,9.89,10,13,3,3,42,650.0,430.0,1710422308.8,True
+Strait of Malacca,container,12.03,6,17,0,2,28,650.0,348.4,1708364694.7,True
+Strait of Malacca,bulker,8.6,8,7,6,1,40,650.0,472.7,1705215937.3,True
+Strait of Malacca,container,13.21,12,16,2,2,38,650.0,443.2,1709137529.0,True
+Strait of Malacca,bulker,10.04,11,3,0,2,21,650.0,533.2,1708313302.3,True
+Strait of Malacca,other,17.32,13,22,6,1,49,650.0,465.7,1706480883.3,True
+Strait of Malacca,unknown,10.56,6,16,6,2,17,650.0,521.2,1707065284.5,True
+Strait of Malacca,container,10.3,7,1,3,2,32,650.0,466.8,1706749545.4,True
+Strait of Malacca,bulker,12.42,15,0,4,3,55,650.0,608.9,1709254528.9,True
+Strait of Malacca,container,10.31,6,21,5,3,28,650.0,430.7,1709415741.4,True
+Strait of Malacca,tanker,8.41,14,12,0,3,36,650.0,524.0,1710764181.6,True
+Strait of Malacca,other,14.31,8,21,2,2,44,650.0,589.1,1707944841.1,True
+Strait of Malacca,tanker,7.8,10,21,0,1,47,650.0,497.9,1704146029.7,True
+Strait of Malacca,tanker,10.09,14,9,1,3,66,650.0,548.4,1711444854.2,True
+Strait of Malacca,tanker,13.24,17,15,6,1,67,650.0,619.7,1705246707.4,True
+Strait of Malacca,bulker,10.46,10,11,5,3,35,650.0,618.8,1711797247.5,True
+Singapore Strait,container,10.59,8,12,0,1,24,150.0,536.5,1704110741.2,True
+Singapore Strait,bulker,14.42,12,20,3,2,30,150.0,543.6,1707425250.1,True
+Singapore Strait,container,11.15,11,8,2,2,29,150.0,487.9,1708503275.7,True
+Singapore Strait,bulker,7.99,20,22,1,1,59,150.0,535.8,1706652060.1,True
+Singapore Strait,other,12.32,10,12,4,1,29,150.0,466.6,1704458689.3,True
+Singapore Strait,tanker,12.91,5,4,6,1,5,150.0,526.6,1704601240.0,True
+Singapore Strait,bulker,14.06,0,0,2,3,5,150.0,494.8,1710290931.8,True
+Singapore Strait,bulker,12.74,0,11,6,2,0,150.0,414.5,1708859253.6,True
+Singapore Strait,other,12.95,6,13,5,1,13,150.0,520.3,1705152751.3,True
+Singapore Strait,container,15.77,9,4,4,3,29,150.0,405.1,1711685921.6,True
+Singapore Strait,container,11.44,11,16,1,3,46,150.0,460.2,1711470342.5,True
+Singapore Strait,bulker,9.62,7,0,5,1,20,150.0,456.1,1704502196.2,True
+Singapore Strait,container,12.42,0,3,6,2,0,150.0,359.5,1708225819.7,True
+Singapore Strait,tanker,11.61,13,5,1,1,38,150.0,495.9,1705987166.2,True
+Singapore Strait,container,7.54,10,15,1,1,34,150.0,453.1,1704812759.3,True
+Singapore Strait,bulker,8.49,12,23,2,3,31,150.0,522.0,1709768599.1,True
+Singapore Strait,unknown,11.12,13,14,5,2,39,150.0,456.7,1707576357.2,True
+Singapore Strait,container,10.76,9,8,2,2,28,150.0,440.9,1708503703.6,True
+Singapore Strait,container,9.39,10,5,3,2,47,150.0,334.9,1707370115.8,True
+Singapore Strait,container,10.25,11,10,5,2,37,150.0,446.3,1706956002.5,True
+Singapore Strait,container,10.85,18,12,2,3,74,150.0,438.0,1709728394.3,True
+Singapore Strait,container,13.08,7,12,3,1,13,150.0,394.7,1705582264.2,True
+Singapore Strait,tanker,12.61,9,1,5,3,35,150.0,463.1,1711763645.6,True
+Singapore Strait,other,11.39,6,19,2,1,30,150.0,457.0,1704311301.2,True
+Singapore Strait,tanker,12.8,12,23,6,1,34,150.0,489.0,1705275587.8,True
+Singapore Strait,tanker,11.2,11,20,1,2,44,150.0,648.1,1708461024.5,True
+Singapore Strait,other,5.49,6,0,4,2,12,150.0,391.4,1707440035.0,True
+Singapore Strait,container,15.53,12,20,2,2,32,150.0,482.0,1707338934.9,True
+Singapore Strait,unknown,13.54,11,6,1,3,40,150.0,450.2,1710223367.0,True
+Singapore Strait,bulker,9.6,7,23,4,3,29,150.0,514.3,1710546470.7,True
+Singapore Strait,unknown,9.2,15,23,2,1,35,150.0,512.8,1704928315.3,True
+Singapore Strait,other,7.72,15,19,5,2,48,150.0,488.4,1707591952.5,True
+Singapore Strait,tanker,10.34,13,21,5,1,40,150.0,469.2,1705787961.1,True
+Singapore Strait,bulker,10.47,11,11,4,3,22,150.0,534.8,1709898594.7,True
+Singapore Strait,bulker,8.35,9,11,1,2,43,150.0,503.9,1708427427.0,True
+Singapore Strait,other,10.89,17,16,4,3,61,150.0,504.2,1711126268.8,True
+Singapore Strait,other,9.4,15,20,2,3,67,150.0,450.1,1711572193.0,True
+Singapore Strait,other,10.11,3,10,3,2,5,150.0,485.4,1706784106.6,True
+Singapore Strait,container,15.04,8,12,3,2,23,150.0,478.8,1708000542.6,True
+Singapore Strait,tanker,6.38,15,20,0,3,56,150.0,496.9,1710795309.0,True
+Singapore Strait,container,9.08,11,11,1,1,44,150.0,319.6,1706009836.7,True
+Singapore Strait,other,10.05,2,11,3,2,8,150.0,344.2,1707390848.6,True
+Singapore Strait,unknown,10.57,9,15,5,2,34,150.0,409.7,1707580270.8,True
+Singapore Strait,container,10.65,8,12,6,3,23,150.0,472.5,1710074454.8,True
+Singapore Strait,bulker,14.73,10,20,0,3,35,150.0,526.4,1711398137.5,True
+Singapore Strait,bulker,9.06,15,5,1,3,57,150.0,519.2,1710826159.9,True
+Singapore Strait,bulker,13.48,14,15,4,1,43,150.0,588.3,1704468501.2,True
+Singapore Strait,unknown,9.27,13,5,5,1,55,150.0,493.2,1706333050.0,True
+Singapore Strait,unknown,10.92,8,23,1,3,22,150.0,439.1,1710889923.3,True
+Singapore Strait,other,15.52,9,16,0,1,18,150.0,459.9,1706546679.9,True
+Singapore Strait,tanker,13.84,7,5,3,3,27,150.0,480.3,1710394363.0,True
+Singapore Strait,bulker,9.76,6,14,2,3,27,150.0,503.7,1711549374.9,True
+Singapore Strait,container,11.55,7,5,1,3,24,150.0,371.2,1711429414.6,True
+Singapore Strait,other,12.19,7,17,2,1,12,150.0,423.3,1706720672.9,True
+Singapore Strait,container,10.8,14,13,0,2,40,150.0,504.5,1707138691.3,True
+Singapore Strait,bulker,10.7,9,22,4,2,22,150.0,601.9,1708726158.7,True
+Singapore Strait,bulker,12.56,20,23,4,3,83,150.0,603.9,1711150244.9,True
+Singapore Strait,bulker,8.86,10,12,5,3,27,150.0,600.1,1709383750.1,True
+Singapore Strait,container,7.87,2,4,4,3,13,150.0,453.9,1709873775.9,True
+Singapore Strait,other,8.3,9,8,1,3,36,150.0,588.4,1709628004.4,True
+Singapore Strait,tanker,12.42,4,15,5,2,22,150.0,490.3,1708788847.3,True
+Singapore Strait,unknown,9.67,9,6,3,2,38,150.0,536.3,1706770697.7,True
+Singapore Strait,unknown,11.7,7,21,1,1,31,150.0,461.9,1706046559.1,True
+Singapore Strait,container,11.41,15,10,0,1,39,150.0,392.9,1705314973.2,True
+Singapore Strait,unknown,14.14,4,8,5,3,13,150.0,434.2,1711181014.1,True
+Singapore Strait,other,13.97,6,4,4,1,17,150.0,439.1,1704429926.3,True
+Singapore Strait,container,16.18,6,10,6,1,22,150.0,513.6,1705229749.0,True
+Singapore Strait,bulker,8.9,14,9,5,2,35,150.0,648.0,1707556062.7,True
+Singapore Strait,other,15.28,8,12,0,1,30,150.0,414.2,1704717315.5,True
+Singapore Strait,other,11.32,8,1,4,1,27,150.0,473.9,1705023217.6,True
+Singapore Strait,tanker,10.02,9,14,4,2,38,150.0,561.0,1708095104.0,True
+Singapore Strait,tanker,7.24,15,17,0,3,41,150.0,586.2,1710781713.2,True
+Singapore Strait,container,15.79,9,0,6,1,19,150.0,513.2,1705191495.8,True
+Singapore Strait,container,8.61,14,10,4,2,64,150.0,408.0,1707474474.4,True
+Singapore Strait,container,8.18,9,22,5,2,31,150.0,545.7,1708207765.1,True
+Singapore Strait,other,8.46,3,9,2,3,9,150.0,423.2,1711531113.0,True
+Singapore Strait,container,4.32,12,7,0,1,51,150.0,467.3,1704094377.0,True
+Singapore Strait,tanker,10.34,14,7,2,3,43,150.0,566.8,1710314046.0,True
+Singapore Strait,tanker,13.25,10,10,3,1,32,150.0,571.1,1706179906.1,True
+Singapore Strait,container,10.77,14,21,0,1,62,150.0,578.7,1704145789.3,True
+Singapore Strait,bulker,13.0,15,1,2,2,45,150.0,535.7,1707270336.0,True
+Singapore Strait,container,11.66,10,12,3,2,33,150.0,505.7,1707394657.1,True
+Singapore Strait,container,11.19,13,22,4,3,52,150.0,514.0,1709333532.1,True
+Singapore Strait,tanker,11.62,12,5,0,3,30,150.0,486.8,1709529447.9,True
+Singapore Strait,tanker,9.64,1,12,0,2,1,150.0,453.2,1708952324.3,True
+Singapore Strait,container,9.6,12,0,5,3,40,150.0,468.4,1711759493.3,True
+Singapore Strait,unknown,8.26,8,22,0,3,33,150.0,482.1,1710195030.4,True
+Singapore Strait,tanker,16.57,11,9,1,3,39,150.0,614.7,1709631932.9,True
+Singapore Strait,tanker,9.6,13,21,3,2,52,150.0,513.4,1708033085.8,True
+Singapore Strait,container,10.66,11,3,6,2,27,150.0,382.9,1707623462.9,True
+Singapore Strait,container,13.66,10,19,0,3,27,150.0,515.0,1711393220.6,True
+Singapore Strait,bulker,11.94,13,15,3,3,49,150.0,410.4,1710429130.6,True
+Singapore Strait,tanker,7.37,16,1,0,1,54,150.0,505.6,1705887588.2,True
+Singapore Strait,tanker,12.62,3,20,5,2,9,150.0,537.0,1708200767.7,True
+Singapore Strait,other,4.0,16,9,0,2,53,150.0,522.3,1708940987.4,True
+Singapore Strait,container,11.16,7,2,6,2,17,150.0,422.0,1707014535.5,True
+Singapore Strait,container,12.15,3,16,4,3,18,150.0,476.4,1709914028.6,True
+Singapore Strait,other,7.89,8,22,3,3,23,150.0,534.9,1711664401.5,True
+Singapore Strait,tanker,12.46,9,10,5,1,22,150.0,432.8,1704538542.0,True
+Singapore Strait,other,12.04,10,6,6,3,35,150.0,459.9,1709447581.4,True
+Singapore Strait,bulker,11.96,10,21,1,3,33,150.0,561.6,1710278114.7,True
+Singapore Strait,other,10.64,9,0,5,3,35,150.0,542.6,1709338457.3,True
+Singapore Strait,unknown,12.8,10,8,3,2,35,150.0,481.6,1706777180.2,True
+Singapore Strait,container,8.3,0,7,0,2,2,150.0,389.5,1708327981.1,True
+Singapore Strait,other,13.76,9,23,2,2,44,150.0,465.3,1709163239.8,True
+Singapore Strait,container,10.71,7,6,1,3,16,150.0,421.2,1709621924.2,True
+Singapore Strait,container,9.87,8,5,0,1,32,150.0,446.3,1705296599.5,True
+Singapore Strait,other,12.75,12,8,5,2,31,150.0,480.8,1708159637.1,True
+Singapore Strait,container,9.03,10,12,2,1,31,150.0,402.9,1704890062.2,True
+Singapore Strait,tanker,8.27,6,5,3,2,20,150.0,575.6,1709185676.6,True
+Singapore Strait,container,15.92,2,12,0,3,2,150.0,251.2,1710764218.1,True
+Singapore Strait,container,13.03,8,1,1,2,36,150.0,391.9,1707183198.8,True
+Singapore Strait,container,15.98,3,3,5,3,12,150.0,399.4,1711770089.5,True
+Singapore Strait,other,7.2,12,19,1,3,24,150.0,472.1,1711481623.9,True
+Singapore Strait,tanker,14.73,5,0,0,1,15,150.0,479.3,1705881898.3,True
+Singapore Strait,container,8.28,8,5,1,1,35,150.0,416.4,1706592507.7,True
+Singapore Strait,bulker,7.69,16,6,5,3,53,150.0,504.5,1709362393.7,True
+Singapore Strait,tanker,14.75,13,13,1,1,38,150.0,526.7,1706619600.7,True
+Singapore Strait,bulker,9.91,5,8,0,3,26,150.0,378.3,1711355732.7,True
+Singapore Strait,tanker,7.51,7,23,0,1,29,150.0,379.5,1706569350.5,True
+Singapore Strait,container,13.3,3,4,5,2,12,150.0,388.8,1708747245.8,True
+Singapore Strait,unknown,13.52,17,12,3,3,75,150.0,483.4,1710420991.8,True
+Singapore Strait,container,12.31,15,23,3,2,55,150.0,474.1,1709250718.7,True
+Singapore Strait,bulker,10.64,12,4,1,3,38,150.0,565.4,1710218024.4,True
+Singapore Strait,other,15.34,5,19,6,1,17,150.0,493.6,1706469747.2,True
+Singapore Strait,tanker,9.42,8,14,0,3,24,150.0,511.4,1709562877.0,True
+Singapore Strait,other,11.07,18,8,0,2,66,150.0,471.8,1708332740.2,True
+Singapore Strait,tanker,14.89,5,3,3,3,27,150.0,491.3,1710990623.8,True
+Singapore Strait,unknown,6.59,5,22,4,1,17,150.0,374.6,1706308308.4,True
+Singapore Strait,container,9.19,11,15,0,2,38,150.0,435.4,1707146438.4,True
+Singapore Strait,unknown,14.8,3,15,6,3,10,150.0,498.4,1710082811.8,True
+Singapore Strait,unknown,13.73,8,16,3,1,26,150.0,518.4,1705597190.7,True
+Singapore Strait,tanker,8.31,10,12,0,1,25,150.0,530.4,1706531065.1,True
+Singapore Strait,other,10.68,7,4,2,1,29,150.0,588.0,1706070705.8,True
+Singapore Strait,unknown,4.61,2,17,0,3,8,150.0,357.8,1710784570.6,True
+Singapore Strait,tanker,12.0,5,21,5,2,20,150.0,512.1,1707601094.4,True
+Singapore Strait,unknown,9.02,17,11,0,1,46,150.0,535.3,1704109977.1,True
+Singapore Strait,bulker,4.0,0,19,0,2,0,150.0,516.1,1708370231.3,True
+Singapore Strait,unknown,7.77,9,23,4,2,34,150.0,483.2,1708730479.6,True
+Singapore Strait,tanker,10.97,11,3,4,1,45,150.0,620.1,1705030539.1,True
+Singapore Strait,unknown,11.37,7,9,3,2,28,150.0,528.4,1709200727.1,True
+Singapore Strait,bulker,7.97,9,21,3,2,30,150.0,463.2,1708033042.3,True
+Singapore Strait,container,10.42,3,10,6,2,9,150.0,386.2,1707044045.9,True
+Singapore Strait,other,10.91,5,14,3,1,15,150.0,387.2,1706192717.5,True
+Singapore Strait,bulker,8.87,9,16,0,3,31,150.0,490.6,1709571063.7,True
+Singapore Strait,unknown,14.39,5,11,6,1,24,150.0,480.2,1705838118.2,True
+Singapore Strait,other,11.13,10,17,4,1,32,150.0,514.7,1705685937.2,True
+Singapore Strait,other,8.89,3,4,1,2,2,150.0,408.1,1707798470.7,True
+Singapore Strait,bulker,10.5,4,4,2,1,7,150.0,474.7,1706675549.4,True
+Singapore Strait,container,11.51,6,8,3,1,17,150.0,472.7,1706170760.4,True
+Singapore Strait,other,9.19,8,14,3,2,21,150.0,455.4,1708611435.7,True
+Singapore Strait,tanker,11.9,7,16,6,1,33,150.0,573.0,1705854805.1,True
+Singapore Strait,other,15.27,13,19,5,3,43,150.0,553.3,1711825760.9,True
+Singapore Strait,container,12.55,8,17,4,1,32,150.0,431.5,1705081715.7,True
+Singapore Strait,other,14.64,11,1,0,1,58,150.0,566.4,1705282000.7,True
+Singapore Strait,container,14.56,10,12,2,1,30,150.0,440.1,1706705554.7,True
+Singapore Strait,other,15.92,12,1,3,2,32,150.0,582.5,1708566022.3,True
+Singapore Strait,other,12.01,5,18,3,2,10,150.0,485.7,1708626671.8,True
+Singapore Strait,container,10.31,11,17,3,1,42,150.0,501.3,1705597510.5,True
+Singapore Strait,unknown,12.18,10,6,4,2,30,150.0,440.6,1706854093.0,True
+Singapore Strait,tanker,6.99,12,6,4,2,28,150.0,523.6,1707460773.1,True
+Singapore Strait,bulker,10.02,8,15,0,1,30,150.0,468.0,1705334355.5,True
+Singapore Strait,other,11.31,10,0,2,3,24,150.0,447.0,1711500933.7,True
+Singapore Strait,container,14.23,15,12,0,1,37,150.0,476.6,1704111052.6,True
+Singapore Strait,container,9.99,10,2,0,2,37,150.0,389.3,1708914446.8,True
+Singapore Strait,tanker,11.32,4,4,6,3,9,150.0,367.6,1709439535.7,True
+Singapore Strait,tanker,12.82,12,4,5,1,43,150.0,596.9,1705121830.2,True
+Singapore Strait,bulker,13.25,17,6,6,1,76,150.0,711.0,1706423299.2,True
+Singapore Strait,container,9.28,14,8,0,2,56,150.0,470.1,1708934750.3,True
+Singapore Strait,tanker,10.79,1,21,6,2,1,150.0,477.3,1707686466.5,True
+Bosphorus,container,5.3,14,6,4,2,49,180.0,133.9,1708063586.4,True
+Bosphorus,other,10.66,14,1,1,3,32,180.0,170.7,1709601664.8,True
+Bosphorus,unknown,10.89,13,21,4,1,52,180.0,106.1,1704491684.5,True
+Bosphorus,other,7.73,14,21,1,1,59,180.0,144.7,1704230837.2,True
+Bosphorus,tanker,13.58,12,13,3,3,54,180.0,152.1,1709819690.1,True
+Bosphorus,tanker,8.55,12,18,1,3,28,180.0,184.7,1710267877.8,True
+Bosphorus,other,8.14,10,0,6,1,43,180.0,99.8,1705190454.1,True
+Bosphorus,container,10.86,11,1,6,2,33,180.0,122.0,1707615474.2,True
+Bosphorus,container,11.37,10,20,0,3,45,180.0,117.7,1710187457.3,True
+Bosphorus,unknown,19.23,7,0,0,1,17,180.0,92.7,1706488547.7,True
+Bosphorus,other,9.9,9,7,3,1,42,180.0,145.7,1704353757.6,True
+Bosphorus,unknown,14.02,12,21,3,1,46,180.0,189.7,1706219540.4,True
+Bosphorus,tanker,7.87,10,3,4,3,37,180.0,154.0,1711079063.5,True
+Bosphorus,container,12.66,13,0,2,3,44,180.0,104.6,1710893959.5,True
+Bosphorus,unknown,9.78,8,16,4,1,27,180.0,165.4,1705078726.1,True
+Bosphorus,container,10.52,10,18,0,3,41,180.0,117.2,1709575875.1,True
+Bosphorus,tanker,12.78,7,2,4,3,24,180.0,123.7,1710469745.3,True
+Bosphorus,other,9.25,6,20,5,1,11,180.0,106.7,1706386126.0,True
+Bosphorus,bulker,12.85,13,3,2,3,52,180.0,158.1,1711510536.1,True
+Bosphorus,tanker,9.27,13,17,3,1,39,180.0,151.5,1704993020.6,True
+Bosphorus,other,7.3,6,6,1,1,15,180.0,111.7,1704177720.5,True
+Bosphorus,bulker,12.63,10,23,5,3,31,180.0,160.2,1711842118.0,True
+Bosphorus,container,12.35,4,5,1,1,21,180.0,130.2,1704173565.1,True
+Bosphorus,other,11.95,7,13,1,1,38,180.0,166.2,1704807148.4,True
+Bosphorus,bulker,8.64,14,16,1,1,58,180.0,101.3,1704817767.7,True
+Bosphorus,unknown,13.27,11,8,5,3,36,180.0,117.0,1711786060.4,True
+Bosphorus,tanker,10.23,10,1,5,1,24,180.0,130.5,1705110783.0,True
+Bosphorus,tanker,13.83,14,4,2,3,50,180.0,176.4,1710910515.4,True
+Bosphorus,bulker,12.54,7,5,5,2,26,180.0,147.1,1706939843.2,True
+Bosphorus,other,8.46,11,0,2,3,38,180.0,192.5,1711499650.1,True
+Bosphorus,unknown,9.88,6,12,2,2,20,180.0,124.8,1708518423.0,True
+Bosphorus,other,9.48,16,7,0,3,53,180.0,200.4,1710142623.9,True
+Bosphorus,container,11.68,6,22,4,2,21,180.0,108.1,1708121452.5,True
+Bosphorus,bulker,9.61,7,4,6,3,21,180.0,134.2,1710045523.3,True
+Bosphorus,other,10.3,7,5,1,3,25,180.0,165.2,1711431559.1,True
+Bosphorus,tanker,7.96,9,3,2,1,19,180.0,121.6,1704254216.5,True
+Bosphorus,container,13.08,15,19,2,3,51,180.0,180.4,1711566792.1,True
+Bosphorus,unknown,11.16,14,20,6,3,44,180.0,142.6,1709497152.8,True
+Bosphorus,tanker,8.44,16,7,5,1,50,180.0,143.7,1704527241.0,True
+Bosphorus,tanker,12.39,10,9,6,3,35,180.0,180.7,1710064734.3,True
+Bosphorus,other,10.74,15,0,2,1,40,180.0,153.9,1706661546.0,True
+Bosphorus,container,7.64,8,12,6,2,26,180.0,107.2,1707049699.6,True
+Bosphorus,container,11.2,9,2,3,1,29,180.0,136.3,1704940988.1,True
+Bosphorus,other,7.55,12,18,5,3,46,180.0,136.9,1711217481.3,True
+Bosphorus,unknown,10.36,4,19,3,1,12,180.0,96.9,1705002750.5,True
+Bosphorus,tanker,12.74,9,21,3,3,16,180.0,109.9,1711661788.8,True
+Bosphorus,bulker,11.95,7,5,4,3,24,180.0,135.7,1711086801.1,True
+Bosphorus,unknown,11.46,10,21,0,2,47,180.0,100.7,1708378678.6,True
+Bosphorus,container,9.54,2,12,4,3,1,180.0,106.3,1711110142.7,True
+Bosphorus,unknown,6.62,13,9,1,2,45,180.0,142.5,1707212185.6,True
+Bosphorus,bulker,10.63,10,16,4,3,33,180.0,150.8,1711731503.3,True
+Bosphorus,other,10.58,8,2,4,3,38,180.0,110.0,1709260971.0,True
+Bosphorus,tanker,5.53,6,0,6,3,25,180.0,137.3,1710634467.4,True
+Bosphorus,other,12.31,8,7,1,3,32,180.0,125.3,1711436502.1,True
+Bosphorus,container,11.02,14,22,2,2,43,180.0,114.6,1708553753.6,True
+Bosphorus,other,14.67,11,18,2,1,34,180.0,122.4,1704307649.6,True
+Bosphorus,other,9.0,14,15,6,2,47,180.0,109.2,1707060962.9,True
+Bosphorus,other,12.97,10,6,5,1,32,180.0,144.4,1705733253.3,True
+Bosphorus,tanker,8.44,12,5,5,3,53,180.0,96.2,1711776997.4,True
+Bosphorus,tanker,4.0,10,22,0,2,37,180.0,157.0,1708985586.1,True
+Bosphorus,unknown,7.67,9,13,5,2,35,180.0,102.7,1708177608.2,True
+Bosphorus,other,11.55,8,15,5,2,19,180.0,83.2,1707579506.4,True
+Bosphorus,bulker,11.58,9,4,5,2,29,180.0,96.4,1706933613.6,True
+Bosphorus,tanker,7.97,13,17,4,3,46,180.0,163.0,1710523238.8,True
+Bosphorus,container,12.09,9,11,3,2,36,180.0,58.8,1707390856.4,True
+Bosphorus,bulker,14.72,7,3,0,3,33,180.0,145.8,1710127360.7,True
+Bosphorus,unknown,7.25,7,5,6,3,38,180.0,137.7,1710047812.6,True
+Bosphorus,container,10.51,4,9,0,2,12,180.0,97.4,1707124541.9,True
+Bosphorus,container,11.75,16,2,2,1,55,180.0,168.2,1706667412.8,True
+Bosphorus,other,12.68,10,15,4,2,48,180.0,139.1,1707492574.5,True
+Bosphorus,other,12.03,11,17,6,2,30,180.0,118.3,1708277514.9,True
+Bosphorus,tanker,11.67,7,9,6,3,25,180.0,151.9,1710666945.7,True
+Bosphorus,bulker,10.96,11,15,3,2,34,180.0,146.7,1706800017.8,True
+Bosphorus,tanker,13.35,14,23,5,2,35,180.0,117.8,1707002402.7,True
+Bosphorus,unknown,8.04,6,13,5,3,24,180.0,99.8,1709386384.8,True
+Bosphorus,bulker,7.75,9,12,5,1,39,180.0,115.2,1706358445.7,True
+Bosphorus,container,13.13,4,15,6,2,12,180.0,93.7,1708270902.3,True
+Bosphorus,bulker,10.96,17,4,3,3,46,180.0,160.2,1709785140.5,True
+Bosphorus,other,14.32,7,20,3,2,25,180.0,118.1,1706821183.7,True
+Bosphorus,other,11.82,9,18,2,1,24,180.0,131.6,1704305228.1,True
+Bosphorus,container,13.57,8,20,0,2,34,180.0,111.7,1708375798.0,True
+Bosphorus,other,12.66,17,18,1,1,74,180.0,165.5,1706035026.7,True
+Bosphorus,other,12.14,6,1,3,3,18,180.0,66.0,1711587810.1,True
+Bosphorus,unknown,7.18,0,16,1,3,0,180.0,101.1,1709656283.8,True
+Bosphorus,bulker,11.08,8,15,2,1,28,180.0,119.1,1704899780.8,True
+Bosphorus,bulker,13.69,7,13,5,3,30,180.0,117.9,1710597183.5,True
+Bosphorus,tanker,13.59,14,17,5,3,65,180.0,163.2,1710611392.9,True
+Bosphorus,container,9.43,9,18,6,2,25,180.0,106.0,1707676048.3,True
+Bosphorus,tanker,9.13,2,12,2,1,9,180.0,126.6,1706099147.5,True
+Bosphorus,bulker,9.82,10,8,1,3,30,180.0,164.3,1711442012.5,True
+Bosphorus,container,9.77,14,19,5,1,48,180.0,129.5,1706384716.6,True
+Bosphorus,container,9.97,10,11,6,1,39,180.0,99.2,1705231183.4,True
+Bosphorus,container,14.7,14,7,4,2,46,180.0,124.2,1706858571.0,True
+Bosphorus,unknown,7.51,9,14,4,3,19,180.0,138.5,1710512562.3,True
+Bosphorus,tanker,10.46,16,1,4,3,52,180.0,185.7,1711069338.3,True
+Bosphorus,other,8.58,6,11,0,2,15,180.0,96.6,1707133089.2,True
+Bosphorus,container,9.5,12,10,0,1,21,180.0,84.1,1704104148.0,True
+Bosphorus,bulker,12.56,13,12,6,1,37,180.0,127.1,1706444032.6,True
+Bosphorus,container,11.78,9,18,4,2,36,180.0,137.9,1708711656.1,True
+Bosphorus,other,8.62,10,6,6,2,32,180.0,147.0,1708841243.0,True
+Bosphorus,bulker,11.61,4,10,2,1,14,180.0,155.5,1704882170.7,True
+Bosphorus,tanker,8.23,9,6,3,3,35,180.0,118.0,1710397883.9,True
+Bosphorus,unknown,10.54,9,5,5,2,38,180.0,106.3,1708149203.8,True
+Bosphorus,unknown,10.11,8,23,4,2,30,180.0,92.0,1707519884.1,True
+Bosphorus,other,9.56,5,1,1,3,29,180.0,133.1,1711415163.4,True
+Bosphorus,tanker,13.43,12,18,0,3,39,180.0,121.1,1710785381.7,True
+Bosphorus,tanker,11.29,11,8,1,2,38,180.0,163.8,1708416482.7,True
+Bosphorus,unknown,4.12,7,9,3,3,33,180.0,101.3,1710407305.1,True
+Bosphorus,other,11.38,13,4,0,1,52,180.0,118.9,1704084762.7,True
+Bosphorus,bulker,9.92,14,17,2,1,48,180.0,212.9,1706117169.1,True
+Bosphorus,bulker,7.72,5,14,2,3,15,180.0,135.1,1711548614.8,True
+Bosphorus,tanker,9.12,9,22,0,3,27,180.0,169.9,1710801963.8,True
+Bosphorus,bulker,12.57,12,14,5,3,51,180.0,205.8,1710601104.9,True
+Bosphorus,unknown,11.03,10,7,6,3,38,180.0,163.4,1709449622.0,True
+Bosphorus,unknown,7.93,8,22,2,2,28,180.0,126.6,1708555020.7,True
+Bosphorus,tanker,10.51,14,0,5,3,42,180.0,148.4,1709945369.4,True
+Bosphorus,container,8.97,12,4,3,2,42,180.0,120.8,1707366590.8,True
+Bosphorus,bulker,7.31,5,19,0,1,16,180.0,93.7,1705953094.1,True
+Bosphorus,tanker,10.03,8,7,4,1,15,180.0,182.8,1705046359.4,True
+Bosphorus,tanker,16.1,9,20,5,1,21,180.0,166.1,1704573400.1,True
+Bosphorus,tanker,12.44,12,16,5,2,50,180.0,127.3,1707582883.5,True
+Bosphorus,container,6.77,9,8,2,1,28,180.0,112.8,1704270364.5,True
+Bosphorus,unknown,10.95,19,4,1,3,58,180.0,148.5,1711427610.8,True
+Bosphorus,other,9.05,10,6,2,3,35,180.0,178.4,1709707945.5,True
+Bosphorus,container,13.73,7,17,2,2,33,180.0,104.2,1707328258.1,True
+Bosphorus,container,12.32,9,4,4,3,29,180.0,129.8,1710476638.1,True
+Bosphorus,bulker,9.97,10,10,4,1,36,180.0,110.1,1706264667.1,True
+Bosphorus,container,6.83,8,13,4,1,28,180.0,129.6,1705672355.2,True
+Bosphorus,bulker,16.13,3,3,0,2,8,180.0,157.0,1708918754.8,True
+Bosphorus,container,14.98,6,18,0,2,26,180.0,125.8,1708367290.1,True
+Bosphorus,other,15.32,9,5,4,1,26,180.0,150.6,1705641182.4,True
+Bosphorus,container,8.87,10,9,3,3,29,180.0,131.9,1711014074.7,True
+Bosphorus,unknown,11.35,8,20,3,2,27,180.0,197.1,1708029597.0,True
+Bosphorus,unknown,7.7,18,3,4,3,69,180.0,171.9,1709265153.7,True
+Bosphorus,unknown,11.49,8,7,5,2,28,180.0,133.2,1707550439.3,True
+Bosphorus,container,6.76,11,8,5,2,42,180.0,101.1,1706949153.7,True
+Bosphorus,tanker,14.9,14,2,4,3,54,180.0,200.0,1709259991.3,True
+Bosphorus,bulker,12.54,6,1,3,3,18,180.0,154.7,1710381057.9,True
+Bosphorus,container,12.35,11,19,6,3,31,180.0,152.8,1709495600.0,True
+Bosphorus,unknown,15.1,11,16,5,2,31,180.0,144.4,1708793903.1,True
+Bosphorus,bulker,4.0,11,7,5,1,33,180.0,176.8,1704527075.1,True
+Bosphorus,container,12.39,10,13,6,1,45,180.0,131.1,1704635717.7,True
+Bosphorus,bulker,9.98,15,21,5,3,60,180.0,168.1,1709415652.8,True
+Bosphorus,container,9.42,11,12,0,1,54,180.0,104.6,1704716436.7,True
+Bosphorus,tanker,7.54,12,19,2,3,47,180.0,209.0,1709753107.2,True
+Bosphorus,unknown,17.2,12,10,5,2,35,180.0,120.0,1706955763.9,True
+Bosphorus,tanker,13.59,9,9,0,2,45,180.0,156.4,1707125842.9,True
+Bosphorus,container,12.7,14,11,1,1,51,180.0,144.7,1706009588.9,True
+Bosphorus,bulker,10.96,7,15,4,3,16,180.0,166.5,1709305467.7,True
+Bosphorus,other,6.68,9,18,6,2,25,180.0,157.1,1707675317.4,True
+Bosphorus,bulker,9.71,12,12,3,3,45,180.0,171.0,1711024428.4,True
+Bosphorus,tanker,12.89,4,7,1,3,6,180.0,150.6,1710834944.5,True
+Bosphorus,container,14.13,3,0,1,3,6,180.0,125.3,1710808477.5,True
+Bosphorus,bulker,8.6,4,14,1,2,20,180.0,141.0,1709042622.3,True
+Bosphorus,container,12.42,16,0,1,2,44,180.0,161.2,1707179688.3,True
+Bosphorus,tanker,10.39,9,23,3,2,37,180.0,160.9,1708038078.0,True
+Bosphorus,other,11.87,14,16,2,3,38,180.0,144.2,1710347031.0,True
+Bosphorus,bulker,14.96,7,11,1,1,36,180.0,153.0,1705403083.3,True
+Bosphorus,container,7.59,5,3,5,3,12,180.0,93.6,1709953234.2,True
+Bosphorus,other,7.91,11,5,1,2,45,180.0,134.5,1709010216.8,True
+Bosphorus,tanker,12.05,3,23,1,2,22,180.0,120.9,1708471163.9,True
+Bosphorus,container,11.5,12,15,3,2,44,180.0,177.9,1707406070.7,True
+Bosphorus,unknown,11.41,7,14,6,2,26,180.0,101.4,1708266866.5,True
+Bosphorus,other,8.95,11,22,3,2,43,180.0,129.7,1708641517.3,True
+Bosphorus,container,11.0,15,6,5,3,33,180.0,160.5,1709362787.9,True
+Bosphorus,tanker,8.25,5,21,0,3,17,180.0,144.1,1711401090.1,True
+Bosphorus,other,13.27,17,0,3,3,71,180.0,173.9,1711584214.4,True
+Bosphorus,container,10.76,11,17,0,1,43,180.0,133.7,1704128611.5,True
+Bosphorus,other,12.03,10,21,1,3,33,180.0,105.5,1710277201.1,True
+Bosphorus,other,9.97,10,17,0,3,27,180.0,106.6,1710783483.0,True
+Taiwan Strait,unknown,9.68,9,16,3,3,37,550.0,650.0,1711641780.0,True
+Taiwan Strait,other,11.69,10,17,5,3,35,550.0,682.7,1711215153.4,True
+Taiwan Strait,container,14.34,11,6,3,2,39,550.0,601.2,1707979569.2,True
+Taiwan Strait,container,12.54,21,11,4,1,84,550.0,654.4,1706267958.2,True
+Taiwan Strait,other,12.01,11,16,1,1,51,550.0,631.4,1705422174.6,True
+Taiwan Strait,unknown,12.91,5,22,1,3,29,550.0,690.4,1710282049.4,True
+Taiwan Strait,container,12.52,10,9,5,2,22,550.0,620.4,1708163192.0,True
+Taiwan Strait,bulker,9.5,14,13,0,1,44,550.0,761.1,1705326417.1,True
+Taiwan Strait,container,9.73,12,9,0,3,44,550.0,520.5,1710755883.1,True
+Taiwan Strait,tanker,12.14,7,14,6,3,25,550.0,491.9,1711288822.5,True
+Taiwan Strait,other,6.36,9,9,2,2,34,550.0,604.1,1707297421.8,True
+Taiwan Strait,unknown,9.06,10,18,1,2,40,550.0,566.2,1709059808.0,True
+Taiwan Strait,tanker,10.79,15,9,1,3,54,550.0,742.3,1711445997.6,True
+Taiwan Strait,container,7.94,9,18,2,1,26,550.0,458.1,1706725840.1,True
+Taiwan Strait,other,7.43,6,11,2,2,16,550.0,610.0,1709118869.9,True
+Taiwan Strait,unknown,5.54,0,23,5,1,0,550.0,810.7,1706399739.0,True
+Taiwan Strait,other,9.71,13,19,3,3,54,550.0,673.9,1711050528.7,True
+Taiwan Strait,tanker,12.13,6,0,1,2,21,550.0,717.5,1707179206.7,True
+Taiwan Strait,tanker,9.82,2,13,3,2,5,550.0,859.1,1708608913.1,True
+Taiwan Strait,container,10.47,6,9,4,2,27,550.0,623.6,1707472433.7,True
+Taiwan Strait,container,9.15,8,22,6,1,24,550.0,512.7,1704665856.9,True
+Taiwan Strait,container,8.14,11,13,4,1,30,550.0,588.9,1704460622.2,True
+Taiwan Strait,container,12.86,10,14,0,1,26,550.0,477.3,1705329789.9,True
+Taiwan Strait,other,9.07,12,9,2,2,49,550.0,729.0,1708508198.8,True
+Taiwan Strait,bulker,12.06,14,3,5,3,52,550.0,699.1,1709351333.0,True
+Taiwan Strait,container,11.12,12,18,3,2,41,550.0,792.1,1708022535.1,True
+Taiwan Strait,bulker,10.57,7,7,0,2,12,550.0,774.4,1707118369.9,True
+Taiwan Strait,bulker,8.53,9,22,0,1,37,550.0,839.5,1706566573.4,True
+Taiwan Strait,bulker,12.82,15,9,1,3,40,550.0,918.7,1711444855.6,True
+Taiwan Strait,bulker,10.3,12,17,1,2,46,550.0,789.7,1708451519.6,True
+Taiwan Strait,container,11.37,7,2,3,2,21,550.0,589.3,1709172537.9,True
+Taiwan Strait,other,11.04,5,16,4,3,20,550.0,671.5,1711730402.3,True
+Taiwan Strait,other,6.92,10,10,6,3,30,550.0,844.0,1709461578.9,True
+Taiwan Strait,other,11.49,10,7,0,3,30,550.0,667.6,1710140959.3,True
+Taiwan Strait,tanker,6.46,7,4,3,1,23,550.0,895.9,1704341906.2,True
+Taiwan Strait,bulker,13.46,9,20,3,1,30,550.0,841.7,1706215769.6,True
+Taiwan Strait,other,7.38,6,11,3,1,17,550.0,644.5,1704369419.2,True
+Taiwan Strait,tanker,8.07,8,8,0,1,25,550.0,687.1,1704097864.6,True
+Taiwan Strait,container,11.01,2,8,2,2,4,550.0,623.4,1707900473.0,True
+Taiwan Strait,container,14.88,8,7,4,1,26,550.0,612.2,1705045919.6,True
+Taiwan Strait,other,12.83,12,15,3,1,27,550.0,687.4,1706197987.1,True
+Taiwan Strait,container,14.03,18,7,1,1,74,550.0,744.0,1705390379.8,True
+Taiwan Strait,other,9.07,15,2,0,2,50,550.0,881.3,1708308069.3,True
+Taiwan Strait,tanker,10.24,10,7,3,1,25,550.0,848.2,1706166632.4,True
+Taiwan Strait,other,9.77,9,21,3,2,33,550.0,754.3,1709242288.5,True
+Taiwan Strait,other,11.31,6,6,2,1,11,550.0,553.0,1704867373.5,True
+Taiwan Strait,container,8.47,2,19,1,3,8,550.0,624.7,1710273073.5,True
+Taiwan Strait,container,6.49,16,9,2,3,65,550.0,568.0,1709717514.8,True
+Taiwan Strait,container,9.21,12,22,6,3,37,550.0,435.1,1710716223.8,True
+Taiwan Strait,bulker,10.65,9,5,5,1,27,550.0,709.8,1705122046.7,True
+Taiwan Strait,unknown,13.07,11,11,0,2,40,550.0,672.9,1708342728.3,True
+Taiwan Strait,bulker,10.14,4,18,3,2,13,550.0,879.7,1708627061.6,True
+Taiwan Strait,container,10.18,10,15,3,3,42,550.0,309.4,1711036679.3,True
+Taiwan Strait,unknown,10.53,15,22,1,3,51,550.0,599.1,1709676336.9,True
+Taiwan Strait,container,14.5,9,2,2,2,30,550.0,756.7,1708483975.6,True
+Taiwan Strait,container,11.54,10,2,2,1,41,550.0,649.6,1705459473.7,True
+Taiwan Strait,container,6.41,7,5,4,2,22,550.0,582.2,1708666527.8,True
+Taiwan Strait,unknown,10.75,8,5,0,2,17,550.0,665.9,1708321473.4,True
+Taiwan Strait,tanker,7.09,5,20,6,2,14,550.0,762.6,1707079789.8,True
+Taiwan Strait,unknown,12.51,12,7,1,2,51,550.0,674.7,1707204972.6,True
+Taiwan Strait,tanker,12.88,10,9,6,1,45,550.0,609.2,1706433357.7,True
+Taiwan Strait,tanker,4.0,9,2,1,2,37,550.0,599.2,1708999681.6,True
+Taiwan Strait,bulker,10.93,15,12,0,3,38,550.0,758.7,1710160390.2,True
+Taiwan Strait,tanker,8.63,12,6,6,1,52,550.0,721.5,1706421692.5,True
+Taiwan Strait,other,10.17,14,6,1,3,35,550.0,557.2,1711436076.2,True
+Taiwan Strait,container,9.49,14,1,3,2,47,550.0,627.6,1707960807.1,True
+Taiwan Strait,other,9.57,4,1,1,3,18,550.0,638.2,1710813083.9,True
+Taiwan Strait,bulker,14.51,15,6,0,2,57,550.0,602.9,1707720353.2,True
+Taiwan Strait,unknown,12.76,13,17,5,1,27,550.0,628.6,1705166340.2,True
+Taiwan Strait,other,11.7,9,0,0,3,38,550.0,632.4,1711326943.3,True
+Taiwan Strait,bulker,12.38,7,2,2,3,15,550.0,698.5,1709691490.1,True
+Taiwan Strait,container,14.52,1,17,0,2,0,550.0,579.3,1707758791.8,True
+Taiwan Strait,bulker,9.25,17,18,5,2,65,550.0,704.6,1706985016.8,True
+Taiwan Strait,container,14.55,7,3,5,3,25,550.0,710.2,1711166126.6,True
+Taiwan Strait,other,11.33,11,0,0,1,44,550.0,664.8,1704675096.1,True
+Taiwan Strait,other,6.8,4,11,1,2,19,550.0,685.6,1709033656.4,True
+Taiwan Strait,tanker,12.1,9,19,6,2,32,550.0,477.1,1707073219.6,True
+Taiwan Strait,container,7.59,16,6,5,3,52,550.0,516.0,1710568865.5,True
+Taiwan Strait,tanker,14.45,10,16,2,1,37,550.0,830.2,1704298281.1,True
+Taiwan Strait,bulker,10.52,13,9,5,2,50,550.0,829.8,1707556613.1,True
+Taiwan Strait,bulker,12.22,11,6,0,2,50,550.0,887.3,1707114812.7,True
+Taiwan Strait,other,10.78,8,1,2,3,25,550.0,634.5,1709687925.4,True
+Taiwan Strait,container,10.75,8,14,5,3,37,550.0,514.8,1711202563.6,True
+Taiwan Strait,tanker,6.81,12,10,4,2,38,550.0,631.3,1706870325.9,True
+Taiwan Strait,unknown,9.97,10,21,5,1,21,550.0,720.5,1704576742.9,True
+Taiwan Strait,unknown,14.24,13,18,5,3,60,550.0,674.4,1711218321.2,True
+Taiwan Strait,container,12.16,14,3,5,3,33,550.0,599.7,1710558913.3,True
+Taiwan Strait,bulker,9.92,13,6,4,2,38,550.0,865.3,1706856024.7,True
+Taiwan Strait,other,10.94,18,22,4,3,43,550.0,780.4,1709330574.0,True
+Taiwan Strait,bulker,6.31,15,0,0,2,41,550.0,726.9,1707696346.7,True
+Taiwan Strait,container,9.0,8,19,3,3,31,550.0,610.6,1710443288.8,True
+Taiwan Strait,container,10.6,17,23,4,2,52,550.0,820.3,1708732430.7,True
+Taiwan Strait,other,12.78,5,5,1,2,23,550.0,749.2,1707802557.2,True
+Taiwan Strait,container,16.27,6,8,6,2,28,550.0,478.6,1707033978.6,True
+Taiwan Strait,other,6.01,13,23,6,1,49,550.0,506.3,1705274620.2,True
+Taiwan Strait,bulker,13.65,12,9,3,2,35,550.0,774.1,1706779001.8,True
+Taiwan Strait,container,12.53,12,10,1,1,50,550.0,665.1,1704795366.4,True
+Taiwan Strait,container,10.26,8,6,0,2,18,550.0,697.0,1708929151.8,True
+Taiwan Strait,container,13.64,16,11,4,1,37,550.0,778.6,1704454783.4,True
+Taiwan Strait,container,13.81,9,12,3,2,19,550.0,543.6,1706789771.7,True
+Taiwan Strait,unknown,13.88,8,17,6,1,33,550.0,749.1,1705856868.9,True
+Taiwan Strait,bulker,5.83,3,18,0,2,10,550.0,661.6,1707156376.3,True
+Taiwan Strait,container,7.12,9,9,0,1,34,550.0,712.4,1705312740.2,True
+Taiwan Strait,unknown,11.81,5,10,3,2,16,550.0,641.9,1707387719.0,True
+Taiwan Strait,container,11.52,10,17,5,2,36,550.0,573.3,1708795863.9,True
+Taiwan Strait,bulker,11.92,10,19,1,2,29,550.0,653.8,1707851595.3,True
+Taiwan Strait,tanker,4.21,12,14,2,3,49,550.0,864.3,1711550666.0,True
+Taiwan Strait,container,14.59,3,2,1,1,8,550.0,601.3,1705976463.0,True
+Taiwan Strait,other,17.82,14,22,3,3,53,550.0,622.9,1709852197.5,True
+Taiwan Strait,other,10.07,5,0,2,1,18,550.0,768.4,1706661426.1,True
+Taiwan Strait,container,9.57,7,3,0,2,21,550.0,628.7,1707102279.1,True
+Taiwan Strait,unknown,12.31,5,11,4,2,17,550.0,683.8,1706871662.3,True
+Taiwan Strait,bulker,13.94,15,15,5,2,69,550.0,896.5,1706975451.3,True
+Taiwan Strait,other,12.4,7,20,2,1,25,550.0,541.2,1706733402.8,True
+Taiwan Strait,tanker,19.59,13,6,0,2,52,550.0,674.8,1707115006.7,True
+Taiwan Strait,unknown,12.13,11,7,1,3,28,550.0,856.8,1709622788.4,True
+Taiwan Strait,tanker,14.19,13,22,5,3,38,550.0,835.6,1711232998.4,True
+Taiwan Strait,container,6.83,16,7,6,3,58,550.0,731.1,1711266711.2,True
+Taiwan Strait,tanker,9.92,7,12,1,3,26,550.0,664.1,1710852040.8,True
+Taiwan Strait,tanker,10.29,8,10,0,1,27,550.0,680.5,1704708374.1,True
+Taiwan Strait,container,7.07,3,22,0,3,1,550.0,608.5,1710195134.8,True
+Taiwan Strait,bulker,10.34,4,12,6,3,19,550.0,642.6,1711283775.9,True
+Taiwan Strait,bulker,11.4,6,10,1,1,9,550.0,730.6,1705402511.2,True
+Taiwan Strait,container,12.36,9,10,4,1,36,550.0,665.0,1706263602.2,True
+Taiwan Strait,bulker,4.0,4,14,4,1,5,550.0,608.9,1704466732.8,True
+Taiwan Strait,bulker,8.43,11,20,2,2,30,550.0,667.7,1707338814.2,True
+Taiwan Strait,container,8.96,10,0,4,1,38,550.0,684.3,1705624202.7,True
+Taiwan Strait,other,8.48,9,21,6,3,19,550.0,701.9,1710106773.1,True
+Taiwan Strait,bulker,12.49,14,9,2,2,53,550.0,647.9,1709111557.2,True
+Taiwan Strait,other,8.29,9,16,5,3,36,550.0,697.4,1710000544.1,True
+Taiwan Strait,container,14.2,7,13,0,1,30,550.0,711.8,1704721772.3,True
+Taiwan Strait,container,8.81,11,4,2,1,42,550.0,733.9,1706676496.7,True
+Taiwan Strait,bulker,9.73,10,7,4,2,43,550.0,733.8,1708068934.3,True
+Taiwan Strait,container,6.83,14,18,0,2,55,550.0,741.4,1708366162.5,True
+Taiwan Strait,container,9.44,12,2,4,3,37,550.0,715.9,1709261195.5,True
+Taiwan Strait,container,6.34,10,2,2,2,42,550.0,501.7,1707877288.9,True
+Taiwan Strait,container,8.35,5,13,2,3,26,550.0,515.6,1711547053.0,True
+Taiwan Strait,bulker,8.64,8,23,4,1,32,550.0,409.1,1704495833.4,True
+Taiwan Strait,container,14.01,13,15,4,2,54,550.0,830.4,1707493369.6,True
+Taiwan Strait,other,9.98,7,11,6,3,18,550.0,663.8,1710069692.1,True
+Taiwan Strait,other,8.96,5,8,1,3,18,550.0,597.2,1711441336.8,True
+Taiwan Strait,bulker,12.17,1,6,1,1,3,550.0,741.2,1705990911.5,True
+Taiwan Strait,container,12.53,7,9,5,1,27,550.0,681.9,1705136515.6,True
+Taiwan Strait,bulker,14.24,9,15,3,1,36,550.0,817.6,1706195698.2,True
+Taiwan Strait,tanker,7.85,6,7,6,1,15,550.0,778.7,1705823421.1,True
+Taiwan Strait,other,14.54,10,6,0,2,22,550.0,871.7,1708322592.7,True
+Taiwan Strait,container,10.9,5,10,1,2,24,550.0,584.4,1709031475.8,True
+Taiwan Strait,container,10.55,14,16,0,2,33,550.0,495.1,1707151726.1,True
+Taiwan Strait,other,6.56,12,17,2,1,39,550.0,684.4,1704906954.5,True
+Taiwan Strait,tanker,9.28,9,3,3,2,18,550.0,569.5,1708572199.1,True
+Taiwan Strait,tanker,13.62,9,6,4,2,33,550.0,772.7,1707459552.6,True
+Taiwan Strait,container,9.43,9,11,6,1,29,550.0,610.3,1706440069.2,True
+Taiwan Strait,other,8.99,10,15,2,2,36,550.0,638.3,1708528685.3,True
+Taiwan Strait,bulker,12.59,7,14,2,3,13,550.0,769.6,1711550080.1,True
+Taiwan Strait,container,15.19,18,23,0,1,67,550.0,699.1,1704756246.9,True
+Taiwan Strait,tanker,11.39,6,16,4,3,16,550.0,784.2,1709311889.9,True
+Taiwan Strait,bulker,11.76,8,6,2,1,25,550.0,717.6,1704868816.9,True
+Taiwan Strait,container,9.08,9,18,4,3,40,550.0,597.0,1709316146.7,True
+Taiwan Strait,tanker,11.36,8,23,2,3,20,550.0,676.7,1710371710.3,True
+Taiwan Strait,other,10.11,7,16,4,1,8,550.0,911.3,1704473046.6,True
+Taiwan Strait,other,14.34,13,17,5,1,40,550.0,790.1,1704561224.3,True
+Taiwan Strait,tanker,13.19,10,14,6,3,47,550.0,665.1,1710080749.0,True
+Taiwan Strait,other,13.17,5,15,1,2,22,550.0,659.6,1707836454.7,True
+Taiwan Strait,unknown,9.27,11,3,6,3,52,550.0,672.2,1709435457.3,True
+Taiwan Strait,container,8.84,13,23,4,2,30,550.0,873.2,1706916374.1,True
+Taiwan Strait,other,8.88,16,21,0,1,56,550.0,641.9,1704146289.4,True
+Taiwan Strait,bulker,7.08,9,21,3,3,41,550.0,570.1,1709846137.2,True
+Taiwan Strait,bulker,16.1,3,0,1,3,11,550.0,660.1,1710202656.3,True
+Taiwan Strait,unknown,10.19,6,14,5,1,35,550.0,720.6,1706364178.2,True
+Taiwan Strait,container,8.1,9,13,3,2,34,550.0,543.3,1707400359.1,True
+English Channel,container,8.55,5,14,4,3,19,400.0,335.9,1709303721.5,True
+English Channel,other,10.75,10,11,4,2,46,400.0,357.2,1706874154.3,True
+English Channel,bulker,8.85,10,14,5,3,45,400.0,408.2,1711810298.2,True
+English Channel,other,14.13,18,4,1,2,62,400.0,488.9,1707193755.8,True
+English Channel,tanker,12.01,16,12,2,1,60,400.0,493.0,1704283249.1,True
+English Channel,tanker,7.48,9,13,1,1,18,400.0,367.2,1704808304.2,True
+English Channel,tanker,9.32,14,10,6,2,49,400.0,406.3,1707043787.2,True
+English Channel,tanker,9.47,8,0,4,3,37,400.0,461.2,1711671310.1,True
+English Channel,other,11.93,6,3,6,2,5,400.0,444.1,1708830900.7,True
+English Channel,tanker,12.73,3,19,2,1,8,400.0,535.8,1706124858.5,True
+English Channel,bulker,7.95,6,9,5,2,20,400.0,437.0,1706953966.4,True
+English Channel,tanker,13.77,9,20,5,1,31,400.0,399.8,1706387869.3,True
+English Channel,container,12.59,0,5,2,1,0,400.0,364.5,1705470248.8,True
+English Channel,unknown,12.6,11,7,2,3,27,400.0,484.6,1710315076.4,True
+English Channel,container,11.58,4,6,3,3,14,400.0,318.5,1711001388.1,True
+English Channel,tanker,10.71,16,21,6,1,45,400.0,615.4,1704661989.6,True
+English Channel,other,9.42,10,18,5,2,24,400.0,474.2,1708196298.2,True
+English Channel,tanker,12.5,8,22,1,3,28,400.0,602.6,1709678653.7,True
+English Channel,container,10.65,7,7,3,3,23,400.0,242.8,1710400960.8,True
+English Channel,unknown,7.86,10,7,5,1,30,400.0,313.4,1705734759.4,True
+English Channel,tanker,6.08,13,1,4,1,37,400.0,447.8,1704416758.2,True
+English Channel,other,10.08,16,8,4,1,71,400.0,386.6,1704444932.7,True
+English Channel,bulker,11.25,12,2,5,1,47,400.0,458.3,1704507712.1,True
+English Channel,tanker,12.19,7,0,3,3,37,400.0,427.6,1711586086.9,True
+English Channel,container,6.73,8,2,5,3,35,400.0,427.1,1711159268.1,True
+English Channel,other,13.78,12,11,1,3,23,400.0,514.3,1710242545.5,True
+English Channel,container,14.92,13,9,0,2,38,400.0,518.0,1707730060.3,True
+English Channel,container,9.62,11,21,4,1,27,400.0,406.0,1705700697.7,True
+English Channel,tanker,11.47,0,20,6,3,8,400.0,524.9,1709496336.8,True
+English Channel,container,12.32,10,16,4,2,37,400.0,356.0,1708099219.3,True
+English Channel,tanker,10.1,10,2,3,2,28,400.0,431.2,1707360570.8,True
+English Channel,other,7.78,5,2,3,2,22,400.0,324.4,1709173215.6,True
+English Channel,unknown,12.77,12,8,0,1,52,400.0,308.0,1705913933.0,True
+English Channel,tanker,10.9,14,8,5,3,47,400.0,462.9,1711183254.4,True
+English Channel,unknown,13.38,6,23,2,2,8,400.0,472.9,1709164453.2,True
+English Channel,container,14.17,21,3,3,2,59,400.0,466.3,1707966046.0,True
+English Channel,bulker,10.77,9,16,2,1,19,400.0,512.5,1704904491.3,True
+English Channel,bulker,10.25,1,3,2,2,6,400.0,449.5,1707277691.2,True
+English Channel,tanker,12.0,7,14,1,1,33,400.0,502.6,1704811459.1,True
+English Channel,unknown,12.48,15,6,5,3,47,400.0,478.2,1709360728.3,True
+English Channel,bulker,10.16,7,1,6,3,24,400.0,487.9,1710034936.1,True
+English Channel,container,6.56,13,4,3,1,39,400.0,436.3,1704342891.3,True
+English Channel,container,13.03,1,6,3,3,8,400.0,266.3,1710399425.1,True
+English Channel,tanker,8.91,19,4,2,1,47,400.0,430.9,1706676337.1,True
+English Channel,container,9.76,21,14,5,2,62,400.0,496.3,1706971079.7,True
+English Channel,other,6.3,10,7,2,1,27,400.0,330.1,1706685384.2,True
+English Channel,container,14.8,8,7,4,1,43,400.0,426.5,1706252624.7,True
+English Channel,bulker,16.06,16,6,3,3,50,400.0,534.4,1710398753.0,True
+English Channel,tanker,7.95,13,0,4,2,35,400.0,334.5,1706835050.6,True
+English Channel,bulker,9.81,14,0,1,3,40,400.0,457.7,1709597784.8,True
+English Channel,container,6.43,3,7,2,1,5,400.0,359.4,1705475211.0,True
+English Channel,bulker,11.58,10,6,2,1,30,400.0,508.8,1704869411.0,True
+English Channel,tanker,6.53,2,1,0,1,5,400.0,419.1,1706491928.1,True
+English Channel,other,10.97,5,12,2,2,26,400.0,421.3,1709125150.7,True
+English Channel,container,10.04,4,16,3,3,6,400.0,387.5,1711039099.1,True
+English Channel,unknown,12.4,10,9,0,2,23,400.0,461.5,1707731891.6,True
+English Channel,tanker,7.7,8,3,6,3,41,400.0,458.9,1709434974.4,True
+English Channel,other,7.44,9,10,3,3,30,400.0,396.9,1711623354.9,True
+English Channel,tanker,7.5,8,16,0,2,37,400.0,433.0,1707149490.9,True
+English Channel,container,6.7,8,0,2,3,38,400.0,352.7,1710289246.6,True
+English Channel,unknown,10.96,5,9,4,2,23,400.0,391.0,1708075224.3,True
+English Channel,container,6.86,8,15,4,3,23,400.0,348.8,1710517187.2,True
+English Channel,unknown,12.29,10,4,1,3,36,400.0,434.9,1710822256.3,True
+English Channel,container,9.03,5,9,6,3,19,400.0,416.4,1710062752.6,True
+English Channel,bulker,5.84,5,10,0,3,22,400.0,516.5,1710759424.8,True
+English Channel,container,12.18,9,5,4,2,18,400.0,363.5,1707457945.2,True
+English Channel,bulker,11.71,10,3,1,1,53,400.0,457.8,1704770604.6,True
+English Channel,container,14.82,9,11,6,2,37,400.0,322.2,1707046565.6,True
+English Channel,tanker,7.38,9,4,3,3,27,400.0,525.8,1709786522.1,True
+English Channel,tanker,11.62,7,16,4,2,18,400.0,473.8,1708099454.3,True
+English Channel,bulker,15.6,7,18,3,3,27,400.0,551.1,1711046536.7,True
+English Channel,container,10.11,13,14,0,1,38,400.0,411.0,1706539055.2,True
+English Channel,unknown,12.16,8,19,1,3,31,400.0,430.4,1711481327.1,True
+English Channel,other,12.42,4,20,2,3,17,400.0,323.2,1710967513.1,True
+English Channel,bulker,10.04,1,11,3,2,7,400.0,392.8,1709206633.4,True
+English Channel,bulker,4.07,14,4,3,2,34,400.0,504.6,1708575864.1,True
+English Channel,tanker,10.31,10,10,0,2,36,400.0,521.1,1707733407.2,True
+English Channel,container,10.15,8,14,2,2,28,400.0,460.3,1709132391.0,True
+English Channel,tanker,9.11,9,12,4,1,17,400.0,421.1,1705665622.2,True
+English Channel,tanker,8.58,14,8,0,3,58,400.0,530.5,1709541727.7,True
+English Channel,other,14.43,12,14,1,3,51,400.0,327.0,1709648047.4,True
+English Channel,other,10.84,16,16,5,1,49,400.0,505.9,1704559199.6,True
+English Channel,bulker,13.25,5,10,1,1,15,400.0,417.9,1706006043.4,True
+English Channel,other,6.77,3,4,0,1,11,400.0,439.6,1705898520.0,True
+English Channel,unknown,9.23,6,18,6,3,22,400.0,462.1,1711303915.5,True
+English Channel,unknown,10.98,11,22,2,3,47,400.0,501.1,1710973930.2,True
+English Channel,container,12.29,7,21,0,1,39,400.0,420.0,1705959403.1,True
+English Channel,bulker,8.37,3,16,6,3,14,400.0,372.0,1709483318.6,True
+English Channel,container,16.35,12,5,0,2,31,400.0,317.2,1707715170.4,True
+English Channel,unknown,10.74,12,22,3,1,38,400.0,371.5,1705618706.6,True
+English Channel,tanker,7.88,6,20,4,3,26,400.0,467.6,1709931488.6,True
+English Channel,container,12.05,1,11,3,2,0,400.0,400.9,1708601367.0,True
+English Channel,tanker,12.87,19,17,3,2,60,400.0,517.7,1708016552.8,True
+English Channel,bulker,14.82,16,21,5,3,70,400.0,485.0,1711835844.4,True
+English Channel,container,9.59,10,15,2,3,16,400.0,474.9,1710344690.3,True
+English Channel,container,10.67,4,9,3,1,14,400.0,347.3,1705569086.4,True
+English Channel,unknown,18.61,8,23,2,1,30,400.0,370.7,1705534816.7,True
+English Channel,container,6.24,11,19,3,3,42,400.0,328.7,1711654240.1,True
+English Channel,container,10.62,5,8,4,2,24,400.0,331.2,1706861722.5,True
+English Channel,container,12.04,18,5,5,3,55,400.0,410.8,1709357079.8,True
+English Channel,container,9.52,4,22,6,1,20,400.0,442.8,1704666870.2,True
+English Channel,other,8.14,13,18,1,1,46,400.0,456.0,1704219242.2,True
+English Channel,container,13.34,10,22,4,2,41,400.0,409.7,1708124265.0,True
+English Channel,tanker,17.55,9,17,6,1,39,400.0,482.8,1706463947.8,True
+English Channel,container,11.54,13,20,2,2,42,400.0,480.9,1708548386.9,True
+English Channel,container,9.21,6,10,2,3,12,400.0,287.2,1710326466.3,True
+English Channel,tanker,11.1,9,5,2,2,29,400.0,454.3,1709099730.3,True
+English Channel,tanker,5.74,14,21,2,3,32,400.0,452.2,1711576248.0,True
+English Channel,container,13.68,9,3,3,2,41,400.0,329.9,1707362725.0,True
+English Channel,bulker,10.98,9,23,5,2,30,400.0,597.9,1708817047.7,True
+English Channel,bulker,13.18,12,3,5,3,48,400.0,458.6,1711165596.3,True
+English Channel,tanker,4.97,7,0,0,2,29,400.0,405.9,1708303411.1,True
+English Channel,bulker,7.93,9,13,3,3,33,400.0,440.4,1711028967.0,True
+English Channel,container,6.41,10,15,0,2,39,400.0,407.9,1707146925.3,True
+English Channel,container,10.18,9,14,0,3,18,400.0,396.5,1710771347.7,True
+English Channel,tanker,11.2,15,1,6,3,46,400.0,537.7,1710034084.6,True
+English Channel,other,12.32,14,15,3,3,41,400.0,410.6,1711035622.8,True
+English Channel,container,5.13,14,13,4,1,50,400.0,410.6,1705067529.5,True
+English Channel,bulker,15.62,8,11,4,2,29,400.0,477.2,1707478726.1,True
+English Channel,container,9.13,13,22,4,2,45,400.0,442.2,1706912665.2,True
+English Channel,container,12.33,8,15,0,1,20,400.0,357.5,1704726279.3,True
+English Channel,container,13.83,7,17,5,3,27,400.0,462.5,1711214660.4,True
+English Channel,unknown,13.61,9,10,4,3,37,400.0,376.8,1709894770.7,True
+English Channel,tanker,14.21,10,20,2,1,42,400.0,445.0,1704918338.6,True
+English Channel,container,10.35,13,8,3,2,50,400.0,443.1,1706775891.0,True
+English Channel,other,12.66,9,10,0,1,27,400.0,341.4,1705313493.8,True
+English Channel,unknown,9.93,7,22,5,2,24,400.0,443.0,1708210321.0,True
+English Channel,other,8.49,14,11,0,2,52,400.0,504.9,1707131349.8,True
+English Channel,tanker,10.13,9,6,3,1,22,400.0,521.9,1705560526.2,True
+English Channel,container,9.11,8,4,2,2,29,400.0,436.7,1708491229.8,True
+English Channel,other,9.57,10,21,2,2,28,400.0,442.6,1707341550.4,True
+English Channel,unknown,14.98,8,19,3,2,24,400.0,410.5,1707419728.0,True
+English Channel,other,11.36,17,17,2,3,47,400.0,347.4,1710349573.6,True
+English Channel,other,5.32,9,8,6,1,15,400.0,472.5,1704617988.1,True
+English Channel,bulker,11.36,6,1,0,3,24,400.0,530.1,1711330642.7,True
+English Channel,container,12.0,9,13,3,2,47,400.0,319.6,1708609453.0,True
+English Channel,container,8.56,11,15,4,2,29,400.0,328.3,1707494172.7,True
+English Channel,bulker,9.87,17,23,6,3,64,400.0,391.4,1710716546.6,True
+English Channel,container,10.51,13,11,6,1,48,400.0,372.5,1704628344.6,True
+English Channel,bulker,11.17,11,18,0,3,44,400.0,371.2,1710180080.1,True
+English Channel,other,10.06,8,19,6,1,26,400.0,419.8,1705866630.6,True
+English Channel,container,12.82,10,19,6,3,30,400.0,391.7,1709493822.7,True
+English Channel,bulker,15.49,0,0,0,3,5,400.0,378.6,1710116320.2,True
+English Channel,other,9.09,5,15,3,1,23,400.0,434.1,1705590771.5,True
+English Channel,container,9.32,14,12,4,3,54,400.0,378.1,1709900188.9,True
+English Channel,unknown,12.55,8,19,6,3,31,400.0,325.5,1709493859.9,True
+English Channel,container,9.19,9,4,6,1,34,400.0,447.6,1705812850.2,True
+English Channel,container,10.4,9,18,5,3,37,400.0,445.9,1710010225.1,True
+English Channel,other,9.73,11,12,0,2,39,400.0,449.6,1708346408.8,True
+English Channel,other,10.75,11,7,6,2,45,400.0,440.2,1708846950.8,True
+English Channel,unknown,10.18,8,3,4,1,36,400.0,511.8,1706239684.9,True
+English Channel,tanker,10.71,11,22,6,3,49,400.0,412.7,1710109206.1,True
+English Channel,other,9.97,15,17,6,2,64,400.0,442.5,1707671108.2,True
+English Channel,container,10.19,8,11,2,1,35,400.0,507.1,1704282183.3,True
+English Channel,other,10.31,7,8,0,1,31,400.0,447.8,1705307179.2,True
+English Channel,unknown,9.63,13,13,5,3,42,400.0,467.9,1710596403.4,True
+English Channel,bulker,11.75,10,2,4,3,47,400.0,511.1,1710469214.3,True
+English Channel,container,12.15,5,0,3,1,16,400.0,348.9,1704326733.5,True
+English Channel,container,9.98,14,21,0,2,49,400.0,298.2,1707772833.5,True
+English Channel,tanker,9.99,9,9,3,3,36,400.0,471.5,1709803982.1,True
+English Channel,tanker,8.5,9,4,3,3,32,400.0,498.2,1711600437.9,True
+English Channel,container,11.69,12,3,2,1,41,400.0,389.1,1704858787.4,True
+English Channel,bulker,7.13,10,5,0,3,31,400.0,509.1,1711343019.5,True
+English Channel,bulker,10.57,7,23,3,3,24,400.0,377.3,1709854750.5,True
+English Channel,other,11.35,8,16,3,2,32,400.0,387.0,1707411178.3,True
+English Channel,other,12.45,10,10,5,3,33,400.0,389.4,1709979971.3,True
+English Channel,other,8.45,6,0,1,3,20,400.0,407.3,1709599783.3,True
+English Channel,tanker,9.31,12,7,5,1,44,400.0,486.5,1705734704.9,True
+English Channel,unknown,8.17,14,20,2,2,56,400.0,424.4,1707337095.0,True
+English Channel,other,12.06,15,17,4,3,50,400.0,426.1,1709314422.6,True

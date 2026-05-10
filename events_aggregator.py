@@ -80,6 +80,11 @@ def get_combined_events(
             "business_impact": ship["business_impact"],
             "url":             ship["url"],
             "source":          ship["source"],
+            # Multi-source clustering fields produced by get_shipping_events.
+            "hint_key":        ship.get("hint_key", ""),
+            "domain":          ship.get("domain", ""),
+            "n_sources":       ship.get("n_sources", 1),
+            "on_map":          ship.get("on_map", False),
         }))
 
     # USGS earthquakes near monitored ports — already coastal-filtered upstream
@@ -88,6 +93,7 @@ def get_combined_events(
     except Exception:  # noqa: BLE001
         quakes = pd.DataFrame()
     if len(quakes) > 0:
+        n = len(quakes)
         frames.append(pd.DataFrame({
             "event_id":        [f"EQ_{i}" for i in quakes.index],
             "type":            quakes["type"],
@@ -98,10 +104,16 @@ def get_combined_events(
             "date":            quakes["date"],
             "impact":          quakes["impact"],
             "description":     quakes["description"],
-            "affected_routes": [[] for _ in range(len(quakes))],
+            "affected_routes": [[] for _ in range(n)],
             "business_impact": quakes["business_impact"],
             "url":             quakes["url"],
             "source":          quakes["source"],
+            # Earthquakes don't carry multi-source semantics; show on map
+            # since USGS itself is the authoritative source.
+            "hint_key":        ["" for _ in range(n)],
+            "domain":          ["usgs.gov" for _ in range(n)],
+            "n_sources":       [1 for _ in range(n)],
+            "on_map":          [True for _ in range(n)],
         }))
 
     if not frames:

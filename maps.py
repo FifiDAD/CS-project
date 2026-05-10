@@ -114,7 +114,7 @@ def _add_day_night(fig, lat_s, lon_s):
         lon=poly_lons,
         mode="lines",
         fill="toself",
-        fillcolor="rgba(0, 0, 30, 0.72)",
+        fillcolor="rgba(2, 6, 18, 0.40)",
         line=dict(width=0),
         hoverinfo="skip",
         showlegend=False,
@@ -190,6 +190,48 @@ def create_dashboard_map(
         lat_sun, lon_sun = _get_subsolar_point()
         _add_day_night(fig, lat_sun, lon_sun)
 
+    # ── Chokepoint labels (cartographic gravitas) ────────────────────────────
+    # Major maritime chokepoints labelled in gold so the map reads as a
+    # purposeful trade-route display, not just dots on a globe.
+    _CHOKEPOINT_LABELS = [
+        ("Suez",         30.5,   33.0),
+        ("Hormuz",       26.5,   57.0),
+        ("Bab el-Mandeb",12.5,   44.5),
+        ("Malacca",       3.0,  100.5),
+        ("Singapore Str.",1.0,  104.5),
+        ("Panama",        9.0,  -79.5),
+        ("Bosphorus",    41.0,   29.5),
+        ("English Ch.",  50.5,   -1.0),
+        ("Cape of G.H.",-34.5,   19.0),
+    ]
+    for _name, _clat, _clon in _CHOKEPOINT_LABELS:
+        fig.add_trace(go.Scattergeo(
+            lon=[_clon], lat=[_clat], mode="text",
+            text=[f"<b>{_name}</b>"],
+            textfont=dict(color="rgba(212,175,55,0.85)", size=9,
+                          family="Inter, system-ui, sans-serif"),
+            textposition="top right",
+            hoverinfo="skip", showlegend=False,
+        ))
+
+    # ── Equator + Tropics overlay (cartographic gravitas) ────────────────────
+    # Solid gold Equator; dashed Tropics of Cancer/Capricorn. Drawn behind
+    # routes and markers so they don't compete for attention.
+    fig.add_trace(go.Scattergeo(
+        lon=[-180, 180], lat=[0, 0],
+        mode="lines",
+        line=dict(color="rgba(212,175,55,0.45)", width=1.0),
+        hoverinfo="skip", showlegend=False,
+        name="Equator",
+    ))
+    for _tropic_lat in (23.4368, -23.4368):
+        fig.add_trace(go.Scattergeo(
+            lon=[-180, 180], lat=[_tropic_lat, _tropic_lat],
+            mode="lines",
+            line=dict(color="rgba(120,180,220,0.25)", width=0.6, dash="dot"),
+            hoverinfo="skip", showlegend=False,
+        ))
+
     # ── Shipping routes ───────────────────────────────────────────────────────
     if show_routes:
         first_route = True
@@ -208,24 +250,26 @@ def create_dashboard_map(
             lats = [c[0] for c in coords]
             lons = [c[1] for c in coords]
 
-            # Glow trace — wider, low-opacity trace drawn beneath main line
+            # Glow trace — wider, low-opacity. Scattergeo lines auto-follow
+            # great-circle paths so curves come for free without spline args.
             fig.add_trace(go.Scattergeo(
                 lat=lats,
                 lon=lons,
                 mode="lines",
                 line=dict(width=10, color=color),
-                opacity=0.18,
+                opacity=0.22,
                 hoverinfo="skip",
                 showlegend=False,
                 name=f"{route_name}_glow",
             ))
 
-            # Main route line
+            # Main route line — bright neon, slightly thinner for premium feel
             fig.add_trace(go.Scattergeo(
                 lat=lats,
                 lon=lons,
                 mode="lines",
-                line=dict(width=3, color=color),
+                line=dict(width=2.2, color=color),
+                opacity=0.95,
                 name=route_name,
                 hovertemplate=(
                     f"<b>{route_name}</b><br>"
@@ -235,6 +279,23 @@ def create_dashboard_map(
                 legendgroup="routes",
                 legendgrouptitle_text="Shipping Routes" if first_route else None,
             ))
+
+            # Directional arrow at the route midpoint — reinforces flow.
+            if len(lats) >= 2:
+                _mi = len(lats) // 2
+                _a_lat = lats[_mi]
+                _a_lon = lons[_mi]
+                # Compute bearing from previous waypoint for arrow rotation;
+                # Plotly text doesn't auto-rotate so we pick a chevron that
+                # roughly points east-west based on the segment delta.
+                _dlon = lons[_mi] - lons[_mi - 1]
+                _arrow = "▶" if _dlon >= 0 else "◀"
+                fig.add_trace(go.Scattergeo(
+                    lat=[_a_lat], lon=[_a_lon], mode="text",
+                    text=[_arrow],
+                    textfont=dict(color=color, size=14),
+                    hoverinfo="skip", showlegend=False,
+                ))
             first_route = False
 
     # ── Port congestion markers ───────────────────────────────────────────────
@@ -260,15 +321,15 @@ def create_dashboard_map(
             lon=port_congestion_df["Lon"].tolist(),
             mode="markers+text",
             marker=dict(
-                size=14,
+                size=10,
                 color=port_colors,
-                symbol="square",
-                line=dict(width=1.5, color="white"),
+                symbol="circle",
+                line=dict(width=1.0, color="rgba(212,175,55,0.55)"),
                 opacity=0.95,
             ),
             text=[row["Port"][:3].upper() for _, row in port_congestion_df.iterrows()],
             textposition="top center",
-            textfont=dict(size=8, color="white"),
+            textfont=dict(size=8, color="rgba(212,175,55,0.85)"),
             name="⚓ Ports",
             hovertemplate="%{customdata}<extra></extra>",
             customdata=port_hover,
@@ -287,10 +348,10 @@ def create_dashboard_map(
             lon=fallback_lons,
             mode="markers+text",
             marker=dict(
-                size=12,
+                size=9,
                 color="#888888",
-                symbol="square",
-                line=dict(width=1.5, color="white"),
+                symbol="circle",
+                line=dict(width=1.0, color="rgba(212,175,55,0.45)"),
                 opacity=0.7,
             ),
             text=[n[:3].upper() for n in fallback_names],
@@ -357,8 +418,6 @@ def create_dashboard_map(
             f"📍 {row.get('source_country','')}<br>"
             f"🗓 {row['date'].strftime('%Y-%m-%d') if hasattr(row['date'], 'strftime') else row['date']}<br>"
             f"<i>{(row.get('title') or '')[:120]}</i>"
-            + (f"<br>🔗 <a href='{row.get('url','')}' target='_blank'>read article</a>"
-               if row.get("url") else "")
             for _, row in piracy_df.iterrows()
         ]
         fig.add_trace(go.Scattergeo(
@@ -401,9 +460,15 @@ def create_dashboard_map(
                 except Exception:
                     ts = ""
                 impact = row.get("impact", "")
-                url = row.get("url", "") or ""
-                link = f"<br>🔗 <a href='{url}' target='_blank'>read article</a>" if url else ""
                 detail = row.get("business_impact", "")
+                # Plotly hover layers can't contain clickable HTML, so we
+                # surface the multi-source corroboration here and leave the
+                # actual article link to the Intel Feed page.
+                n_sources = int(row.get("n_sources", 0) or 0)
+                sources_line = (
+                    f"<br>📰 Confirmed by {n_sources} sources · see Intel Feed"
+                    if n_sources >= 2 else ""
+                )
                 return (
                     f"<b>{bucket}</b>"
                     + (f" · {sub}" if sub else "")
@@ -411,9 +476,28 @@ def create_dashboard_map(
                     + (f"<br>🗓 {ts}" if ts else "")
                     + f"<br>⚡ Impact: <b>{impact}</b>"
                     + (f"<br>📊 {detail}" if detail else "")
-                    + link
+                    + sources_line
                 )
             hover_texts = [_ev_hover(row) for _, row in group.iterrows()]
+
+            # Tight halo behind every marker — replaces the flat white outline
+            # with a subtle glow that matches the marker colour. Kept small
+            # and low-opacity so overlapping markers (several reports about
+            # the same incident) don't stack into a flat colour fill.
+            fig.add_trace(go.Scattergeo(
+                lat=group["latitude"],
+                lon=group["longitude"],
+                mode="markers",
+                marker=dict(
+                    size=sizes * 1.6,
+                    color=color,
+                    opacity=0.10,
+                    line=dict(width=0),
+                    symbol="circle",
+                ),
+                hoverinfo="skip", showlegend=False,
+                legendgroup="events",
+            ))
 
             fig.add_trace(go.Scattergeo(
                 lat=group["latitude"],
@@ -422,8 +506,8 @@ def create_dashboard_map(
                 marker=dict(
                     size=sizes,
                     color=color,
-                    opacity=0.9,
-                    line=dict(width=1, color="white"),
+                    opacity=0.95,
+                    line=dict(width=0.6, color="rgba(255,255,255,0.35)"),
                     symbol="circle",
                 ),
                 name=f"{icon} {event_type}",
@@ -434,35 +518,55 @@ def create_dashboard_map(
             ))
             first_event_type = False
 
-    # ── Map layout ────────────────────────────────────────────────────────────
+    # ── Map layout — "Naval Command" aesthetic ──────────────────────────────
+    # Heavy detail dark, military-grade situational-awareness look.
+    # Country borders + states/oblasts + major rivers all visible. Bright
+    # cyan coastlines, gold political borders, 15° graticule.
     fig.update_layout(
         height=600,
         margin=dict(l=0, r=0, t=0, b=0),
-        paper_bgcolor="#020d18",
+        paper_bgcolor="#0a0a0a",
+        plot_bgcolor="#0a0a0a",
+        font=dict(family="Inter, system-ui, sans-serif", color="#cfe1ff", size=11),
         legend=dict(
-            bgcolor="rgba(2,13,24,0.90)",
-            bordercolor="#1a3a5c",
+            bgcolor="rgba(10,10,10,0.85)",
+            bordercolor="rgba(255,255,255,0.10)",
             borderwidth=1,
-            font=dict(color="#d0e8ff", size=11),
-            x=0.01,
-            y=0.99,
+            font=dict(color="#cfe1ff", size=10),
+            x=0.01, y=0.99,
+            itemsizing="constant",
         ),
         geo=dict(
             projection_type="natural earth",
             showland=True,
-            landcolor="#1a2e10",
+            landcolor="#141821",                       # deep graphite
             showocean=True,
-            oceancolor="#04111f",
+            oceancolor="#040810",                      # near-black navy
             showlakes=True,
-            lakecolor="#071e38",
+            lakecolor="#06121f",
             showcountries=True,
-            countrycolor="rgba(255,255,255,0.25)",
+            countrycolor="rgba(180,200,230,0.18)",     # subtle steel-blue borders
+            countrywidth=0.5,
+            showsubunits=False,                        # too noisy on a small figure
+            showrivers=False,                          # rivers were adding visual clutter
             showcoastlines=True,
-            coastlinecolor="rgba(255,255,255,0.70)",
-            showrivers=False,
+            coastlinecolor="rgba(120,180,220,0.35)",   # softer cyan coastlines
+            coastlinewidth=0.6,
             showframe=False,
-            bgcolor="#020d18",
+            bgcolor="#0a0a0a",
             resolution=50,
+            lataxis=dict(
+                showgrid=True,
+                gridcolor="rgba(120,180,220,0.10)",
+                gridwidth=0.4,
+                dtick=15,
+            ),
+            lonaxis=dict(
+                showgrid=True,
+                gridcolor="rgba(120,180,220,0.10)",
+                gridwidth=0.4,
+                dtick=15,
+            ),
             lataxis_range=[-70, 80],
             lonaxis_range=[-180, 180],
         ),

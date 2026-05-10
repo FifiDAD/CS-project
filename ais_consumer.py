@@ -66,17 +66,29 @@ def _init_db() -> None:
                 ts        REAL
             )"""
         )
-        # Append-only history of (mmsi, ts) sightings — fuels transit counts
-        # and 7-day baselines without needing PortWatch. 1 row per AIS message.
+        # Append-only history of sightings — fuels transit counts, 7-day
+        # baselines, and the ETA model's training extractor. 1 row per
+        # PositionReport. sog_kn / ship_type are nullable: sog comes from
+        # the position message, ship_type is looked up from positions and
+        # stays NULL until a Type-5 ShipStaticData message has arrived.
         con.execute(
             """CREATE TABLE IF NOT EXISTS sightings (
-                mmsi INTEGER,
-                lat  REAL,
-                lon  REAL,
-                ts   REAL
+                mmsi      INTEGER,
+                lat       REAL,
+                lon       REAL,
+                sog_kn    REAL,
+                ship_type INTEGER,
+                ts        REAL
             )"""
         )
+        # Additive migration for older DBs that pre-date sog_kn / ship_type.
+        cols = {r[1] for r in con.execute("PRAGMA table_info(sightings)")}
+        if "sog_kn" not in cols:
+            con.execute("ALTER TABLE sightings ADD COLUMN sog_kn REAL")
+        if "ship_type" not in cols:
+            con.execute("ALTER TABLE sightings ADD COLUMN ship_type INTEGER")
         con.execute("CREATE INDEX IF NOT EXISTS idx_sightings_ts ON sightings(ts)")
+        con.execute("CREATE INDEX IF NOT EXISTS idx_sightings_mmsi_ts ON sightings(mmsi, ts)")
 
 
 def _upsert(con: sqlite3.Connection, msg: dict) -> None:
@@ -123,9 +135,15 @@ def _upsert(con: sqlite3.Connection, msg: dict) -> None:
                 now,
             ),
         )
+        # Look up ship_type from positions (populated lazily by Type-5 msgs).
+        # NULL until at least one ShipStaticData message has arrived for this MMSI.
+        prior_type = con.execute(
+            "SELECT ship_type FROM positions WHERE mmsi = ?", (mmsi,)
+        ).fetchone()
+        ship_type = prior_type[0] if prior_type else None
         con.execute(
-            "INSERT INTO sightings (mmsi, lat, lon, ts) VALUES (?,?,?,?)",
-            (mmsi, lat, lon, now),
+            "INSERT INTO sightings (mmsi, lat, lon, sog_kn, ship_type, ts) VALUES (?,?,?,?,?,?)",
+            (mmsi, lat, lon, pos_msg.get("Sog"), ship_type, now),
         )
         return
 
@@ -225,6 +243,36 @@ def transits_24h(bbox: list[float]) -> int:
                 """SELECT COUNT(DISTINCT mmsi) FROM sightings
                    WHERE ts > ? AND lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?""",
                 (cutoff, lat_min, lat_max, lon_min, lon_max),
+            ).fetchone()
+            return int(row[0]) if row else 0
+    except sqlite3.Error:
+        return 0
+
+
+def last_sighting_age_sec() -> float | None:
+    """Seconds since the most recent AIS sighting in the DB. None if empty."""
+    if not _DB_PATH.exists():
+        return None
+    try:
+        with sqlite3.connect(_DB_PATH) as con:
+            row = con.execute("SELECT MAX(ts) FROM sightings").fetchone()
+        if not row or row[0] is None:
+            return None
+        return max(0.0, time.time() - float(row[0]))
+    except sqlite3.Error:
+        return None
+
+
+def total_distinct_vessels(window_sec: int = 86400) -> int:
+    """Count distinct MMSIs sighted within the last `window_sec` seconds."""
+    if not _DB_PATH.exists():
+        return 0
+    cutoff = time.time() - window_sec
+    try:
+        with sqlite3.connect(_DB_PATH) as con:
+            row = con.execute(
+                "SELECT COUNT(DISTINCT mmsi) FROM sightings WHERE ts > ?",
+                (cutoff,),
             ).fetchone()
             return int(row[0]) if row else 0
     except sqlite3.Error:

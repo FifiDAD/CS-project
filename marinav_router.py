@@ -264,6 +264,7 @@ def build_shipping_graph(
     shipping_routes: dict,
     risk_scores: dict | None = None,
     weather_provider=None,
+    chokepoint_queue_penalty: dict[str, float] | None = None,
 ) -> nx.Graph:
     """
     Build a risk-weighted NetworkX graph of the global maritime route network.
@@ -285,6 +286,7 @@ def build_shipping_graph(
             is attached to G.edges so downstream fuel calc can reuse it.
     """
     risk_scores = risk_scores or {}
+    chokepoint_queue_penalty = chokepoint_queue_penalty or {}
     G = nx.Graph()
 
     # Add backbone waypoints as nodes
@@ -323,6 +325,24 @@ def build_shipping_graph(
             wave_h_m=float(wx.get("wave_h_m") or 0.0),
         )
 
+    # The chokepoint corridor an edge belongs to (None for open-ocean edges).
+    # We split the per-corridor queue penalty across all edges in that corridor
+    # so the total km bump matches the model's predicted delay end-to-end.
+    _corridor_edge_count: dict[str, int] = {}
+    for _ab, _cp in _EDGE_CHOKEPOINT.items():
+        # _EDGE_CHOKEPOINT stores both (a,b) and (b,a); count each undirected
+        # edge once.
+        a_, b_ = _ab
+        if a_ < b_:
+            _corridor_edge_count[_cp] = _corridor_edge_count.get(_cp, 0) + 1
+
+    def _edge_queue_penalty(a: str, b: str) -> float:
+        cp = _EDGE_CHOKEPOINT.get((a, b)) or _EDGE_CHOKEPOINT.get((b, a))
+        if cp is None or cp not in chokepoint_queue_penalty:
+            return 0.0
+        n = max(1, _corridor_edge_count.get(cp, 1))
+        return float(chokepoint_queue_penalty[cp]) / n
+
     for (a, b) in _EDGES:
         if a not in _WP or b not in _WP:
             continue
@@ -332,14 +352,19 @@ def build_shipping_graph(
         factor  = _edge_risk_factor(a, b)
         meta    = _edge_meta(la, loa, lb, lob, a, b, dist_km)
         wx_mult = _wx_factor(meta) if weather_provider else 1.0
+        # ML-derived queue penalty for chokepoint-corridor edges. Adds an
+        # equivalent-km bump so a congested chokepoint costs literal extra
+        # voyage distance (model's predicted delay × speed). Keeps the same
+        # "shorter is better" Dijkstra semantics across all three objectives.
+        queue_pen = _edge_queue_penalty(a, b)
         # Three named-objective weights are stored on each edge so that
         # `find_optimal_route(..., weight_key=...)` can run Dijkstra under
         # different planner priorities without rebuilding the graph or
         # re-fetching weather. `weight` stays as the balanced default for
         # backwards compatibility.
-        balanced = dist_km * factor * wx_mult
-        fastest  = dist_km                                # ignore risk + weather
-        safest   = dist_km * (factor ** 3) * wx_mult      # heavy risk penalty
+        balanced = (dist_km + queue_pen) * factor * wx_mult
+        fastest  = dist_km + queue_pen                       # ignore risk + weather, but queue still costs time
+        safest   = (dist_km + queue_pen) * (factor ** 3) * wx_mult
         G.add_edge(
             a, b,
             weight=balanced,
@@ -347,6 +372,7 @@ def build_shipping_graph(
             weight_fast=fastest,
             weight_safe=safest,
             dist_km=dist_km,
+            queue_penalty_km=queue_pen,
             route="backbone",
             meta=meta,
         )
@@ -602,6 +628,46 @@ def find_route_alternatives(
     seen_paths: set[tuple[str, ...]] = set()
     out: list[dict] = []
 
+    def _runner_up_for(weight_key: str, winning_path: list[str]) -> dict | None:
+        """Best topologically-distinct alternative path under `weight_key`.
+
+        `shortest_simple_paths` enumerates in weight order, so the next few
+        candidates are usually trivial perturbations of the winning path that
+        share the same chokepoints. We iterate further and keep the first
+        candidate whose chokepoint set genuinely differs (e.g. Cape detour
+        vs. Suez) — that's the alternative the user actually wants to see.
+        Falls back to the closest-cost candidate if no distinct one exists.
+        """
+        winning_cps = frozenset(_summarise_path(
+            winning_path, G, origin, destination, 0.0)["chokepoints_used"])
+        first_alt: dict | None = None
+        try:
+            paths_iter = nx.shortest_simple_paths(G, orig_node, dest_node,
+                                                  weight=weight_key)
+            for idx, candidate in enumerate(paths_iter):
+                if idx >= 25:
+                    break
+                if candidate == winning_path:
+                    continue
+                cand_total = sum(
+                    G[candidate[i]][candidate[i + 1]].get(weight_key, 0)
+                    for i in range(len(candidate) - 1)
+                )
+                summary = _summarise_path(candidate, G, origin, destination,
+                                          cand_total)
+                summary["economics"] = _route_total_cost_usd(
+                    summary, vessel, speed_kn, bunker_usd_per_t,
+                    opex_per_day, risk_scores,
+                )
+                cand_cps = frozenset(summary["chokepoints_used"])
+                if cand_cps != winning_cps:
+                    return summary
+                if first_alt is None:
+                    first_alt = summary
+        except (nx.NetworkXNoPath, nx.NetworkXError):
+            return None
+        return first_alt
+
     # ── Recommended / Fastest / Safest: one Dijkstra per objective ──────────
     for objective in ROUTE_OBJECTIVES[:3]:
         result = find_optimal_route(origin, destination, G, risk_scores,
@@ -626,6 +692,10 @@ def find_route_alternatives(
                     result["duplicate_of"] = prior["objective"]
                     break
         seen_paths.add(path_tuple)
+        # Attach runner-up so the UI can show what the engine *would* have
+        # picked if the winning path were unavailable — concrete evidence
+        # that the alternative was evaluated, not that the search collapsed.
+        result["runner_up"] = _runner_up_for(objective["weight"], result["path"])
         out.append(result)
 
     # ── Cheapest: pool together the named-objective paths PLUS top-K under
@@ -668,7 +738,8 @@ def find_route_alternatives(
         pass
 
     if candidates:
-        cheapest = min(candidates, key=lambda c: c["economics"]["total_usd"])
+        ranked = sorted(candidates, key=lambda c: c["economics"]["total_usd"])
+        cheapest = ranked[0]
         # Build a fresh dict so we don't mutate a previously-emitted alternative
         cheapest_copy = dict(cheapest)
         cheapest_copy["objective"]    = cheapest_obj["key"]
@@ -682,6 +753,20 @@ def find_route_alternatives(
             if tuple(prior["path"]) == cheapest_path_tuple:
                 cheapest_copy["duplicate_of"] = prior["objective"]
                 break
+        # Runner-up = next-cheapest pooled candidate that goes through a
+        # *different* chokepoint set, falling back to the next-cheapest
+        # distinct path if every candidate shares the winning chokepoints.
+        cheapest_cps = frozenset(cheapest_copy["chokepoints_used"])
+        distinct_ru = next(
+            (c for c in ranked[1:]
+             if tuple(c["path"]) != cheapest_path_tuple
+             and frozenset(c["chokepoints_used"]) != cheapest_cps),
+            None,
+        )
+        cheapest_copy["runner_up"] = distinct_ru or next(
+            (c for c in ranked[1:] if tuple(c["path"]) != cheapest_path_tuple),
+            None,
+        )
         out.append(cheapest_copy)
 
     return out

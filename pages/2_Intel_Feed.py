@@ -144,6 +144,52 @@ with feed_left:
   <span style="color:#888"> — {act}</span>
 </div>""", unsafe_allow_html=True)
 
+    # ── Multi-source Threat Watch ────────────────────────────────────────────
+    # Surfaces events that also appear as map markers — i.e. corroborated by
+    # ≥2 distinct news domains. Each row carries the article URL so the
+    # clickable links the user expected on the map live here instead.
+    if "on_map" in filtered_events.columns:
+        on_map_events = (
+            filtered_events[filtered_events["on_map"].fillna(False)]
+            .sort_values("date", ascending=False)
+        )
+    else:
+        on_map_events = filtered_events.iloc[0:0]
+    if len(on_map_events) > 0:
+        st.markdown(
+            '<div class="tw-label" style="margin-top:12px">🗺 Multi-source Threat Watch</div>',
+            unsafe_allow_html=True,
+        )
+        for _, ev in on_map_events.head(8).iterrows():
+            ev_imp = ev.get("impact", "")
+            ev_col = {"Critical": "#ef4444", "High": "#f97316",
+                      "Medium":   "#eab308", "Low":  "#22c55e"}.get(ev_imp, "#666")
+            ev_loc = ev.get("location", "—")
+            ev_n   = int(ev.get("n_sources", 0) or 0)
+            ev_url = (ev.get("url") or "").strip()
+            ev_desc = str(ev.get("description") or "")[:120]
+            try:
+                ev_ts = pd.Timestamp(ev["date"]).strftime("%b %d %H:%M")
+            except Exception:  # noqa: BLE001
+                ev_ts = ""
+            link_html = (
+                f'<a href="{ev_url}" target="_blank" '
+                f'style="color:#7cd1ff;text-decoration:none">read article →</a>'
+                if ev_url else ""
+            )
+            st.markdown(f"""
+<div style="border-left:3px solid {ev_col};padding:6px 10px;margin:4px 0;
+            background:rgba(255,255,255,0.02);border-radius:0 3px 3px 0">
+  <div style="display:flex;justify-content:space-between;
+              font-size:9px;color:#888;margin-bottom:2px">
+    <span><b style="color:{ev_col}">{ev_imp}</b> · 📍 {ev_loc} · {ev_ts}</span>
+    <span style="background:rgba(124,209,255,0.10);color:#7cd1ff;
+                 padding:1px 6px;border-radius:3px">🗺 {ev_n} sources</span>
+  </div>
+  <div style="font-size:11px;color:#ccc;line-height:1.4">{ev_desc}</div>
+  <div style="font-size:10px;margin-top:3px">{link_html}</div>
+</div>""", unsafe_allow_html=True)
+
     st.markdown('<div class="tw-label" style="margin-top:14px">Event Breakdown</div>',
                 unsafe_allow_html=True)
     if len(filtered_events) > 0:

@@ -771,6 +771,40 @@ class APIClient:
             "durban":           (-29.87,  31.03),
             "mundra":           (22.75,  69.72),
         }
+        # Human-readable labels for the hint matches — used as the event's
+        # `location` so a Houthi attack covered by an Indian newspaper labels
+        # as "Red Sea / Yemen" rather than "India".
+        HINT_LABELS: dict[str, str] = {
+            "suez canal":       "Suez Canal / Egypt",
+            "bab el-mandeb":    "Bab el-Mandeb / Yemen",
+            "strait of hormuz": "Strait of Hormuz / Iran",
+            "strait of malacca":"Strait of Malacca",
+            "singapore strait": "Singapore Strait",
+            "panama canal":     "Panama Canal",
+            "english channel":  "English Channel",
+            "red sea":          "Red Sea / Yemen",
+            "rotterdam":        "Rotterdam, NL",
+            "shanghai":         "Shanghai, CN",
+            "singapore":        "Singapore",
+            "los angeles":      "Los Angeles, US",
+            "long beach":       "Long Beach, US",
+            "hamburg":          "Hamburg, DE",
+            "antwerp":          "Antwerp, BE",
+            "yokohama":         "Yokohama, JP",
+            "busan":            "Busan, KR",
+            "houston":          "Houston, US",
+            "jebel ali":        "Jebel Ali, AE",
+            "salalah":          "Salalah, OM",
+            "port said":        "Port Said, EG",
+            "ningbo":           "Ningbo, CN",
+            "qingdao":          "Qingdao, CN",
+            "guangzhou":        "Guangzhou, CN",
+            "hong kong":        "Hong Kong",
+            "tokyo":            "Tokyo, JP",
+            "santos":           "Santos, BR",
+            "durban":           "Durban, ZA",
+            "mundra":           "Mundra, IN",
+        }
         # Coarse: country sourcecountry centroid as fallback
         COUNTRY_CENTROIDS: dict[str, tuple[float, float]] = {
             "United States": (39, -98),  "China": (35, 105),     "Japan": (36, 138),
@@ -815,9 +849,11 @@ class APIClient:
             # Geocode: precise if a chokepoint/port name is in the title; else
             # fall back to the article's sourcecountry centroid.
             lat = lon = None
+            matched_hint: str | None = None
             for hint, coord in PRECISE_HINTS.items():
                 if hint in title_lower:
                     lat, lon = coord
+                    matched_hint = hint
                     break
             if lat is None:
                 sc = a.get("sourcecountry") or ""
@@ -845,18 +881,22 @@ class APIClient:
                 impact = "Medium"
             else:
                 impact = "Low"
+            domain = a.get("domain", "") or ""
             rows.append({
                 "date": dt,
                 "latitude": lat,
                 "longitude": lon,
                 "type": bucket,
                 "subtype": subtype,
-                "location": a.get("sourcecountry", "") or "—",
+                "location": (HINT_LABELS.get(matched_hint, "") if matched_hint
+                             else (a.get("sourcecountry", "") or "—")),
                 "impact": impact,
                 "description": title[:200],
-                "business_impact": f"Source: {a.get('domain','')}",
+                "business_impact": f"Source: {domain}",
                 "url": a.get("url", ""),
                 "source": "GDELT-DOC",
+                "hint_key": matched_hint or "",
+                "domain": domain,
             })
 
         if not rows:
@@ -864,6 +904,26 @@ class APIClient:
         df = pd.DataFrame(rows)
         # Deduplicate by URL
         df = df.drop_duplicates(subset="url").reset_index(drop=True)
+
+        # Multi-source clustering: an event qualifies for the map only if
+        # at least two distinct news domains cover it. We group by
+        # (hint_key, subtype) — same precise location + same threat type —
+        # and count unique domains. Events without a precise hint never
+        # get a cluster_id and never reach the map.
+        df["cluster_id"] = (
+            df["hint_key"].astype(str) + "::" + df["subtype"].astype(str)
+        )
+        df.loc[df["hint_key"] == "", "cluster_id"] = ""
+        if (df["cluster_id"] != "").any():
+            cluster_counts = (
+                df[df["cluster_id"] != ""]
+                .groupby("cluster_id")["domain"].nunique()
+                .to_dict()
+            )
+            df["n_sources"] = df["cluster_id"].map(cluster_counts).fillna(1).astype(int)
+        else:
+            df["n_sources"] = 1
+        df["on_map"] = df["n_sources"] >= 2
         return df
 
 
