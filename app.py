@@ -166,12 +166,27 @@ with map_col:
     globe_fig.update_layout(
         margin=dict(l=0, r=0, t=0, b=0),
         height=560,
-        paper_bgcolor="#0a0a0a",
-        plot_bgcolor="#0a0a0a",
     )
-    globe_fig.update_geos(bgcolor="#0a0a0a")
-    st.plotly_chart(globe_fig, use_container_width=True,
-                    config={"scrollZoom": True, "displayModeBar": False})
+    # Note: don't call update_geos here — maps.py applies the Naval Command
+    # palette (graphite land + near-black ocean + cyan coastlines + gold
+    # borders + 15° graticule). Overriding bgcolor/landcolor/oceancolor here
+    # silently undid that and surfaced the bright orange Disruption halos.
+    # Show the standard Plotly toolbar (Pan / Zoom in / Zoom out / Reset)
+    # so the user has familiar map controls. dragmode="pan" is set in
+    # maps.py so click-drag pans rather than draws a zoom-box.
+    st.plotly_chart(
+        globe_fig,
+        use_container_width=True,
+        config={
+            "scrollZoom": True,
+            "displayModeBar": True,
+            "displaylogo": False,
+            "modeBarButtonsToRemove": [
+                "select2d", "lasso2d", "autoScale2d", "toImage",
+                "hoverClosestGeo",
+            ],
+        },
+    )
 
     # Recommended route bar
     if best_route != "N/A":

@@ -123,6 +123,31 @@ def compute_shipping_status(events_json: str) -> pd.DataFrame:
         )
         news_signal = len(articles)
 
+        # Multi-source news clusters from events_df — corroborated by ≥2
+        # distinct domains, deduped by cluster_id, with a 0.5× decay for
+        # anything older than 24h. This is what feeds the risk formula
+        # (the raw `news_signal` count is too noisy: a single trending
+        # headline can produce 10+ articles and pin the score to 100).
+        news_clusters_score = 0.0
+        if len(events_df) > 0 and "hint_key" in events_df.columns:
+            cp_hint = strait_name.lower()
+            try:
+                hint_match = (
+                    events_df["hint_key"].astype(str).str.lower()
+                    .str.contains(cp_hint, na=False, regex=False)
+                )
+                multi_source = events_df["n_sources"].fillna(1) >= 2
+                matched = events_df[hint_match & multi_source]
+                if "cluster_id" in matched.columns:
+                    matched = matched.drop_duplicates(subset="cluster_id")
+                if len(matched) > 0:
+                    now = pd.Timestamp.now(tz="UTC")
+                    ages = (now - pd.to_datetime(matched["date"], utc=True, errors="coerce")).dt.total_seconds()
+                    weights = ages.fillna(86400).apply(lambda s: 1.0 if s < 86400 else 0.5)
+                    news_clusters_score = float(weights.sum())
+            except Exception:  # noqa: BLE001  never blow up risk computation on a column quirk
+                news_clusters_score = 0.0
+
         # NGA Maritime Safety warnings — authoritative closure/hazard signal.
         nga_sev, nga_count = severity_for_chokepoint(
             nga_df, coords["lat"], coords["lon"], coords["radius_km"]
@@ -146,15 +171,22 @@ def compute_shipping_status(events_json: str) -> pd.DataFrame:
             (len(events_df) > 0) or (news_signal > 0) or nga_alive or ais_transits > 0
         )
 
-        # Composite risk score 0–100. NGA severity dominates (closure-class
-        # warning alone pins ≥80). AIS drop adds physical confirmation.
+        # Composite risk score 0–100. Rebalanced so a single dominant input
+        # can't peg the score on its own:
+        #   - NGA contributes up to +45 (was +80) — a closure-class warning
+        #     should be a strong signal, not the only signal.
+        #   - AIS drop is capped at +25 (was +50) so a noisy day can't
+        #     account for half the score.
+        #   - News uses multi-source clusters (×6) instead of raw GDELT
+        #     article counts (was ×3). Clusters are far rarer than
+        #     articles, so a trending headline no longer floods the score.
         risk_score = min(
             100,
-            int(round(nga_sev * 80))
-            + ais_points
+            int(round(nga_sev * 45))
+            + min(25, ais_points)
             + critical_nearby * 25
             + high_nearby * 10
-            + news_signal * 3
+            + int(round(news_clusters_score * 6))
         )
 
         if not feed_alive:
@@ -188,6 +220,7 @@ def compute_shipping_status(events_json: str) -> pd.DataFrame:
             "Risk Score":    risk_score,
             "Nearby Events": len(nearby),
             "News Signals":  news_signal,
+            "Multi-source Clusters": round(news_clusters_score, 1),
             "NGA Warnings":  nga_count,
             "AIS 24h":       ais_transits,
             "AIS Baseline":  round(ais_base, 1) if ais_base is not None else "—",

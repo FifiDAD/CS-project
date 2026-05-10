@@ -17,7 +17,10 @@ import plotly.graph_objects as go
 
 from dynamic_status import compute_shipping_status
 from data_loader import load_core_data
-from ui_helpers import inject_css, render_header, render_nav, render_footer, SC, risk_col
+from ui_helpers import (
+    inject_css, render_header, render_nav, render_footer,
+    SC, risk_col, lottie_loader,
+)
 from analytics import RiskAnalytics
 from components import filter_events
 from marinav_router import (
@@ -420,82 +423,93 @@ if len(bunker_df) > 0:
 if compute or st.session_state.get("mnav_alternatives"):
 
     if compute:
-        st.toast(f"Calculating {origin} → {destination}…", icon="🧭")
+        # st.status renders synchronously the moment the rerun starts, so the
+        # user sees an immediate panel even before the Lottie iframe + CDN
+        # script have loaded. The Lottie is a visual bonus inside it.
+        _status = st.status(
+            f"🧭 Calculating {origin} → {destination}…",
+            expanded=True,
+            state="running",
+        )
+        with _status, lottie_loader(
+            "Sampling weather · running 4 Dijkstra alternatives…",
+            height_px=240,
+        ):
+            # Weather provider — toggleable. When enabled, samples wind+wave at
+            # each backbone-edge midpoint via Open-Meteo (cached). Adds ~2-3s on
+            # first run for ~50 edges; cached afterwards for 1h (wind) / event-TTL
+            # (waves), so subsequent re-routes are instant.
+            use_weather = st.session_state.get("mn_use_weather", True)
 
-        # Weather provider — toggleable. When enabled, samples wind+wave at
-        # each backbone-edge midpoint via Open-Meteo (cached). Adds ~2-3s on
-        # first run for ~50 edges; cached afterwards for 1h (wind) / event-TTL
-        # (waves), so subsequent re-routes are instant.
-        use_weather = st.session_state.get("mn_use_weather", True)
+            @st.cache_data(ttl=3600, show_spinner=False)
+            def _wx_at(lat: float, lon: float) -> dict:
+                wind = APIClient.get_wind_at(lat, lon) or {}
+                marine = APIClient.get_marine_weather(lat, lon) or {}
+                return {
+                    "wind_speed_ms": wind.get("wind_speed_ms") or 0.0,
+                    "wind_dir_deg":  wind.get("wind_dir_deg") or 0.0,
+                    "wave_h_m":      marine.get("wave_height_m") or 0.0,
+                }
 
-        @st.cache_data(ttl=3600, show_spinner=False)
-        def _wx_at(lat: float, lon: float) -> dict:
-            wind = APIClient.get_wind_at(lat, lon) or {}
-            marine = APIClient.get_marine_weather(lat, lon) or {}
-            return {
-                "wind_speed_ms": wind.get("wind_speed_ms") or 0.0,
-                "wind_dir_deg":  wind.get("wind_dir_deg") or 0.0,
-                "wave_h_m":      marine.get("wave_height_m") or 0.0,
-            }
+            wx_provider = _wx_at if use_weather else None
 
-        wx_provider = _wx_at if use_weather else None
+            # ── ML-derived queue penalty per chokepoint ──────────────────────
+            # Convert each chokepoint's predicted excess-vs-baseline minutes into
+            # an equivalent-km penalty that gets distributed across edges in that
+            # corridor. A congested Singapore Strait then makes Dijkstra prefer
+            # the Cape of Good Hope or Taiwan Strait detour automatically — the
+            # same model the user sees in the diagnostics expander is what's
+            # driving the divergence between alternatives.
+            chokepoint_queue_penalty: dict[str, float] = {}
+            try:
+                from eta_model import HEURISTIC_MEAN_MIN as _ETA_BASELINE_MIN
+                from eta_model import predict_transit_minutes as _eta_predict_one
+                _ship_bin_pre = _vessel_to_ship_type_bin(vessel_name)
+                _eta_features_pre = _eta_features_per_chokepoint(_ship_bin_pre, speed_kn)
+                for _cp in _ETA_CHOKEPOINT_BBOXES:
+                    try:
+                        _pred = _eta_predict_one(_cp, _eta_features_pre.get(_cp, {}))
+                        _excess_min = max(0.0, float(_pred["p50"]) - float(_ETA_BASELINE_MIN.get(_cp, 0.0)))
+                        chokepoint_queue_penalty[_cp] = _excess_min * float(speed_kn) / 60.0 * 1.852
+                    except Exception:  # noqa: BLE001  per-chokepoint guard
+                        chokepoint_queue_penalty[_cp] = 0.0
+            except Exception as _exc:  # noqa: BLE001  ML/AIS failure must not block routing
+                st.warning(f"⚠ ML queue penalty unavailable, routing without it: {_exc}")
 
-        # ── ML-derived queue penalty per chokepoint ──────────────────────
-        # Convert each chokepoint's predicted excess-vs-baseline minutes into
-        # an equivalent-km penalty that gets distributed across edges in that
-        # corridor. A congested Singapore Strait then makes Dijkstra prefer
-        # the Cape of Good Hope or Taiwan Strait detour automatically — the
-        # same model the user sees in the diagnostics expander is what's
-        # driving the divergence between alternatives.
-        chokepoint_queue_penalty: dict[str, float] = {}
-        try:
-            from eta_model import HEURISTIC_MEAN_MIN as _ETA_BASELINE_MIN
-            from eta_model import predict_transit_minutes as _eta_predict_one
-            _ship_bin_pre = _vessel_to_ship_type_bin(vessel_name)
-            _eta_features_pre = _eta_features_per_chokepoint(_ship_bin_pre, speed_kn)
-            for _cp in _ETA_CHOKEPOINT_BBOXES:
-                try:
-                    _pred = _eta_predict_one(_cp, _eta_features_pre.get(_cp, {}))
-                    _excess_min = max(0.0, float(_pred["p50"]) - float(_ETA_BASELINE_MIN.get(_cp, 0.0)))
-                    chokepoint_queue_penalty[_cp] = _excess_min * float(speed_kn) / 60.0 * 1.852
-                except Exception:  # noqa: BLE001  per-chokepoint guard
-                    chokepoint_queue_penalty[_cp] = 0.0
-        except Exception as _exc:  # noqa: BLE001  ML/AIS failure must not block routing
-            st.warning(f"⚠ ML queue penalty unavailable, routing without it: {_exc}")
-
-        try:
-            spinner_msg = "Sampling weather along backbone + building graph…" if use_weather \
-                          else "Building risk-weighted shipping graph…"
-            with st.spinner(spinner_msg):
+            try:
                 G = build_shipping_graph(
                     MAJOR_SHIPPING_ROUTES, risk_scores,
                     weather_provider=wx_provider,
                     chokepoint_queue_penalty=chokepoint_queue_penalty,
                 )
-            with st.spinner("Computing 4 route alternatives…"):
                 alternatives = find_route_alternatives(
                     origin, destination, G, risk_scores,
                     vessel, speed_kn, bunker, float(opex_per_day),
                 )
-        except Exception as _exc:  # noqa: BLE001  surface routing errors visibly
-            import traceback as _tb
-            st.error(f"❌ Routing failed: {type(_exc).__name__}: {_exc}")
-            st.code(_tb.format_exc())
-            st.stop()
+            except Exception as _exc:  # noqa: BLE001  surface routing errors visibly
+                import traceback as _tb
+                st.error(f"❌ Routing failed: {type(_exc).__name__}: {_exc}")
+                st.code(_tb.format_exc())
+                st.stop()
 
-        # Filter out error responses
-        alternatives = [a for a in alternatives if "error" not in a]
-        if not alternatives:
-            st.error("Routing error: no path found between these ports.")
-            st.stop()
-        st.session_state["mnav_alternatives"] = alternatives
-        st.session_state["mnav_origin_last"]  = origin
-        st.session_state["mnav_dest_last"]    = destination
-        st.session_state["mnav_used_weather"] = bool(use_weather)
-        # Default pick = Recommended (balanced); fall back to first alt
-        st.session_state["mn_picked_route"] = next(
-            (a["objective"] for a in alternatives if a["objective"] == "balanced"),
-            alternatives[0]["objective"],
+            # Filter out error responses
+            alternatives = [a for a in alternatives if "error" not in a]
+            if not alternatives:
+                st.error("Routing error: no path found between these ports.")
+                st.stop()
+            st.session_state["mnav_alternatives"] = alternatives
+            st.session_state["mnav_origin_last"]  = origin
+            st.session_state["mnav_dest_last"]    = destination
+            st.session_state["mnav_used_weather"] = bool(use_weather)
+            # Default pick = Recommended (balanced); fall back to first alt
+            st.session_state["mn_picked_route"] = next(
+                (a["objective"] for a in alternatives if a["objective"] == "balanced"),
+                alternatives[0]["objective"],
+            )
+        _status.update(
+            label=f"✓ Routes ready · {origin} → {destination}",
+            state="complete",
+            expanded=False,
         )
 
     alternatives = st.session_state["mnav_alternatives"]
@@ -642,6 +656,32 @@ if compute or st.session_state.get("mnav_alternatives"):
                               if a["objective"] == alt["duplicate_of"]), "")
             cps_text = f"Same path as {dup_label}"
 
+        # Runner-up: the next-best path Dijkstra evaluated under this objective.
+        # Surfaced on duplicate cards as evidence the alternative *was* explored.
+        runner_html = ""
+        ru = alt.get("runner_up")
+        if ru and alt.get("duplicate_of"):
+            ru_econ = ru.get("economics", {})
+            ru_cps = ru.get("chokepoints_used") or []
+            ru_via = " · ".join(ru_cps) if ru_cps else "Open ocean detour"
+            d_km  = ru.get("total_dist_km", 0) - alt.get("total_dist_km", 0)
+            d_d   = ru_econ.get("voyage_days", 0) - e["voyage_days"]
+            d_usd = ru_econ.get("total_usd", 0) - e["total_usd"]
+            sign_km  = "+" if d_km  >= 0 else "−"
+            sign_d   = "+" if d_d   >= 0 else "−"
+            sign_usd = "+" if d_usd >= 0 else "−"
+            runner_html = (
+                f'<div style="font-size:9px;color:#666;margin-top:3px;line-height:1.35">'
+                f'<span style="color:#22c55e">✓</span> Next-best considered: '
+                f'<b style="color:#aaa">{ru_via}</b> '
+                f'<span style="color:#555">'
+                f'({sign_km}{abs(d_km):,.0f} km · '
+                f'{sign_d}{abs(d_d):.1f}d · '
+                f'{sign_usd}${abs(d_usd)/1000:,.0f}k)'
+                f'</span>'
+                f'</div>'
+            )
+
         # Predicted ETA delay (sum of XGBoost p50 across chokepoints, with p10/p90 spread).
         _pred = _eta_predictions.get(alt["objective"], {})
         if alt["chokepoints_used"] and _pred.get("p50"):
@@ -705,7 +745,8 @@ if compute or st.session_state.get("mnav_alternatives"):
             st.markdown(f"""
 <div style="background:#0a0a0a;border:{border};{ring_glow}
             border-top:3px solid {accent};border-radius:4px;
-            padding:10px 12px 8px 12px;min-height:172px">
+            padding:10px 12px 8px 12px;min-height:230px;
+            display:flex;flex-direction:column">
   <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">
     <span style="font-size:14px">{alt["icon"]}</span>
     <span style="font-size:11px;font-weight:700;color:{accent};text-transform:uppercase;letter-spacing:0.05em">
@@ -726,7 +767,9 @@ if compute or st.session_state.get("mnav_alternatives"):
   <div style="font-size:10px;color:#888;margin-top:3px;line-height:1.4">
     {cps_text}
   </div>
-  <div style="font-size:10px;margin-top:6px;border-top:1px solid #1a1a1a;padding-top:5px">
+  {runner_html}
+  <div style="font-size:10px;margin-top:auto;padding-top:5px;
+              border-top:1px solid #1a1a1a">
     Δ vs Recommended: {delta_html}
   </div>
 </div>""", unsafe_allow_html=True)

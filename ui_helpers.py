@@ -78,7 +78,43 @@ def lottie_loader(message: str | None = None, height_px: int = 320):
       align-items: center; justify-content: center;
       height: 100vh; gap: 16px;
     }}
-    dotlottie-player {{ background: transparent; }}
+    .tw-lottie-stage {{
+      position: relative;
+      width: {height_px}px;
+      height: {height_px}px;
+      display: flex; align-items: center; justify-content: center;
+    }}
+    /* CSS-only fallback: visible immediately even if the dotlottie CDN is
+       slow/blocked. The dotlottie-player paints on top of it once ready. */
+    .tw-fallback-ship {{
+      position: absolute;
+      font-size: {max(48, height_px // 4)}px;
+      animation: tw-bob 2.4s ease-in-out infinite;
+      filter: drop-shadow(0 4px 12px rgba(59,130,246,0.45));
+      z-index: 1;
+    }}
+    .tw-fallback-wave {{
+      position: absolute;
+      bottom: 18%;
+      width: 70%;
+      height: 4px;
+      background: linear-gradient(90deg,
+        rgba(59,130,246,0) 0%,
+        rgba(59,130,246,0.55) 50%,
+        rgba(59,130,246,0) 100%);
+      border-radius: 4px;
+      animation: tw-wave 2.4s ease-in-out infinite;
+      z-index: 0;
+    }}
+    @keyframes tw-bob {{
+      0%, 100% {{ transform: translateY(0) rotate(-3deg); }}
+      50%      {{ transform: translateY(-8px) rotate(3deg); }}
+    }}
+    @keyframes tw-wave {{
+      0%, 100% {{ transform: scaleX(0.8); opacity: 0.5; }}
+      50%      {{ transform: scaleX(1.05); opacity: 0.9; }}
+    }}
+    dotlottie-player {{ background: transparent; position: relative; z-index: 2; }}
     .tw-lottie-quip {{
       font-size: 13px; font-weight: 600; letter-spacing: 0.06em;
       color: #3b82f6; text-align: center; max-width: 90%;
@@ -95,8 +131,12 @@ def lottie_loader(message: str | None = None, height_px: int = 320):
   </style>
 </head><body>
   <div class="tw-lottie-wrap">
-    <dotlottie-player src="{src}" autoplay loop
-      style="width:{height_px}px;height:{height_px}px"></dotlottie-player>
+    <div class="tw-lottie-stage">
+      <div class="tw-fallback-wave"></div>
+      <div class="tw-fallback-ship">🚢</div>
+      <dotlottie-player src="{src}" autoplay loop
+        style="width:{height_px}px;height:{height_px}px"></dotlottie-player>
+    </div>
     <div class="tw-lottie-quip">{quip}</div>
     <div class="tw-lottie-sub">TradeWatch · live feeds</div>
   </div>

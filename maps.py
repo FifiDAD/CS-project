@@ -208,7 +208,7 @@ def create_dashboard_map(
         fig.add_trace(go.Scattergeo(
             lon=[_clon], lat=[_clat], mode="text",
             text=[f"<b>{_name}</b>"],
-            textfont=dict(color="rgba(212,175,55,0.85)", size=9,
+            textfont=dict(color="rgba(212,175,55,0.85)", size=8,
                           family="Inter, system-ui, sans-serif"),
             textposition="top right",
             hoverinfo="skip", showlegend=False,
@@ -321,7 +321,7 @@ def create_dashboard_map(
             lon=port_congestion_df["Lon"].tolist(),
             mode="markers+text",
             marker=dict(
-                size=10,
+                size=8,
                 color=port_colors,
                 symbol="circle",
                 line=dict(width=1.0, color="rgba(212,175,55,0.55)"),
@@ -348,7 +348,7 @@ def create_dashboard_map(
             lon=fallback_lons,
             mode="markers+text",
             marker=dict(
-                size=9,
+                size=7,
                 color="#888888",
                 symbol="circle",
                 line=dict(width=1.0, color="rgba(212,175,55,0.45)"),
@@ -445,11 +445,11 @@ def create_dashboard_map(
             icon  = EVENT_TYPES.get(event_type, {}).get("icon", "📍")
 
             sizes = group["impact"].map({
-                "Critical": 18,
-                "High":     13,
-                "Medium":   9,
-                "Low":      6,
-            }).fillna(9)
+                "Critical": 13,
+                "High":     9,
+                "Medium":   7,
+                "Low":      5,
+            }).fillna(7)
 
             def _ev_hover(row):
                 bucket = row.get("type", "Event")
@@ -480,24 +480,28 @@ def create_dashboard_map(
                 )
             hover_texts = [_ev_hover(row) for _, row in group.iterrows()]
 
-            # Tight halo behind every marker — replaces the flat white outline
-            # with a subtle glow that matches the marker colour. Kept small
-            # and low-opacity so overlapping markers (several reports about
-            # the same incident) don't stack into a flat colour fill.
-            fig.add_trace(go.Scattergeo(
-                lat=group["latitude"],
-                lon=group["longitude"],
-                mode="markers",
-                marker=dict(
-                    size=sizes * 1.6,
-                    color=color,
-                    opacity=0.10,
-                    line=dict(width=0),
-                    symbol="circle",
-                ),
-                hoverinfo="skip", showlegend=False,
-                legendgroup="events",
-            ))
+            # Halo ONLY for Critical events. With multi-source filtering letting
+            # several events through at the same chokepoint coords, blanket halos
+            # were stacking into giant orange/red blobs that read as a "background
+            # fill" — see the screenshot regression. 1.4× / 0.06 opacity caps
+            # five overlapping criticals at <0.30 effective opacity: visible
+            # alert glow, no region wash.
+            crit_mask = group["impact"] == "Critical"
+            if crit_mask.any():
+                fig.add_trace(go.Scattergeo(
+                    lat=group.loc[crit_mask, "latitude"],
+                    lon=group.loc[crit_mask, "longitude"],
+                    mode="markers",
+                    marker=dict(
+                        size=sizes[crit_mask] * 1.4,
+                        color=color,
+                        opacity=0.06,
+                        line=dict(width=0),
+                        symbol="circle",
+                    ),
+                    hoverinfo="skip", showlegend=False,
+                    legendgroup="events",
+                ))
 
             fig.add_trace(go.Scattergeo(
                 lat=group["latitude"],
@@ -525,12 +529,13 @@ def create_dashboard_map(
     fig.update_layout(
         height=600,
         margin=dict(l=0, r=0, t=0, b=0),
-        paper_bgcolor="#0a0a0a",
-        plot_bgcolor="#0a0a0a",
+        paper_bgcolor="#000008",
+        plot_bgcolor="#000008",
+        dragmode="pan",
         font=dict(family="Inter, system-ui, sans-serif", color="#cfe1ff", size=11),
         legend=dict(
-            bgcolor="rgba(10,10,10,0.85)",
-            bordercolor="rgba(255,255,255,0.10)",
+            bgcolor="rgba(0,8,20,0.78)",
+            bordercolor="rgba(212,175,55,0.30)",
             borderwidth=1,
             font=dict(color="#cfe1ff", size=10),
             x=0.01, y=0.99,
@@ -539,21 +544,25 @@ def create_dashboard_map(
         geo=dict(
             projection_type="natural earth",
             showland=True,
-            landcolor="#141821",                       # deep graphite
+            landcolor="#1a1f26",                       # graphite
             showocean=True,
-            oceancolor="#040810",                      # near-black navy
+            oceancolor="#000010",                      # near-black with hint of navy
             showlakes=True,
-            lakecolor="#06121f",
+            lakecolor="#0a1828",
             showcountries=True,
-            countrycolor="rgba(180,200,230,0.18)",     # subtle steel-blue borders
-            countrywidth=0.5,
-            showsubunits=False,                        # too noisy on a small figure
-            showrivers=False,                          # rivers were adding visual clutter
+            countrycolor="rgba(212,175,55,0.32)",      # gold political borders
+            countrywidth=0.7,
+            showsubunits=True,                         # US states / Russian oblasts / Indian states
+            subunitcolor="rgba(212,175,55,0.14)",
+            subunitwidth=0.4,
+            showrivers=True,                           # major rivers
+            rivercolor="rgba(80,140,200,0.40)",
+            riverwidth=0.5,
             showcoastlines=True,
-            coastlinecolor="rgba(120,180,220,0.35)",   # softer cyan coastlines
-            coastlinewidth=0.6,
+            coastlinecolor="rgba(120,200,255,0.70)",   # bright cyan coastlines
+            coastlinewidth=0.95,
             showframe=False,
-            bgcolor="#0a0a0a",
+            bgcolor="#000008",
             resolution=50,
             lataxis=dict(
                 showgrid=True,
