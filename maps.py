@@ -442,7 +442,6 @@ def create_dashboard_map(
         first_event_type = True
         for event_type, group in events_df.groupby("type"):
             color = EVENT_COLORS.get(event_type, "#AAAAAA")
-            icon  = EVENT_TYPES.get(event_type, {}).get("icon", "📍")
 
             sizes = group["impact"].map({
                 "Critical": 13,
@@ -514,7 +513,7 @@ def create_dashboard_map(
                     line=dict(width=0.6, color="rgba(255,255,255,0.35)"),
                     symbol="circle",
                 ),
-                name=f"{icon} {event_type}",
+                name=event_type,
                 hovertemplate="%{customdata}<extra></extra>",
                 customdata=hover_texts,
                 legendgroup="events",
@@ -529,8 +528,8 @@ def create_dashboard_map(
     fig.update_layout(
         height=600,
         margin=dict(l=0, r=0, t=0, b=0),
-        paper_bgcolor="#000008",
-        plot_bgcolor="#000008",
+        paper_bgcolor="#0d1117",
+        plot_bgcolor="#0d1117",
         dragmode="pan",
         font=dict(family="Inter, system-ui, sans-serif", color="#cfe1ff", size=11),
         legend=dict(
@@ -562,7 +561,7 @@ def create_dashboard_map(
             coastlinecolor="rgba(120,200,255,0.70)",   # bright cyan coastlines
             coastlinewidth=0.95,
             showframe=False,
-            bgcolor="#000008",
+            bgcolor="#0d1117",
             resolution=50,
             lataxis=dict(
                 showgrid=True,
