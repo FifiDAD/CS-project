@@ -133,7 +133,6 @@ def lottie_loader(message: str | None = None, height_px: int = 320):
   <div class="tw-lottie-wrap">
     <div class="tw-lottie-stage">
       <div class="tw-fallback-wave"></div>
-      <div class="tw-fallback-ship">🚢</div>
       <dotlottie-player src="{src}" autoplay loop
         style="width:{height_px}px;height:{height_px}px"></dotlottie-player>
     </div>

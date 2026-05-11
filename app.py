@@ -230,7 +230,7 @@ with map_col:
     if len(port_cong_df) > 0:
         with st.expander("View All Ports", expanded=False):
             full_ports_html = ""
-            for _, p in port_cong_df.sort_values("Score", ascending=False).iterrows():
+            for _, p in port_cong_df[port_cong_df["Score"] == 0].sort_values("Score", ascending=False).iterrows():
                 cc    = CONG_COL.get(p["Congestion"], "#666")
                 score = int(p["Score"])
                 full_ports_html += f"""
