@@ -500,9 +500,9 @@ def render_nav() -> None:
     st.markdown('<div class="tw-nav-wrap">', unsafe_allow_html=True)
     c0, c1, c2, c3, c4, c5, _ = st.columns([1, 1, 1, 1, 1, 1, 3])
     with c0:
-        st.page_link("app.py", label="Overview", icon="🌍")
-    with c1:
         st.page_link("pages/0_Landing.py", label="Welcome", icon="🏠")
+    with c1:
+        st.page_link("app.py", label="Overview", icon="🌍")
     with c2:
         st.page_link("pages/1_Route_Planner.py", label="Routes", icon="🗺️")
     with c3:
