@@ -48,65 +48,62 @@ render_nav()
 # MARKET PULSE + PORT CONGESTION
 # ══════════════════════════════════════════════════════════════════════════════
 st.markdown('<div class="tw-label" style="margin-bottom:6px">Market Overview</div>', unsafe_allow_html=True)
-top_left, top_right = st.columns([1, 1], gap="large")
 
-with top_left:
-    # Market Pulse
-    market_html = '<div class="tw-panel"><div class="tw-panel-title">Market Pulse</div>'
-    if oil_price:
-        pct       = (oil_price - 90) / 90 * 100
-        delta_col = "#22c55e" if pct < 0 else "#ef4444"
-        delta_sym = "▲" if pct >= 0 else "▼"
-        market_html += f"""
-<div class="tw-market-row">
-  <span style="color:#aaa">🛢 WTI Crude</span>
-  <span style="font-weight:600">${oil_price:.2f}
-    <span style="color:{delta_col};font-size:9px;margin-left:6px">{delta_sym}{abs(pct):.1f}%</span>
-  </span>
+# Fetch bunker data here so it is also available for the Bunker Prices section below
+bunker_df = APIClient.get_bunker_prices()
+sg_vlsfo = None
+if len(bunker_df) > 0:
+    _sg = bunker_df[(bunker_df["port"] == "Singapore") & (bunker_df["grade"] == "VLSFO")]
+    if len(_sg) > 0:
+        sg_vlsfo = _sg.iloc[0]
+
+def _card(label, value, sym, change_text):
+    if sym == "▲":
+        bg, bdr, cc = "#1a3a1a", "#00cc44", "#00cc44"
+    elif sym == "▼":
+        bg, bdr, cc = "#3a1a1a", "#cc0000", "#cc0000"
+    else:
+        bg, bdr, cc = "#1a1a2e", "#333366", "#555577"
+    return f"""
+<div style="background:{bg};border:1px solid {bdr};border-radius:8px;padding:12px;
+            text-align:center;min-height:110px;display:flex;flex-direction:column;
+            justify-content:center;gap:4px">
+  <div style="font-size:9px;color:#aaa;line-height:1.3">{label}</div>
+  <div style="font-size:15px;font-weight:700;color:#e8e8e8;margin:4px 0">{value}</div>
+  <div style="font-size:10px;color:{cc}">{sym} {change_text}</div>
 </div>"""
 
-    if shipping_index:
-        # IMF Global Freight Cost Index (TSIFRGHT, monthly, base=100). Typical
-        # range ~110-160 in recent years; >150 = elevated, <120 = soft.
-        trend_sym = "▲" if shipping_index > 150 else "▼" if shipping_index < 120 else "─"
-        trend_col = "#ef4444" if shipping_index > 150 else "#22c55e" if shipping_index < 120 else "#666"
-        market_html += f"""
-<div class="tw-market-row">
-  <span style="color:#aaa">⚓ IMF Freight Idx <span style="color:#666;font-size:9px">(monthly)</span></span>
-  <span style="font-weight:600">{shipping_index:,.1f}
-    <span style="color:{trend_col};font-size:9px;margin-left:6px">{trend_sym}</span>
-  </span>
-</div>"""
+cards_data = []
 
-    if exchange_rates:
-        for ccy, rate in list(exchange_rates.items())[:4]:
-            market_html += f"""
-<div class="tw-market-row">
-  <span style="color:#aaa">💱 USD/{ccy}</span>
-  <span style="font-weight:600">{rate:.4f}</span>
-</div>"""
+if oil_price:
+    pct = (oil_price - 90) / 90 * 100
+    sym = "▲" if pct >= 0 else "▼"
+    cards_data.append(("🛢 WTI Crude", f"${oil_price:.2f}", sym, f"{abs(pct):.1f}%"))
+else:
+    cards_data.append(("🛢 WTI Crude", "N/A", "─", "—"))
 
-    # Real Singapore VLSFO from Ship & Bunker (live)
-    bunker_df = APIClient.get_bunker_prices()
-    sg_vlsfo = None
-    if len(bunker_df) > 0:
-        sg = bunker_df[(bunker_df["port"] == "Singapore") & (bunker_df["grade"] == "VLSFO")]
-        if len(sg) > 0:
-            sg_vlsfo = sg.iloc[0]
-    if sg_vlsfo is not None:
-        chg = sg_vlsfo["change_usd"]
-        chg_col = "#22c55e" if chg < 0 else "#ef4444"
-        chg_sym = "▲" if chg >= 0 else "▼"
-        market_html += f"""
-<div class="tw-market-row">
-  <span style="color:#aaa">⛽ Singapore VLSFO</span>
-  <span style="font-weight:600">${sg_vlsfo['price_usd_per_mt']:.0f}/MT
-    <span style="color:{chg_col};font-size:9px;margin-left:6px">{chg_sym}${abs(chg):.0f}</span>
-  </span>
-</div>"""
+if shipping_index:
+    sym = "▲" if shipping_index > 150 else "▼" if shipping_index < 120 else "─"
+    chg_label = "elevated" if shipping_index > 150 else "soft" if shipping_index < 120 else "neutral"
+    cards_data.append(("⚓ IMF Freight Idx (monthly)", f"{shipping_index:,.1f}", sym, chg_label))
+else:
+    cards_data.append(("⚓ IMF Freight Idx (monthly)", "N/A", "─", "—"))
 
-    market_html += "</div>"
-    st.markdown(market_html, unsafe_allow_html=True)
+for ccy in ["EUR", "GBP", "JPY", "CNY"]:
+    rate = exchange_rates.get(ccy) if exchange_rates else None
+    cards_data.append((f"💱 USD/{ccy}", f"{rate:.4f}" if rate else "N/A", "", ""))
+
+if sg_vlsfo is not None:
+    chg = sg_vlsfo["change_usd"]
+    sym = "▲" if chg >= 0 else "▼"
+    cards_data.append(("⛽ Singapore VLSFO", f"${sg_vlsfo['price_usd_per_mt']:.0f}/MT", sym, f"${abs(chg):.0f}"))
+else:
+    cards_data.append(("⛽ Singapore VLSFO", "N/A", "─", "—"))
+
+cols = st.columns(7)
+for col, (label, value, sym, change_text) in zip(cols, cards_data):
+    with col:
+        st.markdown(_card(label, value, sym, change_text), unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
