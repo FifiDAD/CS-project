@@ -11,7 +11,7 @@ from dynamic_status import compute_shipping_status, compute_port_congestion
 from data_loader import load_core_data
 from ui_helpers import (
     inject_css, render_header, render_nav, render_footer,
-    SC, SBG, risk_col, IMPACT_COL, IMPACT_ICON, lottie_loader,
+    SC, SBG, risk_col, IMPACT_COL, IMPACT_ICON, lottie_loader, CONG_COL,
 )
 import ais_consumer
 import eta_scheduler
@@ -188,6 +188,67 @@ with map_col:
         },
     )
 
+    # Port Congestion
+    ports_html = '<div class="tw-panel"><div class="tw-panel-title">Port Congestion</div>'
+    ports_html += '<div style="color:#666;font-size:10px;padding:0 8px 6px">Showing only ports with active congestion</div>'
+    active_ports_df = port_cong_df[port_cong_df["Score"] > 0] if len(port_cong_df) > 0 else port_cong_df
+    if len(active_ports_df) > 0:
+        for _, p in active_ports_df.sort_values("Score", ascending=False).iterrows():
+            cc    = CONG_COL.get(p["Congestion"], "#666")
+            score = int(p["Score"])
+            conf  = p.get("Confidence", "Live AIS")
+            low_conf = conf == "News-only"
+            name_color = "#888" if low_conf else "#e8e8e8"
+            conf_badge = (
+                '<span title="No live AIS yet — score from news/events only" '
+                'style="font-size:9px;color:#888;margin-left:6px;'
+                'border:1px solid #333;border-radius:2px;padding:0 4px">news</span>'
+                if low_conf else ""
+            )
+            ports_html += f"""
+<div style="display:flex;align-items:center;justify-content:space-between;
+            padding:5px 8px;margin:2px 0;border-radius:3px;border-left:3px solid {cc};
+            background:rgba(255,255,255,0.01)">
+  <span style="font-size:11px;font-weight:600;color:{name_color}">{p['Port']}{conf_badge}</span>
+  <div style="flex:1;margin:0 10px">
+    <div style="background:#111;border-radius:1px;height:3px">
+      <div style="background:{cc};width:{score}%;height:3px;border-radius:1px"></div>
+    </div>
+  </div>
+  <span class="tw-badge" style="background:{cc}18;color:{cc};border:1px solid {cc}33">
+    {p['Congestion']}
+  </span>
+  <span style="font-size:9px;color:#555;margin-left:8px;min-width:20px">{score}</span>
+</div>"""
+    elif len(port_cong_df) > 0:
+        ports_html += '<div style="color:#555;font-size:11px;padding:8px">All ports operational — no congestion detected</div>'
+    else:
+        ports_html += '<div style="color:#555;font-size:11px;padding:8px">Loading port data…</div>'
+    ports_html += "</div>"
+    st.markdown(ports_html, unsafe_allow_html=True)
+
+    if len(port_cong_df) > 0:
+        with st.expander("View All Ports", expanded=False):
+            full_ports_html = ""
+            for _, p in port_cong_df.sort_values("Score", ascending=False).iterrows():
+                cc    = CONG_COL.get(p["Congestion"], "#666")
+                score = int(p["Score"])
+                full_ports_html += f"""
+<div style="display:flex;align-items:center;justify-content:space-between;
+            padding:5px 8px;margin:2px 0;border-radius:3px;border-left:3px solid {cc};
+            background:rgba(255,255,255,0.01)">
+  <span style="font-size:11px;font-weight:600;color:#e8e8e8">{p['Port']}</span>
+  <div style="flex:1;margin:0 10px">
+    <div style="background:#111;border-radius:1px;height:3px">
+      <div style="background:{cc};width:{score}%;height:3px;border-radius:1px"></div>
+    </div>
+  </div>
+  <span class="tw-badge" style="background:{cc}18;color:{cc};border:1px solid {cc}33">
+    {p['Congestion']}
+  </span>
+  <span style="font-size:9px;color:#555;margin-left:8px;min-width:20px">{score}</span>
+</div>"""
+            st.markdown(full_ports_html, unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # RIGHT — Route Status + Live Events
