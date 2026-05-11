@@ -123,24 +123,25 @@ if len(bunker_df) > 0:
     ).reset_index()
 
     rows = ""
-    for _, r in pivot.iterrows():
+    for row_idx, (_, r) in enumerate(pivot.iterrows()):
         port = r["port"]
+        row_bg = "#0d1117" if row_idx % 2 == 0 else "#111827"
         cells = ""
         for grade in ("VLSFO", "IFO380", "MGO"):
             price = r.get(grade)
             if pd.notna(price):
                 chg_row = chg_pivot[chg_pivot["port"] == port]
                 chg = chg_row[grade].iloc[0] if grade in chg_row.columns and len(chg_row) > 0 else 0
-                col = "#22c55e" if chg < 0 else "#ef4444" if chg > 0 else "#666"
+                col = "#22c55e" if chg > 0 else "#ef4444" if chg < 0 else "#666"
                 sym = "▲" if chg > 0 else "▼" if chg < 0 else "─"
                 cells += (
                     f'<td style="padding:6px 10px;font-weight:600">${price:.0f}'
-                    f'<span style="color:{col};font-size:9px;margin-left:6px">{sym}${abs(chg):.0f}</span>'
+                    f'<span style="color:{col} !important;font-size:9px;margin-left:6px">{sym}${abs(chg):.0f}</span>'
                     f'</td>'
                 )
             else:
                 cells += '<td style="padding:6px 10px;color:#444">—</td>'
-        rows += f'<tr><td style="padding:6px 10px;color:#cfe1ff">{port}</td>{cells}</tr>'
+        rows += f'<tr style="background:{row_bg}"><td style="padding:6px 10px;color:#cfe1ff">{port}</td>{cells}</tr>'
     st.markdown(f"""
 <table class="tw-table" style="font-size:11px">
 <thead><tr><th>Port</th><th>VLSFO</th><th>IFO380</th><th>MGO</th></tr></thead>
