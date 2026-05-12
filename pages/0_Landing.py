@@ -76,8 +76,8 @@ h1, h2, h3 { color: #0f2744 !important; }
 /* ── Mission/Vision/Why cards ── */
 .tw-card-row {
   display: flex;
-  gap: 18px;
-  margin-bottom: 28px;
+  gap: 20px;
+  margin-bottom: 8px;
 }
 .tw-card {
   flex: 1;
@@ -110,14 +110,29 @@ h1, h2, h3 { color: #0f2744 !important; }
 
 /* ── Section headers ── */
 .tw-section-title {
-  font-size: 13px !important;
+  font-size: 11px !important;
   font-weight: 700 !important;
-  color: #0f2744 !important;
+  color: #6b8faf !important;
   text-transform: uppercase;
-  letter-spacing: 0.16em;
-  margin: 32px 0 14px 0;
-  padding-bottom: 8px;
-  border-bottom: 1px solid #cfdce9;
+  letter-spacing: 0.22em;
+  text-align: center;
+  margin: 0 0 6px 0;
+}
+.tw-section-heading {
+  font-size: 22px !important;
+  font-weight: 800 !important;
+  color: #0f2744 !important;
+  text-align: center;
+  letter-spacing: -0.01em;
+  margin: 0 0 8px 0;
+  line-height: 1.2;
+}
+.tw-section-rule {
+  width: 48px;
+  height: 3px;
+  background: #1a6ea8;
+  border-radius: 2px;
+  margin: 0 auto 28px auto;
 }
 
 /* ── Workflow steps ── */
@@ -167,10 +182,12 @@ h1, h2, h3 { color: #0f2744 !important; }
 .tw-feature {
   background: #ffffff;
   border-radius: 12px;
-  padding: 20px 20px 16px 20px;
+  padding: 22px 22px 18px 22px;
   box-shadow: 0 2px 12px rgba(15,39,68,0.09);
   border-top: 3px solid #0e6e85;
   height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 .tw-feature-icon {
   font-size: 28px;
@@ -198,8 +215,9 @@ h1, h2, h3 { color: #0f2744 !important; }
 .tw-feature-list {
   font-size: 12px !important;
   color: #3d5a7a !important;
-  margin: 10px 0 0 0;
+  margin: auto 0 0 0;
   padding-left: 16px;
+  padding-top: 10px;
   line-height: 1.7;
 }
 
@@ -343,8 +361,13 @@ st.markdown("""
 
 
 # ── How TradeWatch works (4-step workflow) ────────────────────────────────────
-st.markdown('<div class="tw-section-title">How TradeWatch Works</div>',
-            unsafe_allow_html=True)
+st.markdown("""
+<div style="margin-top:40px">
+  <div class="tw-section-title">How It Works</div>
+  <div class="tw-section-heading">How TradeWatch Works</div>
+  <div class="tw-section-rule"></div>
+</div>
+""", unsafe_allow_html=True)
 
 st.markdown("""
 <div class="tw-card-row">
@@ -393,94 +416,94 @@ st.markdown("""
 
 
 # ── Feature tour: the 4 pages ─────────────────────────────────────────────────
-st.markdown('<div class="tw-section-title">What\'s Inside</div>',
-            unsafe_allow_html=True)
-
-f1, f2 = st.columns(2, gap="large")
-
-with f1:
-    st.markdown("""
-<div class="tw-feature" style="border-top-color:#1a6ea8">
-  <span class="tw-feature-icon">🌍</span>
-  <div class="tw-feature-title">Main Dashboard</div>
-  <div class="tw-feature-sub">Globe view · live status</div>
-  <div class="tw-feature-body">
-    A 3-D globe of the world with every monitored shipping lane,
-    chokepoint, and active event plotted in real time.
-  </div>
-  <ul class="tw-feature-list">
-    <li>Routes coloured by current risk score</li>
-    <li>Port markers sized by live anchorage queue</li>
-    <li>AIS vessel layer + day/night terminator</li>
-    <li>Top 5 live events panel + recommended route</li>
-  </ul>
+st.markdown("""
+<div style="margin-top:40px">
+  <div class="tw-section-title">Pages &amp; Features</div>
+  <div class="tw-section-heading">Core Platform Capabilities</div>
+  <div class="tw-section-rule"></div>
 </div>
 """, unsafe_allow_html=True)
 
-    st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
+st.markdown("""
+<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:20px;align-items:stretch">
 
-    st.markdown("""
-<div class="tw-feature" style="border-top-color:#0e6e85">
-  <span class="tw-feature-icon">📊</span>
-  <div class="tw-feature-title">Market & Costs</div>
-  <div class="tw-feature-sub">Bunker · freight · fleet impact</div>
-  <div class="tw-feature-body">
-    Live oil price, IMF freight index, FX rates, and Ship & Bunker bunker
-    prices with daily change indicators.
+  <div class="tw-feature" style="border-top-color:#1a6ea8;min-height:260px">
+    <span class="tw-feature-icon">🌍</span>
+    <div class="tw-feature-title">Main Dashboard</div>
+    <div class="tw-feature-sub">Globe view · live status</div>
+    <div class="tw-feature-body">
+      A 3-D globe of the world with every monitored shipping lane,
+      chokepoint, and active event plotted in real time.
+    </div>
+    <ul class="tw-feature-list">
+      <li>Routes colour-coded by live 0–100 risk score</li>
+      <li>8 port markers colour-coded by live congestion score</li>
+      <li>AIS vessel layer, piracy incidents layer, day/night terminator</li>
+      <li>Route Status panel (5 routes) + top 5 live events with timestamps</li>
+    </ul>
   </div>
-  <ul class="tw-feature-list">
-    <li>VLSFO / IFO380 / MGO at 8 major bunker ports</li>
-    <li>Fleet-wide cost-impact model (oil × event multipliers)</li>
-    <li>Per-chokepoint delay & cost-Δ table</li>
-    <li>Port congestion ranked by score</li>
-  </ul>
-</div>
-""", unsafe_allow_html=True)
 
-with f2:
-    st.markdown("""
-<div class="tw-feature" style="border-top-color:#a855f7">
-  <span class="tw-feature-icon">📡</span>
-  <div class="tw-feature-title">Intel Feed</div>
-  <div class="tw-feature-sub">Events · news · NGA warnings</div>
-  <div class="tw-feature-body">
-    Every event and news article relevant to maritime shipping, clustered
-    by region and topic with a rule-based intelligence brief on top.
+  <div class="tw-feature" style="border-top-color:#a855f7;min-height:260px">
+    <span class="tw-feature-icon">📡</span>
+    <div class="tw-feature-title">Intel Feed</div>
+    <div class="tw-feature-sub">Events · news · NGA warnings · multi-source threats</div>
+    <div class="tw-feature-body">
+      Every event and news article relevant to maritime shipping, clustered
+      by region and topic with a rule-based intelligence brief on top.
+    </div>
+    <ul class="tw-feature-list">
+      <li>Regional risk table + recommended actions per area</li>
+      <li>NGA Maritime Safety Warnings (severity ≥ 0.55)</li>
+      <li>Multi-source Threat Watch: events corroborated by ≥2 news domains, with source links</li>
+      <li>Live news feed clustered by region (Suez / Hormuz / Malacca / Panama / etc.)</li>
+      <li>Topic filters: conflict / shipping / trade / weather / other</li>
+    </ul>
   </div>
-  <ul class="tw-feature-list">
-    <li>Regional risk table + recommended actions</li>
-    <li>NGA Maritime Safety Broadcast Warnings (severity ≥ 0.55)</li>
-    <li>Live news feed clustered by Suez/Hormuz/Malacca/Panama/etc.</li>
-    <li>Topic filters: conflict / shipping / trade / weather</li>
-  </ul>
-</div>
-""", unsafe_allow_html=True)
 
-    st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
-
-    st.markdown("""
-<div class="tw-feature" style="border-top-color:#22c55e">
-  <span class="tw-feature-icon">🧭</span>
-  <div class="tw-feature-title">MariNav Router <span style="font-size:9px;background:#22c55e;color:#fff;padding:1px 6px;border-radius:3px;letter-spacing:0.05em">FLAGSHIP</span></div>
-  <div class="tw-feature-sub">Interactive route planner with tradeoffs</div>
-  <div class="tw-feature-body">
-    Pick origin + destination + vessel, get four ranked alternatives —
-    each with full economics, a "why this route" narrative, and a
-    per-leg breakdown.
+  <div class="tw-feature" style="border-top-color:#0e6e85;min-height:260px">
+    <span class="tw-feature-icon">📊</span>
+    <div class="tw-feature-title">Market &amp; Costs</div>
+    <div class="tw-feature-sub">Bunker · freight · fleet impact</div>
+    <div class="tw-feature-body">
+      Live oil price, IMF freight index, FX rates, and Ship &amp; Bunker bunker
+      prices with daily change indicators.
+    </div>
+    <ul class="tw-feature-list">
+      <li>VLSFO / IFO380 / MGO across major bunker ports (live from Ship &amp; Bunker)</li>
+      <li>Fleet-wide cost-impact model (oil × event multipliers)</li>
+      <li>Per-chokepoint delay &amp; cost-Δ table</li>
+    </ul>
   </div>
-  <ul class="tw-feature-list">
-    <li>4 named objectives: Recommended / Fastest / Safest / Cheapest</li>
-    <li>Full cost: fuel + risk surcharge + canal toll + opex</li>
-    <li>Monte Carlo P10 / P50 / P90 confidence on fuel + ETA</li>
-    <li>All four routes drawn on the globe — pick yours</li>
-  </ul>
+
+  <div class="tw-feature" style="border-top-color:#22c55e;min-height:260px">
+    <span class="tw-feature-icon">🧭</span>
+    <div class="tw-feature-title">MariNav Router <span style="font-size:9px;background:#22c55e;color:#fff;padding:1px 6px;border-radius:3px;letter-spacing:0.05em">FLAGSHIP</span></div>
+    <div class="tw-feature-sub">Interactive route planner with tradeoffs</div>
+    <div class="tw-feature-body">
+      Pick origin + destination + vessel, get four ranked alternatives —
+      each with full economics, a "why this route" narrative, and a
+      per-leg breakdown.
+    </div>
+    <ul class="tw-feature-list">
+      <li>4 named objectives: Recommended / Fastest / Safest / Cheapest</li>
+      <li>Full cost: fuel + risk surcharge + canal toll + opex</li>
+      <li>Monte Carlo P10 / P50 / P90 confidence on fuel + ETA</li>
+      <li>All four routes drawn on the globe — pick yours</li>
+    </ul>
+  </div>
+
 </div>
 """, unsafe_allow_html=True)
 
 
 # ── Quick-start: 4 steps to plan your first route ────────────────────────────
-st.markdown('<div class="tw-section-title">Quick Start: Plan Your First Route</div>',
-            unsafe_allow_html=True)
+st.markdown("""
+<div style="margin-top:40px">
+  <div class="tw-section-title">Tutorial</div>
+  <div class="tw-section-heading">Quick Start: Plan Your First Route</div>
+  <div class="tw-section-rule"></div>
+</div>
+""", unsafe_allow_html=True)
 
 st.markdown("""
 <div class="tw-tutorial">
@@ -522,11 +545,16 @@ st.markdown("""
 
 
 # ── Priority profiles — explains the 4 named alternatives ────────────────────
-st.markdown('<div class="tw-section-title">Pick The Route That Fits Your Priorities</div>',
-            unsafe_allow_html=True)
+st.markdown("""
+<div style="margin-top:40px">
+  <div class="tw-section-title">Route Objectives</div>
+  <div class="tw-section-heading">Pick the Route That Fits Your Priorities</div>
+  <div class="tw-section-rule"></div>
+</div>
+""", unsafe_allow_html=True)
 
 st.markdown("""
-<div style="font-size:13px;color:#3d5a7a;line-height:1.65;margin-bottom:8px">
+<div style="font-size:13px;color:#3d5a7a;line-height:1.65;margin-bottom:14px;text-align:center;max-width:640px;margin-left:auto;margin-right:auto">
   Different cargo, different priorities. A perishable container has different
   constraints than a crude tanker. TradeWatch surfaces all four objectives so
   you can pick consciously instead of trusting a single "best" path.
