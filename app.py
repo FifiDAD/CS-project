@@ -33,11 +33,18 @@ st.set_page_config(
 inject_css()
 
 # ── First-load redirect to Welcome page ───────────────────────────────────────
+# On the very first visit (session_state is fresh), send the user to the Landing
+# page. Setting the flag before switching prevents an infinite redirect loop when
+# the user navigates back here from the landing page.
 if "has_seen_welcome" not in st.session_state:
     st.session_state["has_seen_welcome"] = True
     st.switch_page("pages/0_Landing.py")
 
 # ── Data loading ──────────────────────────────────────────────────────────────
+# All heavy API calls happen inside the loading screen context manager so the
+# animated ship plays while the user waits. load_core_data() is cached for
+# 15–30 min; compute_shipping_status / compute_port_congestion are cached
+# separately and accept a JSON string (not a DataFrame) as the cache key.
 with lottie_loader():
     events_df, oil_price, shipping_index, exchange_rates = load_core_data()
     events_json = events_df.to_json() if len(events_df) > 0 else pd.DataFrame().to_json()
@@ -52,19 +59,28 @@ if events_df is None or len(events_df) == 0:
         "Check GDELT connectivity in test_apis.py."
     )
 
+# Aggregate KPI counts (critical / high / total) used in the header alert banner.
 analytics       = RiskAnalytics.get_summary_metrics(events_df, oil_price, shipping_index)
+# Apply sidebar filter state (event type, impact level, keyword search) so all
+# panels on this page reflect the same filtered view.
 filtered_events = filter_events(events_df)
 
+# Auto-refresh: converts the user-selected interval (minutes) to milliseconds and
+# triggers a full Streamlit rerun, re-fetching data that has passed its cache TTL.
 auto_interval = st.session_state.get("refresh_interval", 10)
 count         = st_autorefresh(interval=auto_interval * 60 * 1000, limit=None, key="tw_refresh")
 
 # ── Derived values ────────────────────────────────────────────────────────────
+# Parses the "Average Delay" strings like "4+ hours" into a plain float so they
+# can be used in arithmetic. Returns 0 if the field is missing or malformed.
 def _parse_delay_h(s):
     try:    return float(str(s).replace(" hours", "").replace("+", "").strip())
     except: return 0.0
 
 if len(shipping_df) > 0:
     shipping_df["_delay_h"]   = shipping_df["Average Delay"].apply(_parse_delay_h)
+    # Composite score blends risk (0–100) and expected delay (normalised to 48h)
+    # so the "best route" recommendation accounts for both danger and transit time.
     shipping_df["_composite"] = shipping_df["Risk Score"] / 100 + shipping_df["_delay_h"] / 48
     best_route   = shipping_df.loc[shipping_df["_composite"].idxmin(), "Route"]
     best_score   = int(shipping_df.loc[shipping_df["_composite"].idxmin(), "Risk Score"])
@@ -89,16 +105,24 @@ map_col, panels_col = st.columns([13, 9], gap="small")
 # LEFT — Globe
 # ─────────────────────────────────────────────────────────────────────────────
 with map_col:
+    # Build a {route_name: status_string} dict so maps.py can colour each route
+    # line by its live computed status rather than the static traffic level.
     route_statuses = {}
     if len(shipping_df) > 0:
         route_statuses = dict(zip(shipping_df["Route"], shipping_df["Status"]))
 
     # ── Layer toggles ─────────────────────────────────────────────────────────
+    # Fetch AIS positions (max 10 minutes old) and piracy incidents for the
+    # optional map layers. These are fetched here rather than in the loading block
+    # because they are only needed when this page is rendered.
     from api_integrations import APIClient
     ais_df = ais_consumer.latest_positions(max_age_sec=600)
     ais_count = len(ais_df) if ais_df is not None else 0
     piracy_df = APIClient.get_piracy_incidents(days=90)
     pir_count = len(piracy_df)
+    # Seven toggle buttons let the user show/hide individual map layers in-place
+    # without reloading the page. The Vessels toggle is pre-enabled only when
+    # live AIS data is actually available; Piracy defaults to off to reduce clutter.
     tcols = st.columns(7)
     with tcols[0]:
         show_routes = st.toggle("Routes",  value=True,  key="lay_routes")
@@ -123,6 +147,8 @@ with map_col:
     # count separately so the user sees what made it onto the map vs. the full
     # intel feed.
     n_events = len(filtered_events)
+    # on_map is True only for events confirmed by ≥2 distinct news sources.
+    # Single-source events are excluded from the map to reduce false positives.
     n_on_map = (
         int(filtered_events["on_map"].fillna(False).sum())
         if "on_map" in filtered_events.columns else n_events
@@ -163,6 +189,7 @@ with map_col:
         ais_df=ais_df,
         piracy_df=piracy_df,
     )
+    # Trim margins so the map fills the column edge-to-edge with no padding.
     globe_fig.update_layout(
         margin=dict(l=0, r=0, t=0, b=0),
         height=560,
@@ -188,7 +215,9 @@ with map_col:
         },
     )
 
-    # Port Congestion
+    # Port Congestion panel — rendered below the map inside the same left column.
+    # Only ports with Score > 0 are shown in the main list; the expander below
+    # holds the fully operational (Score == 0) ports for reference.
     ports_html = '<div class="tw-panel"><div class="tw-panel-title">Port Congestion</div>'
     ports_html += '<div style="color:#666;font-size:10px;padding:0 8px 6px">Showing only ports with active congestion</div>'
     active_ports_df = port_cong_df[port_cong_df["Score"] > 0] if len(port_cong_df) > 0 else port_cong_df
@@ -197,6 +226,8 @@ with map_col:
             cc    = CONG_COL.get(p["Congestion"], "#666")
             score = int(p["Score"])
             conf  = p.get("Confidence", "Live AIS")
+            # "News-only" means the score is derived from GDELT/ACLED signals alone;
+            # no live AIS queue data has confirmed it yet, so we flag it visually.
             low_conf = conf == "News-only"
             name_color = "#888" if low_conf else "#e8e8e8"
             conf_badge = (
@@ -227,6 +258,8 @@ with map_col:
     ports_html += "</div>"
     st.markdown(ports_html, unsafe_allow_html=True)
 
+    # Collapsed expander for fully operational ports (Score == 0) — kept separate
+    # so they don't dilute the at-a-glance congestion list above.
     if len(port_cong_df) > 0:
         with st.expander("View All Ports", expanded=False):
             full_ports_html = ""
@@ -267,6 +300,8 @@ with panels_col:
     </span>
   </div>""", unsafe_allow_html=True)
 
+        # Maps a route status string to a plain-English one-line action recommendation
+        # shown in the expanded detail card for each route row.
         def _brief_recommendation(s):
             if s == "Critical - Avoid":
                 return "Avoid or compare alternative routing before dispatch."
@@ -280,17 +315,23 @@ with panels_col:
 
         st.markdown("</div>", unsafe_allow_html=True)
 
+        # Each route is rendered as a compact row with a toggle button (▼/▲) that
+        # expands an inline detail card. State is stored in session_state keyed by
+        # both index and route name to avoid conflicts when routes are reordered.
         for i, (_, row) in enumerate(shipping_df.sort_values("Risk Score", ascending=False).iterrows()):
             sc        = SC.get(row["Status"], "#666")
             sbg       = SBG.get(row["Status"], "transparent")
             score     = int(row["Risk Score"])
             rc        = risk_col(score)
             status    = row["Status"]
+            # Strip the "Operational - " / "Critical - " prefix for the compact badge.
             label     = row["Status"].replace("Operational - ", "").replace("Critical - ", "")
             rec       = _brief_recommendation(status)
             route_key = f"route_toggle_{i}_{row['Route'].replace(' ', '_')}"
             is_open   = st.session_state.get(route_key, False)
 
+            # Left border colour gives a quick traffic-light read of risk severity
+            # without needing to read the numeric score.
             if score >= 75:
                 border_col = "#ef4444"
             elif score >= 40:
@@ -353,6 +394,10 @@ with panels_col:
 </div>""", unsafe_allow_html=True)
 
     # ── Live Events (top 5) ───────────────────────────────────────────────────
+    # Shows the 5 most recent events from the filtered set as compact alert cards.
+    # The full event list is on the Intel Feed page; this panel is a quick-glance
+    # summary of what's happening right now. IMPACT_COL and IMPACT_ICON map the
+    # severity string to a colour and emoji for the badge on each card.
     events_html = f"""
 <div class="tw-panel">
   <div class="tw-panel-title">
@@ -372,6 +417,7 @@ with panels_col:
                 ts = pd.Timestamp(ev["date"]).strftime("%b %d %H:%M")
             except:
                 ts = ""
+            # Truncate description to 60 characters to keep cards compact.
             desc = str(ev.get("description", ""))[:60]
             events_html += f"""
 <div class="tw-alert" style="border-left-color:{ic}">
@@ -393,6 +439,10 @@ with panels_col:
     st.page_link("pages/2_Intel_Feed.py", label="View full Intel Feed →", icon="📡")
 
 # ── Data freshness strip ──────────────────────────────────────────────────────
+# Renders a single horizontal bar at the bottom of the page showing the
+# real-time health of every data source: AIS stream age, latest event date,
+# NGA warnings recency, and the current oil/freight index values. Each source
+# gets a green/amber/red dot so operators can immediately spot a stale feed.
 def _freshness_strip():
     import sqlite3, time
     from datetime import datetime, timezone
@@ -400,7 +450,8 @@ def _freshness_strip():
 
     parts = []
 
-    # AIS: how recent is the last sighting?
+    # AIS: query the local SQLite positions database to find how long ago the
+    # last vessel sighting arrived. Green = <5 min, amber = <30 min, red = stale.
     try:
         db = Path(__file__).resolve().parent / ".ais_positions.db"
         if db.exists():
@@ -418,7 +469,7 @@ def _freshness_strip():
     except Exception:
         parts.append("<span style='color:#ef4444'>● AIS check failed</span>")
 
-    # Events
+    # Events: surface the most recent event date from the loaded DataFrame.
     if len(events_df) > 0 and "date" in events_df.columns:
         try:
             latest = pd.to_datetime(events_df["date"], errors="coerce").max()
@@ -429,6 +480,8 @@ def _freshness_strip():
         parts.append("<span style='color:#ef4444'>● Events feed empty</span>")
 
     # NGA freshness — show latest msgYear
+    # The NGA (National Geospatial-Intelligence Agency) publishes maritime warnings;
+    # if the latest year is behind the current year the feed may be cached or broken.
     try:
         from nga_warnings import fetch_warnings
         nga = fetch_warnings()
@@ -447,6 +500,7 @@ def _freshness_strip():
         parts.append("<span style='color:#ef4444'>● NGA check failed</span>")
 
     # Oil + freight publish dates (FRED is weekday)
+    # Shown as plain grey text because these are point-in-time values, not live streams.
     parts.append(f"<span style='color:#aaa'>WTI ${oil_price}</span>")
     parts.append(f"<span style='color:#aaa'>Freight Idx {shipping_index:.0f} (monthly)</span>")
 
@@ -466,12 +520,18 @@ _freshness_strip()
 render_footer()
 
 # ── Settings (collapsed) ──────────────────────────────────────────────────────
+# Collapsed by default so it doesn't distract from the map. Contains the
+# auto-refresh interval picker (writes to session_state, picked up by
+# st_autorefresh above on the next rerun), event filtering controls that feed
+# into filter_events(), and a CSV export of the currently filtered event set.
 from config import EVENT_TYPES
 with st.expander("⚙ Settings & Filters", expanded=False):
     s1, s2, s3, s4 = st.columns(4)
     with s1:
         st.selectbox("Auto-refresh", [5, 10, 15, 30], index=1,
                      format_func=lambda x: f"Every {x} min", key="refresh_interval")
+        # Force Refresh clears all cached data so the next rerun hits the APIs
+        # fresh, regardless of whether the cache TTL has elapsed.
         if st.button("Force Refresh"):
             st.cache_data.clear()
             st.rerun()
@@ -481,6 +541,8 @@ with st.expander("⚙ Settings & Filters", expanded=False):
         st.selectbox("Impact Level", ["All Levels", "Critical", "High", "Medium", "Low"], key="impact")
     with s4:
         st.text_input("Search", placeholder="location or keyword…", key="search")
+        # Export applies the current filter state so the downloaded CSV matches
+        # exactly what the user sees on screen.
         if st.button("Export CSV"):
             fe = filter_events(events_df,
                                st.session_state.get("event_type", "All Types"),
