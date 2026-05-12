@@ -26,6 +26,8 @@ EVENT_COLORS = {
     "🌋 Seismic":    "#E91E63",
 }
 
+# Fallback route colors based on declared traffic level, used when no live
+# risk status has been computed for a route (e.g. on first load or API failure).
 TRAFFIC_COLORS = {
     "Critical":  "red",
     "Very High": "orange",
@@ -34,6 +36,8 @@ TRAFFIC_COLORS = {
     "Low":       "limegreen",
 }
 
+# Colors for port markers on the map, keyed by congestion severity level.
+# These match the same severity scale used in the Port Congestion sidebar panel.
 CONGESTION_COLORS = {
     "Critical": "#FF2222",
     "High":     "#FF8C00",
@@ -42,63 +46,90 @@ CONGESTION_COLORS = {
 }
 
 
+# Returns the geographic point on Earth's surface directly below the sun right now.
+# Used to position the day/night overlay and the ☀️ marker on the map.
 def _get_subsolar_point():
     """Return (lat, lon) of the point on Earth directly under the sun (UTC now)."""
     now = datetime.now(timezone.utc)
     doy = now.timetuple().tm_yday
 
+    # Solar declination: how far north or south the sun is today (±23.45° over the year).
+    # Day 81 ≈ spring equinox, when the sun is directly over the equator.
     decl_deg = 23.45 * np.sin(np.radians(360 / 365 * (doy - 81)))
 
+    # The sun is directly overhead at noon local time; each hour away from noon
+    # shifts the subsolar longitude by 15° (360° / 24h).
     utc_hours = now.hour + now.minute / 60 + now.second / 3600
     lon_sun = (12 - utc_hours) * 15
 
     return decl_deg, lon_sun
 
 
+# Computes the lat/lon coordinates of the day/night terminator line — the great
+# circle that separates the sunlit and dark hemispheres. The terminator is always
+# perpendicular to the direction of the sun, so we find two vectors orthogonal to
+# the sun vector and sweep a full circle around them in 3D Cartesian space.
 def _compute_terminator(lat_s_deg, lon_s_deg, n=180):
     lat_s = np.radians(lat_s_deg)
     lon_s = np.radians(lon_s_deg)
 
+    # Convert the subsolar point from spherical to 3D unit-vector (Cartesian).
     sx = np.cos(lat_s) * np.cos(lon_s)
     sy = np.cos(lat_s) * np.sin(lon_s)
     sz = np.sin(lat_s)
 
+    # Build a first basis vector (v1) tangent to the equatorial plane.
+    # Special-case the poles, where the standard tangent formula degenerates.
     cos_lat = np.cos(lat_s)
     if abs(cos_lat) > 1e-6:
         v1 = np.array([np.sin(lon_s), -np.cos(lon_s), 0.0])
     else:
         v1 = np.array([1.0, 0.0, 0.0])
 
+    # v2 is perpendicular to both the sun vector and v1, completing the basis
+    # of the terminator plane. Normalise to keep it on the unit sphere.
     v2 = np.cross([sx, sy, sz], v1)
     v2 = v2 / np.linalg.norm(v2)
 
+    # Sweep n equally-spaced angles around the full circle in the terminator plane.
     t = np.linspace(0, 2 * np.pi, n, endpoint=False)
     px = np.cos(t) * v1[0] + np.sin(t) * v2[0]
     py = np.cos(t) * v1[1] + np.sin(t) * v2[1]
     pz = np.cos(t) * v1[2] + np.sin(t) * v2[2]
 
+    # Convert sampled 3D points back to lat/lon for Plotly.
     lats = np.degrees(np.arcsin(np.clip(pz, -1, 1)))
     lons = np.degrees(np.arctan2(py, px))
     return lats, lons
 
 
+# Turns the terminator line into a closed polygon covering the night hemisphere,
+# so Plotly can fill it with a dark semi-transparent colour. The terminator alone
+# is just a line; to fill one side we must "cap" it by connecting both ends of
+# the line through the pole that is currently in darkness.
 def _build_night_polygon(lat_s_deg, lon_s_deg, n=180):
     lats, lons = _compute_terminator(lat_s_deg, lon_s_deg, n)
 
+    # The dark pole is the one opposite to the sun's hemisphere.
     pole_lat = -90.0 if lat_s_deg >= 0 else 90.0
 
     half = n // 2
 
+    # First half of the terminator arc.
     poly_lats = list(lats[:half])
     poly_lons = list(lons[:half])
 
+    # Sweep across the pole to connect the two ends of the first half —
+    # this closes the cap over the dark hemisphere without crossing the map.
     sweep_lons = np.linspace(lons[half - 1], lons[half], 30)
     poly_lats += [pole_lat] * 30
     poly_lons += list(sweep_lons)
 
+    # Second half of the terminator arc (back toward the start).
     poly_lats += list(lats[half:])
     poly_lons += list(lons[half:])
 
+    # Close the polygon by sweeping back across the pole to the starting point.
     sweep_lons2 = np.linspace(lons[-1], lons[0], 30)
     poly_lats += [pole_lat] * 30
     poly_lons += list(sweep_lons2)
@@ -106,9 +137,14 @@ def _build_night_polygon(lat_s_deg, lon_s_deg, n=180):
     return poly_lats, poly_lons
 
 
+# Renders all three components of the day/night overlay onto the figure:
+# (1) a dark filled polygon covering the night hemisphere,
+# (2) the golden dashed terminator line (the sunrise/sunset boundary),
+# (3) a ☀️ star marker at the subsolar point (where the sun is directly overhead).
 def _add_day_night(fig, lat_s, lon_s):
     """Add night hemisphere fill and terminator line to the figure."""
     poly_lats, poly_lons = _build_night_polygon(lat_s, lon_s)
+    # Dark semi-transparent fill over the night side of the globe.
     fig.add_trace(go.Scattergeo(
         lat=poly_lats,
         lon=poly_lons,
@@ -121,6 +157,8 @@ def _add_day_night(fig, lat_s, lon_s):
         name="Night",
     ))
 
+    # Close the terminator loop so it draws as a continuous circle, then
+    # render it as a gold dotted line to evoke the look of a nautical chart.
     term_lats, term_lons = _compute_terminator(lat_s, lon_s)
     term_lats = np.append(term_lats, term_lats[0])
     term_lons = np.append(term_lons, term_lons[0])
@@ -135,6 +173,8 @@ def _add_day_night(fig, lat_s, lon_s):
         name="Terminator",
     ))
 
+    # Gold star marker at the subsolar point — the one spot on Earth where the
+    # sun is directly overhead right now. Appears in the legend under "Day / Night".
     fig.add_trace(go.Scattergeo(
         lat=[lat_s],
         lon=[lon_s],
@@ -183,6 +223,8 @@ def create_dashboard_map(
         ais_df: DataFrame from ais_consumer.latest_positions()
     """
 
+    # Traces are added in back-to-front order so that important markers always
+    # render on top: day/night fill → reference lines → routes → ports → events.
     fig = go.Figure()
 
     # ── Day / Night overlay ───────────────────────────────────────────────────
@@ -301,8 +343,12 @@ def create_dashboard_map(
     # ── Port congestion markers ───────────────────────────────────────────────
     if not show_ports:
         port_congestion_df = None  # short-circuit fallback path too
+    # When live congestion data is available, colour each port by its severity.
+    # If the API hasn't returned data yet, fall back to static grey markers so
+    # ports are always visible even on first load or API failure.
     if port_congestion_df is not None and len(port_congestion_df) > 0 and show_ports:
         port_colors = [CONGESTION_COLORS.get(c, "#888888") for c in port_congestion_df["Congestion"]]
+        # Builds the multi-line tooltip shown when a user hovers over a port marker.
         def _port_hover(row):
             queue = row.get("Queue (anchored)", "—")
             delay = row.get("Expected Delay (d)", "—")
@@ -366,6 +412,8 @@ def create_dashboard_map(
         ))
 
     # ── Critical event threat rings (radar ping effect) ───────────────────────
+    # Large semi-transparent circles drawn beneath Critical event markers to
+    # give a "radar ping" visual cue that these locations are high-priority threats.
     if show_events and len(events_df) > 0:
         critical_events = events_df[events_df["impact"] == "Critical"] if "impact" in events_df.columns else pd.DataFrame()
         if len(critical_events) > 0:
@@ -385,6 +433,8 @@ def create_dashboard_map(
             ))
 
     # ── AIS vessel positions ──────────────────────────────────────────────────
+    # Live vessel positions from the AIS consumer. Green = moving (≥0.5 kn),
+    # yellow = stationary/slow. This layer is off by default to avoid clutter.
     if show_vessels and ais_df is not None and len(ais_df) > 0:
         sog = ais_df["sog_kn"].fillna(0)
         ais_hover = [
@@ -412,6 +462,8 @@ def create_dashboard_map(
         ))
 
     # ── Piracy incidents (last 90 days) ──────────────────────────────────────
+    # Recent piracy and maritime crime incidents plotted as red X markers.
+    # This layer is off by default and only shown when explicitly enabled.
     if show_piracy and piracy_df is not None and len(piracy_df) > 0:
         pir_hover = [
             f"<b>☠ Piracy / Maritime Crime</b><br>"
@@ -438,11 +490,16 @@ def create_dashboard_map(
         ))
 
     # ── Event markers (grouped by type) ──────────────────────────────────────
+    # Each event type gets its own Plotly trace so they appear as separate
+    # toggle-able entries in the legend. Within each type, marker size reflects
+    # severity: Critical events are larger dots, Low events are smaller.
     if show_events and len(events_df) > 0:
         first_event_type = True
         for event_type, group in events_df.groupby("type"):
             color = EVENT_COLORS.get(event_type, "#AAAAAA")
 
+            # Scale marker size by impact level so the most severe events
+            # stand out visually even when many events overlap.
             sizes = group["impact"].map({
                 "Critical": 13,
                 "High":     9,
@@ -450,6 +507,9 @@ def create_dashboard_map(
                 "Low":      5,
             }).fillna(7)
 
+            # Builds the rich tooltip shown when hovering an event marker.
+            # Uses customdata (not hovertext) because Plotly only formats
+            # customdata strings with full HTML newlines in Scattergeo.
             def _ev_hover(row):
                 bucket = row.get("type", "Event")
                 sub = row.get("subtype", "")
@@ -530,6 +590,8 @@ def create_dashboard_map(
         margin=dict(l=0, r=0, t=0, b=0),
         paper_bgcolor="#0d1117",
         plot_bgcolor="#0d1117",
+        # Pan mode by default so users can explore the map without accidentally
+        # triggering zoom on scroll, which conflicts with the Streamlit page scroll.
         dragmode="pan",
         font=dict(family="Inter, system-ui, sans-serif", color="#cfe1ff", size=11),
         legend=dict(
@@ -540,6 +602,10 @@ def create_dashboard_map(
             x=0.01, y=0.99,
             itemsizing="constant",
         ),
+        # All geographic styling lives inside the `geo` dict. The Natural Earth
+        # projection gives a familiar flat-map appearance that works well on a
+        # widescreen dashboard layout (orthographic globe was used previously
+        # but the flat projection makes it easier to read routes at a glance).
         geo=dict(
             projection_type="natural earth",
             showland=True,
@@ -575,6 +641,8 @@ def create_dashboard_map(
                 gridwidth=0.4,
                 dtick=15,
             ),
+            # Clip latitude to avoid showing the poles, which are rarely relevant
+            # for shipping routes and waste vertical space on a 600 px tall chart.
             lataxis_range=[-70, 80],
             lonaxis_range=[-180, 180],
         ),
