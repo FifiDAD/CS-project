@@ -611,7 +611,7 @@ def create_dashboard_map(
             showland=True,
             landcolor="#1a1f26",                       # graphite
             showocean=True,
-            oceancolor="#000010",                      # near-black with hint of navy
+            oceancolor="#a8d5e8",                      # soft maritime blue
             showlakes=True,
             lakecolor="#0a1828",
             showcountries=True,
