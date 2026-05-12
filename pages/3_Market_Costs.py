@@ -19,18 +19,29 @@ st.set_page_config(
 inject_css()
 
 # ── Data ──────────────────────────────────────────────────────────────────────
+# Load the shared core dataset: geopolitical events, live oil price, the IMF
+# freight shipping index, and USD exchange rates. Results are cached for 15–30
+# minutes so repeated page visits don't trigger redundant API calls.
 with st.spinner(""):
     events_df, oil_price, shipping_index, exchange_rates = load_core_data()
 
+# Convert the events DataFrame to a JSON string before passing to the dynamic
+# status functions. Streamlit's cache cannot hash DataFrames directly, so these
+# functions accept a JSON string as the cache key instead.
 events_json = events_df.to_json() if len(events_df) > 0 else pd.DataFrame().to_json()
 
 with st.spinner(""):
+    # Compute live risk scores for each shipping chokepoint and each major port,
+    # combining ACLED conflict data, GDELT news volume, and weather alerts.
     shipping_df  = compute_shipping_status(events_json)
     port_cong_df = compute_port_congestion(events_json)
 
+# Aggregate KPI counts (critical / high / total events) used in the page header.
 analytics       = RiskAnalytics.get_summary_metrics(events_df, oil_price, shipping_index)
+# Apply any active sidebar filters so cost calculations reflect the filtered view.
 filtered_events = filter_events(events_df)
 
+# Derive the single worst route status to display in the header alert banner.
 if len(shipping_df) > 0:
     worst_status = shipping_df.sort_values("Risk Score", ascending=False).iloc[0]["Status"]
 else:
@@ -51,12 +62,18 @@ st.markdown('<div class="tw-label" style="margin-bottom:6px">Market Overview</di
 
 # Fetch bunker data here so it is also available for the Bunker Prices section below
 bunker_df = APIClient.get_bunker_prices()
+# Extract the Singapore VLSFO row specifically for use in the market overview card.
+# Singapore is the world's largest bunkering hub, making it the most representative
+# single price point for fleet fuel cost benchmarking.
 sg_vlsfo = None
 if len(bunker_df) > 0:
     _sg = bunker_df[(bunker_df["port"] == "Singapore") & (bunker_df["grade"] == "VLSFO")]
     if len(_sg) > 0:
         sg_vlsfo = _sg.iloc[0]
 
+# Generates a single colored metric card as an HTML string. The background and
+# border color shift green for positive change (▲), red for negative (▼), and
+# neutral dark-blue when no directional change is available (e.g. FX rates).
 def _card(label, value, sym, change_text):
     if sym == "▲":
         bg, bdr, cc = "#1a3a1a", "#00cc44", "#00cc44"
@@ -73,8 +90,13 @@ def _card(label, value, sym, change_text):
   <div style="font-size:10px;color:{cc}">{sym} {change_text}</div>
 </div>"""
 
+# Build the list of (label, value, direction_symbol, change_text) tuples that
+# will be rendered as the 7 market overview cards. Each card is assembled here
+# with its direction and change text before being passed to _card() for HTML.
 cards_data = []
 
+# WTI Crude: percentage change relative to the $90/bbl fleet cost baseline used
+# throughout the financial impact calculations on this page.
 if oil_price:
     pct = (oil_price - 90) / 90 * 100
     sym = "▲" if pct >= 0 else "▼"
@@ -82,6 +104,8 @@ if oil_price:
 else:
     cards_data.append(("🛢 WTI Crude", "N/A", "─", "—"))
 
+# IMF Freight Index: thresholds at 150 (elevated) and 120 (soft) reflect the
+# historical range used by the analytics module to flag supply-chain pressure.
 if shipping_index:
     sym = "▲" if shipping_index > 150 else "▼" if shipping_index < 120 else "─"
     chg_label = "elevated" if shipping_index > 150 else "soft" if shipping_index < 120 else "neutral"
@@ -89,10 +113,14 @@ if shipping_index:
 else:
     cards_data.append(("⚓ IMF Freight Idx (monthly)", "N/A", "─", "—"))
 
+# Four major currency pairs against USD — shown without a direction symbol since
+# FX movements are not inherently good or bad for a global shipping operator.
 for ccy in ["EUR", "GBP", "JPY", "CNY"]:
     rate = exchange_rates.get(ccy) if exchange_rates else None
     cards_data.append((f"💱 USD/{ccy}", f"{rate:.4f}" if rate else "N/A", "", ""))
 
+# Singapore VLSFO as the 7th card — the reference marine fuel price for VLSFO
+# (Very Low Sulphur Fuel Oil, the post-IMO 2020 compliant bunker grade).
 if sg_vlsfo is not None:
     chg = sg_vlsfo["change_usd"]
     sym = "▲" if chg >= 0 else "▼"
@@ -100,6 +128,8 @@ if sg_vlsfo is not None:
 else:
     cards_data.append(("⛽ Singapore VLSFO", "N/A", "─", "—"))
 
+# Render all 7 cards in equal-width columns. zip() stops at the shorter iterable,
+# so adding or removing a card from cards_data automatically adjusts the layout.
 cols = st.columns(7)
 for col, (label, value, sym, change_text) in zip(cols, cards_data):
     with col:
@@ -113,10 +143,13 @@ st.markdown('<hr style="margin:16px 0;border-color:#1e1e1e">', unsafe_allow_html
 st.markdown('<div class="tw-label" style="margin-bottom:6px">⛽ Bunker Prices <span style="font-weight:400;color:#444;font-size:9px">· live from shipandbunker.com · updated every 30 min</span></div>',
             unsafe_allow_html=True)
 if len(bunker_df) > 0:
+    # Reshape the flat bunker DataFrame into a port × grade price table so each
+    # row represents one port and each column a fuel grade (VLSFO, IFO380, MGO).
     pivot = bunker_df.pivot_table(
         index="port", columns="grade",
         values="price_usd_per_mt", aggfunc="first",
     ).reset_index()
+    # Separate pivot for the day-on-day price change, looked up per cell below.
     chg_pivot = bunker_df.pivot_table(
         index="port", columns="grade",
         values="change_usd", aggfunc="first",
@@ -125,13 +158,17 @@ if len(bunker_df) > 0:
     rows = ""
     for row_idx, (_, r) in enumerate(pivot.iterrows()):
         port = r["port"]
+        # Alternate row background colours to improve readability in long tables.
         row_bg = "#0d1117" if row_idx % 2 == 0 else "#111827"
         cells = ""
         for grade in ("VLSFO", "IFO380", "MGO"):
             price = r.get(grade)
             if pd.notna(price):
+                # Look up the day-on-day change for this specific port + grade combination.
                 chg_row = chg_pivot[chg_pivot["port"] == port]
                 chg = chg_row[grade].iloc[0] if grade in chg_row.columns and len(chg_row) > 0 else 0
+                # Green for price rises (higher bunker cost is notable), red for drops.
+                # !important overrides the global span colour rule in ui_helpers.py CSS.
                 col = "#22c55e" if chg > 0 else "#ef4444" if chg < 0 else "#666"
                 sym = "▲" if chg > 0 else "▼" if chg < 0 else "─"
                 cells += (
@@ -140,6 +177,7 @@ if len(bunker_df) > 0:
                     f'</td>'
                 )
             else:
+                # Some ports don't quote every fuel grade — show a dash rather than zero.
                 cells += '<td style="padding:6px 10px;color:#444">—</td>'
         rows += f'<tr style="background:{row_bg}"><td style="padding:6px 10px;color:#cfe1ff">{port}</td>{cells}</tr>'
     st.markdown(f"""
@@ -157,13 +195,19 @@ else:
 st.markdown('<hr style="margin:16px 0;border-color:#1e1e1e">', unsafe_allow_html=True)
 st.markdown('<div class="tw-label" style="margin-bottom:6px">Financial Impact Fleet</div>', unsafe_allow_html=True)
 
+# Calculate how much the current oil price and active geopolitical events are
+# adding to daily fleet operating costs relative to a baseline scenario.
+# The empty dict means no per-vessel overrides — uses fleet-wide defaults.
 cost_impact = RiskAnalytics.calculate_cost_impact(filtered_events, oil_price, {})
 
 oil_mult   = cost_impact["oil_multiplier"]
 ev_mult    = cost_impact["event_risk_multiplier"]
+# Express the oil multiplier as a percentage above or below the $90 baseline.
 oil_vs_base = (oil_mult - 1) * 100
+# Green when oil is below baseline (lower fuel costs), red when above.
 oil_col    = "#22c55e" if oil_vs_base < 0 else "#ef4444"
 oil_sym    = "▼" if oil_vs_base < 0 else "▲"
+# Event risk colour: green = no added risk, orange = moderate, red = high risk.
 ev_col     = "#22c55e" if ev_mult <= 1.0 else "#f97316" if ev_mult < 1.3 else "#ef4444"
 
 st.markdown(
@@ -198,6 +242,10 @@ st.markdown(
 st.markdown('<hr style="margin:16px 0;border-color:#1e1e1e">', unsafe_allow_html=True)
 st.markdown('<div class="tw-label" style="margin-bottom:6px">Chokepoint — Delays & Costs</div>',
             unsafe_allow_html=True)
+# Table of every monitored chokepoint sorted by risk score, showing each route's
+# operational status, estimated average delay, cost premium, and number of nearby
+# events. SC maps status strings to their colour codes; risk_col maps a 0–100
+# numeric score to a traffic-light colour for quick visual scanning.
 if len(shipping_df) > 0:
     rows = ""
     for _, row in shipping_df.sort_values("Risk Score", ascending=False).iterrows():
