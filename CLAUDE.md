@@ -51,6 +51,22 @@ Predictions fall back to a calibrated heuristic when the artifact is missing.
 `eta_scheduler.start_eta_scheduler()` (called from `app.py`) auto-retrains
 once daily when ≥200 real AIS rows exist and the cooldown has elapsed.
 
+**Live quality tracking (`pages/5_ETA_Quality.py` + `eta_quality.py`)**: every
+call to `predict_transit_minutes()` now writes one row to the
+`eta_predictions` table in `.ais_positions.db` with the inputs and
+outputs. `eta_quality.match_open_predictions()` later joins each open
+prediction to the realised entry/exit timestamps from `sightings` (same
+bbox + gap-split logic as the trainer), filling in `actual_min`.
+`compute_quality_metrics()` aggregates the closed-out pairs into rolling
+MAE, MAPE, within-tolerance hit-rates (±15% / ±25%), p10–p90 interval
+coverage, pinball loss at α=0.1/0.5/0.9, bias, and a per-chokepoint
+drift flag (rolling MAE > 1.25× training MAE). The MariNav Router cards
+now show a composite 0–100 `Confidence: NN%` chip computed by
+`compute_confidence_score()`. The matcher is invoked at the top of
+`eta_scheduler.retrain_now()` so a retrain always works against the
+freshest labels. No deep learning involved anywhere — pure numpy +
+sqlite + pandas on top of the existing XGBoost quantile artifact.
+
 ## Architecture
 
 Streamlit-based shipping risk dashboard aggregating 9 external APIs. The goal is to help shipping companies plan routes based on geopolitical risk, port congestion, fuel costs, and weather.

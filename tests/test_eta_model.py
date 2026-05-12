@@ -336,3 +336,45 @@ def test_predict_total_for_route_confidence_cascade_unseen_dominates():
     # If artifact loaded, Suez is "model" and Bermuda is "unseen_chokepoint" → overall unseen
     # If artifact missing, both are "heuristic" → overall heuristic
     assert t["confidence"] in ("unseen_chokepoint", "heuristic")
+
+
+# ---------------------------------------------------------------------------
+# explain_prediction — humanised SHAP labels
+# ---------------------------------------------------------------------------
+
+def test_explain_prediction_returns_humanised_labels():
+    """The SHAP rows must use plain-English labels and never `?` when the
+    caller passes a complete feature row. Regression test for the bug where
+    `_eta_features_per_chokepoint()` was dropping `chokepoint_id` and
+    `bbox_diagonal_km`, so every chokepoint card's "Why this prediction?"
+    expander showed `(?)`."""
+    from eta_model import explain_prediction
+
+    feats = {
+        "chokepoint_id": "Suez Canal",
+        "ship_type": "bulker",
+        "entry_sog_kn": 14.0,
+        "queue_depth": 12,
+        "hour_of_day": 10,
+        "day_of_week": 2,
+        "month": 5,
+        "recent_throughput_24h": 30,
+        "bbox_diagonal_km": BBOX_DIAGONAL_KM["Suez Canal"],
+    }
+    rows = explain_prediction(feats, top_k=6)
+    if not rows:
+        # No artifact or shap unavailable — nothing to assert.
+        pytest.skip("Model artifact or shap library unavailable in this environment")
+
+    labels = [label for label, _ in rows]
+    # Every label is a non-empty string with no `?` placeholder for the value.
+    assert all(isinstance(lab, str) and lab for lab in labels)
+    assert not any("(?)" in lab for lab in labels)
+    # No raw feature-name prefixes leak through (e.g. "ship_type_tanker").
+    assert not any(lab.startswith("ship_type_") for lab in labels)
+    assert not any(lab.startswith("chokepoint_id_") for lab in labels)
+    # Plain-English labels are present.
+    assert any(lab.startswith("Chokepoint (") for lab in labels)
+    assert any(lab.startswith("Chokepoint size (") for lab in labels)
+    # bbox value is rendered with "km across".
+    assert any("km across" in lab for lab in labels)

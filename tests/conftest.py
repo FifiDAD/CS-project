@@ -69,3 +69,18 @@ def t0() -> float:
 # Suez bbox coords pulled from eta_model.CHOKEPOINT_BBOXES — used by tests
 # to construct points known to be inside / outside the bbox.
 SUEZ_BBOX = (27.0, 31.0, 33.0, 35.0)  # (lat_min, lon_min, lat_max, lon_max)
+
+
+@pytest.fixture(autouse=True)
+def _isolate_prediction_log(tmp_path_factory, monkeypatch):
+    """Redirect eta_model's prediction-log DB to a tmp path for every test.
+
+    Why: predict_transit_minutes() now writes one row per call to
+    .ais_positions.db. Without this fixture, the existing tests would
+    silently populate the live DB on every run.
+    """
+    import eta_model
+    tmp_db = tmp_path_factory.mktemp("eta_log") / "eta_log.db"
+    monkeypatch.setattr(eta_model, "_DB_PATH", tmp_db)
+    monkeypatch.setattr(eta_model, "_PREDICTIONS_TABLE_READY", False)
+    yield tmp_db

@@ -66,105 +66,47 @@ def _init_db() -> None:
                 ts        REAL
             )"""
         )
-        # Append-only history of sightings — fuels transit counts, 7-day
-        # baselines, and the ETA model's training extractor. 1 row per
-        # PositionReport. sog_kn / ship_type are nullable: sog comes from
-        # the position message, ship_type is looked up from positions and
-        # stays NULL until a Type-5 ShipStaticData message has arrived.
+        # Append-only history of (mmsi, ts) sightings — fuels transit counts
+        # and 7-day baselines without needing PortWatch. 1 row per AIS message.
         con.execute(
             """CREATE TABLE IF NOT EXISTS sightings (
-                mmsi      INTEGER,
-                lat       REAL,
-                lon       REAL,
-                sog_kn    REAL,
-                ship_type INTEGER,
-                ts        REAL
+                mmsi INTEGER,
+                lat  REAL,
+                lon  REAL,
+                ts   REAL
             )"""
         )
-        # Additive migration for older DBs that pre-date sog_kn / ship_type.
-        cols = {r[1] for r in con.execute("PRAGMA table_info(sightings)")}
-        if "sog_kn" not in cols:
-            con.execute("ALTER TABLE sightings ADD COLUMN sog_kn REAL")
-        if "ship_type" not in cols:
-            con.execute("ALTER TABLE sightings ADD COLUMN ship_type INTEGER")
         con.execute("CREATE INDEX IF NOT EXISTS idx_sightings_ts ON sightings(ts)")
-        con.execute("CREATE INDEX IF NOT EXISTS idx_sightings_mmsi_ts ON sightings(mmsi, ts)")
 
 
 def _upsert(con: sqlite3.Connection, msg: dict) -> None:
-    """Persist an incoming AIS message into SQLite.
-
-    Two message types are accepted:
-
-    - **PositionReport** (Type 1/2/3): carries lat/lon/sog/cog and a name.
-      Does NOT carry ship type — that field doesn't exist on these
-      messages, so we never try to read it here.
-    - **ShipStaticData** (Type 5): carries the ITU-R ship type code (and
-      a more authoritative name). Does NOT carry position data, so we
-      only update `ship_type` and `name` for the existing row, leaving
-      lat/lon/sog/cog/ts untouched.
-
-    `ship_type` therefore populates gradually as Type 5 messages flow in
-    (every ~6 min per vessel). Until then the column stays NULL and
-    downstream code treats unknown vessels as commercial-by-default.
-    """
-    body = msg.get("Message", {}) or {}
     meta = msg.get("MetaData", {}) or {}
-
-    pos_msg = body.get("PositionReport") or {}
-    static_msg = body.get("ShipStaticData") or {}
-
-    if pos_msg:
-        mmsi = meta.get("MMSI") or pos_msg.get("UserID")
-        lat = pos_msg.get("Latitude")
-        lon = pos_msg.get("Longitude")
-        if not (mmsi and lat is not None and lon is not None):
-            return
-        now = time.time()
-        con.execute(
-            """INSERT INTO positions (mmsi, lat, lon, sog_kn, cog_deg, name, ship_type, ts)
-               VALUES (?, ?, ?, ?, ?, ?, NULL, ?)
-               ON CONFLICT(mmsi) DO UPDATE SET
-                  lat=excluded.lat, lon=excluded.lon,
-                  sog_kn=excluded.sog_kn, cog_deg=excluded.cog_deg,
-                  name=excluded.name, ts=excluded.ts""",
-            (
-                mmsi, lat, lon,
-                pos_msg.get("Sog"), pos_msg.get("Cog"),
-                (meta.get("ShipName") or "").strip(),
-                now,
-            ),
-        )
-        # Look up ship_type from positions (populated lazily by Type-5 msgs).
-        # NULL until at least one ShipStaticData message has arrived for this MMSI.
-        prior_type = con.execute(
-            "SELECT ship_type FROM positions WHERE mmsi = ?", (mmsi,)
-        ).fetchone()
-        ship_type = prior_type[0] if prior_type else None
-        con.execute(
-            "INSERT INTO sightings (mmsi, lat, lon, sog_kn, ship_type, ts) VALUES (?,?,?,?,?,?)",
-            (mmsi, lat, lon, pos_msg.get("Sog"), ship_type, now),
-        )
+    pos_msg = (msg.get("Message", {}) or {}).get("PositionReport", {}) or {}
+    mmsi = meta.get("MMSI") or pos_msg.get("UserID")
+    lat = pos_msg.get("Latitude")
+    lon = pos_msg.get("Longitude")
+    if not (mmsi and lat is not None and lon is not None):
         return
-
-    if static_msg:
-        mmsi = meta.get("MMSI") or static_msg.get("UserID")
-        ship_type = static_msg.get("Type")
-        if not mmsi or ship_type is None:
-            return
-        name = (static_msg.get("Name") or meta.get("ShipName") or "").strip()
-        # Static-only update: never touch position fields here. If the row
-        # doesn't exist yet (no PositionReport seen), insert a placeholder
-        # so the next PositionReport simply updates lat/lon/ts.
-        con.execute(
-            """INSERT INTO positions (mmsi, lat, lon, sog_kn, cog_deg, name, ship_type, ts)
-               VALUES (?, NULL, NULL, NULL, NULL, ?, ?, 0)
-               ON CONFLICT(mmsi) DO UPDATE SET
-                  ship_type=excluded.ship_type,
-                  name=CASE WHEN excluded.name != '' THEN excluded.name ELSE positions.name END""",
-            (mmsi, name, ship_type),
-        )
-        return
+    now = time.time()
+    con.execute(
+        """INSERT INTO positions (mmsi, lat, lon, sog_kn, cog_deg, name, ship_type, ts)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(mmsi) DO UPDATE SET
+              lat=excluded.lat, lon=excluded.lon,
+              sog_kn=excluded.sog_kn, cog_deg=excluded.cog_deg,
+              name=excluded.name, ts=excluded.ts""",
+        (
+            mmsi, lat, lon,
+            pos_msg.get("Sog"), pos_msg.get("Cog"),
+            (meta.get("ShipName") or "").strip(),
+            pos_msg.get("ShipType"),
+            now,
+        ),
+    )
+    con.execute(
+        "INSERT INTO sightings (mmsi, lat, lon, ts) VALUES (?,?,?,?)",
+        (mmsi, lat, lon, now),
+    )
 
 
 async def _run() -> None:
@@ -176,11 +118,7 @@ async def _run() -> None:
     sub = json.dumps({
         "APIKey": AISSTREAM_KEY,
         "BoundingBoxes": boxes_pairs,
-        # Subscribe to PositionReport (lat/lon/sog/cog) AND ShipStaticData
-        # (ship type code + canonical name). Without ShipStaticData,
-        # `ship_type` is forever NULL — and the port-congestion metric
-        # ends up counting every yacht/ferry/fishing boat as "queue".
-        "FilterMessageTypes": ["PositionReport", "ShipStaticData"],
+        "FilterMessageTypes": ["PositionReport"],
     })
     while True:
         try:
@@ -243,36 +181,6 @@ def transits_24h(bbox: list[float]) -> int:
                 """SELECT COUNT(DISTINCT mmsi) FROM sightings
                    WHERE ts > ? AND lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?""",
                 (cutoff, lat_min, lat_max, lon_min, lon_max),
-            ).fetchone()
-            return int(row[0]) if row else 0
-    except sqlite3.Error:
-        return 0
-
-
-def last_sighting_age_sec() -> float | None:
-    """Seconds since the most recent AIS sighting in the DB. None if empty."""
-    if not _DB_PATH.exists():
-        return None
-    try:
-        with sqlite3.connect(_DB_PATH) as con:
-            row = con.execute("SELECT MAX(ts) FROM sightings").fetchone()
-        if not row or row[0] is None:
-            return None
-        return max(0.0, time.time() - float(row[0]))
-    except sqlite3.Error:
-        return None
-
-
-def total_distinct_vessels(window_sec: int = 86400) -> int:
-    """Count distinct MMSIs sighted within the last `window_sec` seconds."""
-    if not _DB_PATH.exists():
-        return 0
-    cutoff = time.time() - window_sec
-    try:
-        with sqlite3.connect(_DB_PATH) as con:
-            row = con.execute(
-                "SELECT COUNT(DISTINCT mmsi) FROM sightings WHERE ts > ?",
-                (cutoff,),
             ).fetchone()
             return int(row[0]) if row else 0
     except sqlite3.Error:

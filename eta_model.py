@@ -35,6 +35,7 @@ import pandas as pd
 
 _HERE = Path(__file__).resolve().parent
 _ARTIFACT_PATH = _HERE / "models" / "eta_xgb.joblib"
+_DB_PATH = _HERE / ".ais_positions.db"
 
 # Per-chokepoint bounding boxes — kept in sync with ais_consumer.CHOKEPOINT_BBOXES.
 # Re-declared here (rather than imported) so eta_model has no runtime
@@ -403,6 +404,128 @@ def encode_inference_row(features: dict[str, Any], encoder) -> np.ndarray:
 # Inference
 # ---------------------------------------------------------------------------
 
+_PREDICTIONS_TABLE_READY = False
+
+
+def _ensure_predictions_table(con: sqlite3.Connection) -> None:
+    """Idempotent CREATE for the eta_predictions table.
+
+    Mirrors the schema in ais_consumer._init_db(); duplicated so eta_model
+    is usable without depending on the AIS consumer thread having started.
+    Guarded by a module-level flag so we only run it once per process.
+    """
+    global _PREDICTIONS_TABLE_READY
+    if _PREDICTIONS_TABLE_READY:
+        return
+    # WAL mode — same reasoning as ais_consumer._init_db(). The flag below
+    # is flipped *after* WAL is set + table/indexes exist, so a fresh DB
+    # touched first by eta_quality (e.g. a test) gets WAL too.
+    con.execute("PRAGMA journal_mode=WAL")
+    con.execute(
+        """CREATE TABLE IF NOT EXISTS eta_predictions (
+            pred_id        TEXT PRIMARY KEY,
+            predicted_at   REAL NOT NULL,
+            chokepoint_id  TEXT NOT NULL,
+            mmsi           INTEGER,
+            source         TEXT NOT NULL,
+            model_version  TEXT,
+            n_train        INTEGER,
+            ship_type             TEXT,
+            entry_sog_kn          REAL,
+            queue_depth           REAL,
+            hour_of_day           INTEGER,
+            day_of_week           INTEGER,
+            month                 INTEGER,
+            recent_throughput_24h REAL,
+            bbox_diagonal_km      REAL,
+            p10_min        INTEGER NOT NULL,
+            p50_min        INTEGER NOT NULL,
+            p90_min        INTEGER NOT NULL,
+            actual_min       REAL,
+            actual_entry_ts  REAL,
+            actual_exit_ts   REAL,
+            matched_at       REAL,
+            match_method     TEXT
+        )"""
+    )
+    con.execute(
+        "CREATE INDEX IF NOT EXISTS idx_eta_pred_cp_ts ON eta_predictions(chokepoint_id, predicted_at)"
+    )
+    con.execute(
+        "CREATE INDEX IF NOT EXISTS idx_eta_pred_open ON eta_predictions(predicted_at) "
+        "WHERE actual_min IS NULL"
+    )
+    _PREDICTIONS_TABLE_READY = True
+
+
+def _log_prediction(
+    chokepoint_id: str,
+    feats: dict,
+    pred: dict,
+    mmsi: int | None,
+    model_version: str | None,
+) -> None:
+    """Best-effort write of one prediction row. Never raises.
+
+    Logging failures (locked DB, missing parent dir, sqlite errors) must
+    not blank the UI — they degrade silently. Use the predicted_at column
+    plus chokepoint to dedup downstream; pred_id is a uuid4 surrogate key.
+    """
+    import time
+    import uuid
+    try:
+        # Tight timeout: with WAL on, contention should be rare; on the
+        # rare collision skip the log rather than stalling inference.
+        with sqlite3.connect(_DB_PATH, timeout=0.25) as con:
+            _ensure_predictions_table(con)
+            con.execute(
+                """INSERT INTO eta_predictions (
+                    pred_id, predicted_at, chokepoint_id, mmsi, source,
+                    model_version, n_train,
+                    ship_type, entry_sog_kn, queue_depth,
+                    hour_of_day, day_of_week, month,
+                    recent_throughput_24h, bbox_diagonal_km,
+                    p10_min, p50_min, p90_min
+                ) VALUES (?,?,?,?,?, ?,?, ?,?,?, ?,?,?, ?,?, ?,?,?)""",
+                (
+                    uuid.uuid4().hex,
+                    time.time(),
+                    chokepoint_id,
+                    int(mmsi) if mmsi is not None else None,
+                    pred.get("confidence", "model"),
+                    model_version,
+                    int(pred.get("n_train", 0) or 0),
+                    str(feats.get("ship_type") or ""),
+                    _opt_float(feats.get("entry_sog_kn")),
+                    _opt_float(feats.get("queue_depth")),
+                    _opt_int(feats.get("hour_of_day")),
+                    _opt_int(feats.get("day_of_week")),
+                    _opt_int(feats.get("month")),
+                    _opt_float(feats.get("recent_throughput_24h")),
+                    _opt_float(feats.get("bbox_diagonal_km")),
+                    int(pred["p10"]),
+                    int(pred["p50"]),
+                    int(pred["p90"]),
+                ),
+            )
+    except Exception:  # noqa: BLE001  logging is best-effort
+        return
+
+
+def _opt_float(v: Any) -> float | None:
+    try:
+        return float(v) if v is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _opt_int(v: Any) -> int | None:
+    try:
+        return int(v) if v is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
 @functools.lru_cache(maxsize=1)
 def load_artifact() -> dict | None:
     """Load the trained joblib bundle. Returns None if missing or unloadable.
@@ -431,6 +554,9 @@ def load_artifact() -> dict | None:
 def predict_transit_minutes(
     chokepoint_id: str,
     features: dict[str, Any],
+    *,
+    mmsi: int | None = None,
+    log: bool = True,
 ) -> dict[str, Any]:
     """Predict transit time for one chokepoint. Always returns a populated dict.
 
@@ -446,6 +572,13 @@ def predict_transit_minutes(
     `features` should include: ship_type (str bin or int code), entry_sog_kn,
     queue_depth, hour_of_day, day_of_week, month, recent_throughput_24h.
     Missing keys default to safe averages.
+
+    `mmsi` (optional) is recorded with the prediction row so the matcher in
+    eta_quality.py can join to actual transits later. When omitted, the
+    prediction is logged as anonymous (mmsi NULL).
+
+    `log=False` disables the SQLite write — used by tests/trainer that
+    call predict_transit_minutes in tight loops.
     """
     cp = chokepoint_id
     feats = dict(features)
@@ -461,9 +594,13 @@ def predict_transit_minutes(
 
     bundle = load_artifact()
     if bundle is None:
-        return _heuristic_prediction(cp, feats, confidence="heuristic")
+        pred = _heuristic_prediction(cp, feats, confidence="heuristic")
+        if log:
+            _log_prediction(cp, feats, pred, mmsi, model_version=None)
+        return pred
 
     encoder = bundle["encoder"]
+    model_version = (bundle.get("meta") or {}).get("model_version")
     # Detect unseen chokepoints — if the encoder hasn't seen this category,
     # transform yields an all-zero block for that column group, which the
     # model would silently extrapolate from. Catch that and fall back.
@@ -472,7 +609,10 @@ def predict_transit_minutes(
         if name.startswith("chokepoint_id_"):
             known_cps.add(name[len("chokepoint_id_"):])
     if cp not in known_cps:
-        return _heuristic_prediction(cp, feats, confidence="unseen_chokepoint")
+        pred = _heuristic_prediction(cp, feats, confidence="unseen_chokepoint")
+        if log:
+            _log_prediction(cp, feats, pred, mmsi, model_version=model_version)
+        return pred
 
     try:
         X = encode_inference_row(feats, encoder)
@@ -480,7 +620,10 @@ def predict_transit_minutes(
         p50 = float(bundle["q50"].predict(X)[0])
         p90 = float(bundle["q90"].predict(X)[0])
     except Exception:  # noqa: BLE001  belt-and-braces — never blank the UI
-        return _heuristic_prediction(cp, feats, confidence="heuristic")
+        pred = _heuristic_prediction(cp, feats, confidence="heuristic")
+        if log:
+            _log_prediction(cp, feats, pred, mmsi, model_version=model_version)
+        return pred
 
     # Quantile regressors trained independently can occasionally cross.
     # Sort and clip to a sensible range.
@@ -490,13 +633,16 @@ def predict_transit_minutes(
     p90 = min(MAX_DURATION_MIN, p90)
 
     n_train = int((bundle.get("meta") or {}).get("n_train", 0))
-    return {
+    pred = {
         "p10": int(round(p10)),
         "p50": int(round(p50)),
         "p90": int(round(p90)),
         "n_train": n_train,
         "confidence": "model",
     }
+    if log:
+        _log_prediction(cp, feats, pred, mmsi, model_version=model_version)
+    return pred
 
 
 def _heuristic_prediction(cp: str, feats: dict, confidence: str) -> dict[str, Any]:
@@ -520,6 +666,9 @@ def predict_total_for_route(
     features_per_chokepoint: dict[str, dict] | None = None,
     default_features: dict | None = None,
     force_heuristic: bool = False,
+    *,
+    mmsi: int | None = None,
+    log: bool = True,
 ) -> dict[str, Any]:
     """Sum predicted transit times across all chokepoints in a route.
 
@@ -530,6 +679,9 @@ def predict_total_for_route(
     When `force_heuristic=True`, every chokepoint goes through the
     heuristic path, bypassing the trained artifact even if loaded. Used
     by the UI's "Compare ML vs heuristic" toggle.
+
+    `mmsi` / `log` are forwarded to predict_transit_minutes (or applied to
+    the per-CP heuristic log call when force_heuristic=True).
     """
     features_per_chokepoint = features_per_chokepoint or {}
     default_features = default_features or {}
@@ -543,8 +695,10 @@ def predict_total_for_route(
         feats = {**default_features, **features_per_chokepoint.get(cp, {})}
         if force_heuristic:
             pred = _heuristic_prediction(cp, feats, confidence="heuristic")
+            if log:
+                _log_prediction(cp, feats, pred, mmsi, model_version=None)
         else:
-            pred = predict_transit_minutes(cp, feats)
+            pred = predict_transit_minutes(cp, feats, mmsi=mmsi, log=log)
         total_p10 += pred["p10"]
         total_p50 += pred["p50"]
         total_p90 += pred["p90"]
@@ -592,6 +746,70 @@ def _shap_explainer():
         return None, None
 
 
+def shap_baseline_minutes() -> float | None:
+    """Average q50 prediction across the training set (the SHAP "expected value").
+
+    Each contribution returned by explain_prediction() is the delta vs this
+    baseline. Exposing it lets the UI say "the prediction starts at
+    ≈X min and the four contributions push it to p50 min". Returns
+    None if shap is unavailable or the model artifact isn't loaded.
+    """
+    explainer, _ = _shap_explainer()
+    if explainer is None:
+        return None
+    try:
+        ev = explainer.expected_value
+        # TreeExplainer can return scalar or 1-elem array depending on shap version.
+        if hasattr(ev, "__len__") and not isinstance(ev, str):
+            ev = float(ev[0])
+        return float(ev)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+_SHAP_LABEL_MAP: dict[str, str] = {
+    "chokepoint_id":          "Chokepoint",
+    "ship_type":              "Vessel type",
+    "entry_sog_kn":           "Entry speed",
+    "queue_depth":            "Vessels in chokepoint right now",
+    "recent_throughput_24h":  "Vessels in last 24 h",
+    "hour_of_day":            "Hour of day (UTC)",
+    "day_of_week":            "Day of week",
+    "month":                  "Month",
+    "bbox_diagonal_km":       "Chokepoint size",
+}
+
+_DOW_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+_MONTH_NAMES = [
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+]
+
+
+def _format_shap_value(feat: str, value: Any) -> str:
+    """Render a feature value for display next to its SHAP contribution."""
+    if value is None or (isinstance(value, float) and math.isnan(value)):
+        return "—"
+    try:
+        if feat == "entry_sog_kn":
+            return f"{float(value):.1f} kn"
+        if feat in ("queue_depth", "recent_throughput_24h"):
+            return f"{int(float(value))}"
+        if feat == "hour_of_day":
+            return f"{int(float(value))}"
+        if feat == "day_of_week":
+            idx = int(float(value))
+            return _DOW_NAMES[idx] if 0 <= idx < 7 else str(idx)
+        if feat == "month":
+            idx = int(float(value))
+            return _MONTH_NAMES[idx - 1] if 1 <= idx <= 12 else str(idx)
+        if feat == "bbox_diagonal_km":
+            return f"{int(float(value))} km across"
+    except (TypeError, ValueError):
+        pass
+    return str(value)
+
+
 def explain_prediction(
     features: dict[str, Any],
     top_k: int = 3,
@@ -603,8 +821,9 @@ def explain_prediction(
     callers should treat empty as "no explanation available" and surface a
     fallback message in the UI.
 
-    Feature labels are humanised: "queue_depth (12)" / "ship_type (tanker)" /
-    "chokepoint_id (Suez Canal)" so the UI can render them directly.
+    Feature labels are humanised for direct rendering, e.g.
+    "Chokepoint (Suez Canal)", "Chokepoint size (700 km across)",
+    "Vessels in chokepoint right now (12)".
     """
     explainer, feature_names = _shap_explainer()
     if explainer is None or not feature_names:
@@ -619,8 +838,13 @@ def explain_prediction(
     except Exception:  # noqa: BLE001
         return []
 
+    def _row(feat: str, contrib: float) -> tuple[str, float]:
+        label = _SHAP_LABEL_MAP.get(feat, feat)
+        value_str = _format_shap_value(feat, features.get(feat))
+        return (f"{label} ({value_str})", contrib)
+
     # Aggregate one-hot columns back to their parent categorical features so
-    # the UI shows "ship_type (tanker)" rather than "ship_type_tanker".
+    # the UI shows "Vessel type (tanker)" rather than "ship_type_tanker".
     pairs: list[tuple[str, float]] = []
     used = set()
     for cat in CATEGORICAL_FEATURES:
@@ -630,13 +854,11 @@ def explain_prediction(
         for i in cat_idxs:
             cat_total += float(contributions[i])
             used.add(i)
-        cat_value = features.get(cat, "?")
-        pairs.append((f"{cat} ({cat_value})", cat_total))
+        pairs.append(_row(cat, cat_total))
     for i, name in enumerate(feature_names):
         if i in used:
             continue
-        v = features.get(name, "?")
-        pairs.append((f"{name} ({v})", float(contributions[i])))
+        pairs.append(_row(name, float(contributions[i])))
 
     pairs.sort(key=lambda kv: -abs(kv[1]))
     return pairs[:top_k]

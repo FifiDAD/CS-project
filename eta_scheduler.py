@@ -72,6 +72,15 @@ def retrain_now(use_seed_fallback: bool = True) -> tuple[bool, str]:
     `use_seed_fallback=True` and there aren't enough real rows yet, the
     --seed flag is added so the trainer succeeds.
     """
+    # Close out any open predictions first so the dashboard's live MAE
+    # picks up the most recent transits, and so any future training
+    # extension that pulls from eta_predictions sees up-to-date labels.
+    try:
+        from eta_quality import match_open_predictions
+        match_open_predictions()
+    except Exception as exc:  # noqa: BLE001  matcher failure must not block retrain
+        _log.warning("eta_scheduler: pre-retrain match failed: %s", exc)
+
     args = [sys.executable, str(_TRAINER_SCRIPT), "--no-cv"]
     if use_seed_fallback:
         args.append("--seed")
