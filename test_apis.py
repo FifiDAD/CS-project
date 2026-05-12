@@ -25,6 +25,7 @@ from app_secrets import AISSTREAM_KEY
 results = []
 
 def record(name, passed, message):
+    # Store both machine-readable status and human-readable output for the final summary.
     results.append({"name": name, "passed": passed, "message": message})
     status = "PASS" if passed else "FAIL"
     print(f"  [{status}] {name}: {message}")
@@ -45,6 +46,7 @@ def classify_http_error(response):
 def test_events_aggregator():
     print("\n17. Events aggregator (GDELT)...")
     try:
+        # Exercise the combined event pipeline, not just the raw source endpoint.
         from events_aggregator import get_combined_events
         df = get_combined_events(days=30)
         if not isinstance(df, pd.DataFrame) or len(df) == 0:
@@ -59,6 +61,8 @@ def test_events_aggregator():
 def test_gdelt():
     print("\n 2. GDELT (Global Events)...")
     try:
+        # GDELT returns a nested timeline payload, so validate structure before
+        # treating an HTTP success as a usable event feed.
         data = APIClient.get_gdelt_events()
         if not isinstance(data, dict):
             record("GDELT", False, f"INVALID_DATA - expected dict, got {type(data).__name__}")
@@ -88,6 +92,7 @@ def test_newsapi():
             return
         if len(df) == 0:
             # Also check raw HTTP for a better diagnosis
+            # APIClient may hide the root cause behind an empty DataFrame.
             resp = requests.get(
                 "https://newsapi.org/v2/everything",
                 params={"q": "shipping", "apiKey": NEWSAPI_KEY, "pageSize": 1},
@@ -237,6 +242,7 @@ def test_noaa():
     print("\n 9. NOAA Weather Alerts...")
     try:
         # Direct HTTP check first
+        # NOAA is public but strict about response shape and User-Agent headers.
         resp = requests.get(
             NOAA_ALERTS_URL,
             params={"point": "40,-95"},
@@ -289,6 +295,7 @@ def test_world_bank():
 def test_open_meteo_marine():
     print("\n12. Open-Meteo Marine API...")
     try:
+        # Suez is used as a known maritime point to verify marine weather fields.
         data = APIClient.get_marine_weather(lat=30.42, lon=32.35)  # Suez
         if not isinstance(data, dict) or not data:
             record("Open-Meteo Marine", False, "EMPTY_RESPONSE")
@@ -330,6 +337,7 @@ def test_piracy():
 
 def test_aisstream_key():
     print("\n15. AISStream key configured...")
+    # Avoid opening a live WebSocket here; this script only confirms configuration.
     if AISSTREAM_KEY and len(AISSTREAM_KEY) >= 32:
         record("AISStream", True, f"Key present ({AISSTREAM_KEY[:6]}...). Live test runs in app.")
     else:
@@ -338,6 +346,7 @@ def test_aisstream_key():
 
 def test_exchange_rates():
     print("\n11. Exchange Rates (FX)...")
+    # These five currencies are the minimum set used across the market cards.
     expected_keys = ["EUR", "GBP", "JPY", "CNY", "INR"]
     try:
         rates = APIClient.get_exchange_rates()
@@ -367,6 +376,8 @@ def test_exchange_rates():
 # ---------------------------------------------------------------------------
 
 def main():
+    # Run endpoint checks in dependency order where later tests use earlier
+    # direct-HTTP results to distinguish live data from fallback sentinels.
     print("=" * 60)
     print(" LOGISTICS DASHBOARD - API CONNECTION TESTS")
     print("=" * 60)

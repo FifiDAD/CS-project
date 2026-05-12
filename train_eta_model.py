@@ -46,6 +46,8 @@ SHAP_FEATURE_NAMES_JSON = MODELS_DIR / "eta_shap_feature_names.json"
 
 N_MIN_TOTAL = 200
 N_MIN_PER_CP = 25
+# Synthetic data is a cold-start aid only; once real AIS volume is adequate
+# the model should learn from live observations alone.
 SEED_PHASEOUT_THRESHOLD = N_MIN_TOTAL  # drop synthetic the moment real data clears the floor
 
 # Sample-weight schedule keyed off ship_type bin (see eta_model.ship_type_bin).
@@ -83,6 +85,8 @@ class FoldResult:
 # ---------------------------------------------------------------------------
 
 def _load_data(db_path: Path, use_seed: bool) -> pd.DataFrame:
+    # Extract only commercial AIS transits so leisure/fishing/military tracks
+    # do not distort chokepoint ETA estimates for shipping routes.
     real = extract_transits(db_path, commercial_only=True)
     real_n = len(real)
     print(f"Real transits extracted from {db_path.name}: {real_n} (commercial only)")
@@ -151,6 +155,8 @@ def _load_data(db_path: Path, use_seed: bool) -> pd.DataFrame:
 
 
 def _check_thresholds(df: pd.DataFrame) -> None:
+    # Guard against training a model that would look valid but be too sparse
+    # for reliable chokepoint-level predictions.
     if len(df) < N_MIN_TOTAL:
         print(
             f"\nERROR: need ≥{N_MIN_TOTAL} transits to train, have {len(df)}.\n"
@@ -170,6 +176,8 @@ def _check_thresholds(df: pd.DataFrame) -> None:
 # ---------------------------------------------------------------------------
 
 def _make_quantile(alpha: float, max_depth: int, n_estimators: int, learning_rate: float):
+    # XGBoost's quantile objective gives direct p10/p50/p90 ETA estimates
+    # instead of fitting a single mean prediction and guessing uncertainty later.
     from xgboost import XGBRegressor
     return XGBRegressor(
         objective="reg:quantileerror",
@@ -186,6 +194,8 @@ def _make_quantile(alpha: float, max_depth: int, n_estimators: int, learning_rat
 
 
 def _train_quantile(X_train, y_train, alpha: float, hp: dict, sample_weight=None):
+    # Sample weights are optional so the same helper works for both weighted
+    # production training and lightweight experiments.
     m = _make_quantile(
         alpha=alpha,
         max_depth=hp["max_depth"],
@@ -213,10 +223,12 @@ def _build_sample_weights(df: pd.DataFrame) -> np.ndarray:
 
 
 def _mae(pred, y) -> float:
+    # MAE is easy for operators to read because the target is minutes.
     return float(np.mean(np.abs(pred - y)))
 
 
 def _r2(pred, y) -> float:
+    # R2 complements MAE by showing whether the model beats a flat mean baseline.
     ss_res = float(np.sum((pred - y) ** 2))
     ss_tot = float(np.sum((y - np.mean(y)) ** 2))
     return 1.0 - ss_res / ss_tot if ss_tot else float("nan")
@@ -305,6 +317,8 @@ def _hyperparameter_sweep(
 # ---------------------------------------------------------------------------
 
 def _save_feature_importance(model, feature_names: list[str], path: Path) -> None:
+    # Persist a static PNG so the dashboard can show explainability without
+    # importing plotting libraries at page-render time.
     try:
         import matplotlib
         matplotlib.use("Agg")
@@ -380,6 +394,7 @@ def _save_shap_values(model, X_test, feature_names: list[str]) -> bool:
 # ---------------------------------------------------------------------------
 
 def _fmt_path(p: Path) -> str:
+    # Prefer repo-relative paths in CLI output so logs are stable across machines.
     try:
         return str(p.relative_to(HERE))
     except ValueError:

@@ -12,6 +12,7 @@ from api_config import CACHE_TTL_EVENTS
 
 @st.cache_data(ttl=CACHE_TTL_EVENTS)
 def load_core_data():
+    # Shared hot path for every page: load live events and market context once.
     events         = get_events_data()
     oil_price      = APIClient.get_oil_price()
     shipping_idx   = APIClient.get_shipping_index()
@@ -55,6 +56,7 @@ def prefetch_full_dashboard() -> None:
             return
 
         # Stage 2: heavy computed views the dashboard pages display.
+        # Imports stay local to avoid slowing normal module import on startup.
         try:
             from dynamic_status import (
                 compute_shipping_status, compute_port_congestion,
@@ -68,12 +70,14 @@ def prefetch_full_dashboard() -> None:
             pass
 
         # Stage 3: ancillary feeds.
+        # Piracy is optional map context, so failures should not cancel prefetch.
         try:
             APIClient.get_piracy_incidents(days=90)
         except Exception:
             pass
 
     def _run() -> None:
+        # Always release the single-flight lock, even if a feed fails mid-warmup.
         try:
             _warm()
         finally:
@@ -89,4 +93,5 @@ def prefetch_full_dashboard() -> None:
 # `events_json` arg. New Landing has no events to pass; redirect to the
 # full warm-up so callers get the same end state.
 def prefetch_main_dashboard(events_json: str | None = None) -> None:
+    # Preserve old call sites while routing all warm-up work through one function.
     prefetch_full_dashboard()
