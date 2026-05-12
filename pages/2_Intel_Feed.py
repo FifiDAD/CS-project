@@ -211,7 +211,7 @@ with feed_right:
     active_topic = st.session_state.get("news_topic_filter", "All")
     tp_cols = st.columns(6)
     for tc, t in zip(tp_cols, ["All", "conflict", "shipping", "trade", "weather", "other"]):
-        lbl = "ALL" if t == "All" else t[:4].upper()
+        lbl = "OTHER" if t == "other" else ("ALL" if t == "All" else t[:4].upper())
         if tc.button(lbl, key=f"tp_{t}",
                      type="primary" if active_topic == t else "secondary",
                      use_container_width=True):

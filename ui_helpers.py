@@ -262,9 +262,35 @@ button[kind="secondary"]           { background: #1e1e1e !important; border: 1px
                                      white-space: nowrap !important; letter-spacing: 0.3px;
                                      transition: all 0.15s ease; }
 .stButton > button:hover,
-div[data-testid="stButton"] > button:hover { border-color: #2a2a2a !important; color: #e8e8e8 !important; background: #1e1e1e !important; }
+div[data-testid="stButton"] > button:hover {
+  border-color: var(--accent) !important;
+  color: #ffffff !important;
+  background: #242424 !important;
+  box-shadow: 0 0 0 1px rgba(59,130,246,0.28) !important;
+}
 .stButton > button p,
 div[data-testid="stButton"] > button p { color: #aaaaaa !important; }
+.stButton > button[kind="primary"],
+div[data-testid="stButton"] > button[kind="primary"],
+div[data-testid="stBaseButton-primary"],
+button[data-testid="baseButton-primary"] {
+  background: rgba(59,130,246,0.28) !important;
+  border-color: var(--accent) !important;
+  color: #ffffff !important;
+  box-shadow: inset 0 -2px 0 var(--accent), 0 0 0 1px rgba(59,130,246,0.22) !important;
+}
+.stButton > button[kind="primary"] p,
+div[data-testid="stButton"] > button[kind="primary"] p,
+div[data-testid="stBaseButton-primary"] p,
+button[data-testid="baseButton-primary"] p { color: #ffffff !important; }
+.stButton > button[kind="primary"]:hover,
+div[data-testid="stButton"] > button[kind="primary"]:hover,
+div[data-testid="stBaseButton-primary"]:hover,
+button[data-testid="baseButton-primary"]:hover {
+  background: rgba(59,130,246,0.38) !important;
+  border-color: #60a5fa !important;
+  box-shadow: inset 0 -2px 0 #60a5fa, 0 0 8px rgba(59,130,246,0.34) !important;
+}
 
 /* ── Selectbox / Input trigger ──────────────────────────────────────────── */
 div[data-baseweb="select"] > div,
