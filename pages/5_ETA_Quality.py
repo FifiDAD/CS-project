@@ -57,9 +57,12 @@ st.markdown(
     unsafe_allow_html=True,
 )
 st.caption(
-    "How accurate have our ETA predictions been? This page tracks every "
-    "prediction the dashboard makes and compares it to what really "
-    "happened once each vessel finished its transit."
+    "How accurate have our ETA predictions been? Predictions are logged "
+    "automatically every 10 minutes for each live vessel just entering a "
+    "monitored chokepoint, and matched against the realised entry/exit "
+    "timestamps from AIS once each vessel finishes transiting. This page "
+    "summarises the (predicted, actual) pairs into live MAE, interval "
+    "coverage, and drift signals."
 )
 
 

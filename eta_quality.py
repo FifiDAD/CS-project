@@ -56,9 +56,15 @@ def _find_next_transit(
     after_ts: float,
     lookback_sec: float,
     now_ts: float,
+    entry_grace_sec: float = 0.0,
 ) -> tuple[float, float] | None:
     """Find the next entry/exit pair for `mmsi` inside the chokepoint bbox
     that starts after `after_ts` and within `lookback_sec`.
+
+    `entry_grace_sec` widens the lower bound by that many seconds — useful
+    for shadow predictions logged at the moment of detected entry, where
+    the actual first sighting can be slightly *before* predicted_at due to
+    sampling cadence (10-min scheduler tick vs ~sec-level AIS updates).
 
     Returns (entry_ts, exit_ts) or None. A run is bounded either by a
     >1h gap in sightings or, if the last sighting is >1h ago and within
@@ -73,7 +79,8 @@ def _find_next_transit(
            WHERE mmsi = ? AND ts >= ? AND ts <= ?
              AND lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?
            ORDER BY ts""",
-        (mmsi, after_ts, after_ts + lookback_sec, lat_min, lat_max, lon_min, lon_max),
+        (mmsi, after_ts - entry_grace_sec, after_ts + lookback_sec,
+         lat_min, lat_max, lon_min, lon_max),
     ).fetchall()
     if len(rows) < 2:
         return None
@@ -93,7 +100,12 @@ def _find_next_transit(
     return None
 
 
-def match_open_predictions(db_path: Path | str | None = None, lookback_h: int = 72) -> dict:
+def match_open_predictions(
+    db_path: Path | str | None = None,
+    lookback_h: int = 72,
+    null_mmsi_lookback_h: int | None = None,
+    entry_grace_sec: float = 0.0,
+) -> dict:
     """Match predictions with NULL actual_min to their realised transits.
 
     Walks every row where `actual_min IS NULL`. For each, looks for the
@@ -101,6 +113,15 @@ def match_open_predictions(db_path: Path | str | None = None, lookback_h: int = 
     predicted_at, within `lookback_h` hours. Predictions older than
     lookback with no match are marked 'expired'. Predictions without an
     MMSI cannot be matched and are likewise expired once old.
+
+    `null_mmsi_lookback_h` overrides the expiry window for NULL-MMSI rows
+    (anonymous router predictions that can never match). Defaults to the
+    main `lookback_h`; pass 1 from the periodic scheduler tick to drain
+    them within minutes instead of letting them clog the dashboard.
+
+    `entry_grace_sec` widens the lower time bound when looking for the
+    realised transit — see `_find_next_transit`. Used by the shadow-prediction
+    scheduler tick where predicted_at can lag the actual entry by a few minutes.
 
     Returns counts {matched, expired, still_open}.
     """
@@ -110,6 +131,7 @@ def match_open_predictions(db_path: Path | str | None = None, lookback_h: int = 
 
     now_ts = time.time()
     lookback_sec = lookback_h * 3600
+    null_lookback_sec = (null_mmsi_lookback_h if null_mmsi_lookback_h is not None else lookback_h) * 3600
     matched = expired = still_open = 0
 
     with sqlite3.connect(db, timeout=5.0) as con:
@@ -130,7 +152,7 @@ def match_open_predictions(db_path: Path | str | None = None, lookback_h: int = 
         for pred_id, predicted_at, cp, mmsi in open_rows:
             age_sec = now_ts - float(predicted_at)
             if mmsi is None or not has_sightings:
-                if age_sec > lookback_sec:
+                if age_sec > null_lookback_sec:
                     con.execute(
                         "UPDATE eta_predictions SET match_method=?, matched_at=? WHERE pred_id=?",
                         ("expired", now_ts, pred_id),
@@ -141,7 +163,8 @@ def match_open_predictions(db_path: Path | str | None = None, lookback_h: int = 
                 continue
 
             transit = _find_next_transit(
-                con, int(mmsi), cp, float(predicted_at), lookback_sec, now_ts
+                con, int(mmsi), cp, float(predicted_at), lookback_sec, now_ts,
+                entry_grace_sec=entry_grace_sec,
             )
             if transit:
                 entry_ts, exit_ts = transit

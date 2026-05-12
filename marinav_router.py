@@ -560,41 +560,157 @@ def _route_total_cost_usd(
 
 # ── Multi-objective alternatives ─────────────────────────────────────────────
 
-# Public so the page can iterate the four alternatives in display order.
+# Three named alternatives — Recommended is *derived* from these three by
+# composite scoring on (ML-ETA, cost, risk), not run as a separate Dijkstra.
+# Display order is preserved by `find_route_alternatives`.
 ROUTE_OBJECTIVES: list[dict] = [
-    {
-        "key":      "balanced",
-        "label":    "Recommended",
-        "tagline":  "Lowest expected cost",
-        "color":    "#3b82f6",   # blue
-        "icon":     "⚖",
-        "weight":   "weight_balanced",
-    },
     {
         "key":      "fastest",
         "label":    "Fastest",
-        "tagline":  "Shortest distance · accept any risk",
+        "tagline":  "Least time on the water",
         "color":    "#f97316",   # orange
         "icon":     "⏱",
-        "weight":   "weight_fast",
+        "weight":   "weight_fast_h",
     },
     {
         "key":      "safest",
         "label":    "Safest",
-        "tagline":  "Avoid all risky chokepoints",
+        "tagline":  "Hard-avoid risky chokepoints",
         "color":    "#22c55e",   # green
         "icon":     "🛡",
-        "weight":   "weight_safe",
+        "weight":   "weight_safe_stepped",
     },
     {
         "key":      "cheapest",
         "label":    "Cheapest",
-        "tagline":  "Lowest total dollars on the docket",
+        "tagline":  "Lowest total dollars incl. tolls",
         "color":    "#a855f7",   # purple
         "icon":     "💰",
-        "weight":   "weight_balanced",   # picked from k-shortest pool
+        "weight":   "weight_cheap_usd",
     },
 ]
+
+
+# Stepped risk multiplier — mirrors the chokepoint status thresholds in
+# `dynamic_status.py:197-212`. Soft cubic penalties couldn't overcome a
+# 10,500 km Cape detour at moderate risk; these are sharp enough that
+# Safest actually detours when a real disruption is reported.
+def _safe_step_factor(risk_score: float) -> float:
+    if risk_score >= 70:  return 10_000.0   # Critical — effectively forbidden
+    if risk_score >= 40:  return 1_000.0    # High Risk — forbidden unless no alt
+    if risk_score >= 15:  return 5.0        # Alert — penalised
+    return 1.0                              # Operational — no penalty
+
+
+# Edges that contribute the FULL canal toll to the Cheapest objective. Any
+# Suez-using path crosses (_suez_n, _suez_s); any Panama-using path crosses
+# (_panama_pac, _panama_atl). Putting the toll on one interior edge per canal
+# (not split across the corridor) keeps the math simple: cheapest sees
+# "toll vs extra fuel + extra OPEX of Cape detour" as a binary decision.
+_CANAL_INTERIOR_EDGES: dict[tuple[str, str], str] = {
+    ("_suez_n", "_suez_s"):       "suez",
+    ("_suez_s", "_suez_n"):       "suez",
+    ("_panama_pac", "_panama_atl"): "panama",
+    ("_panama_atl", "_panama_pac"): "panama",
+}
+
+
+def _apply_objective_weights(
+    G: nx.Graph,
+    risk_scores: dict,
+    vessel,
+    speed_kn: float,
+    bunker_usd_per_t: float,
+    opex_per_day: float,
+) -> None:
+    """Mutates G in place: writes the three objective weights onto every edge.
+
+    Called once per `find_route_alternatives()` invocation — the weights
+    depend on the specific vessel/speed/bunker so they can't be baked into
+    `build_shipping_graph()` (which is shared across vessel choices).
+
+    Writes:
+      weight_fast_h        — voyage hours per edge (weather-aware, risk-blind)
+      weight_safe_stepped  — distance × stepped-risk factor (1 / 5 / 1000 / 10000)
+      weight_cheap_usd     — fuel + OPEX + risk-surcharge + canal toll, in USD
+    """
+    from vessel_physics import fuel_for_edge as _fuel_for_edge
+    from canal_tolls import estimate_toll_usd as _estimate_toll_usd
+
+    risk_scores = risk_scores or {}
+    # Toll lookup cached per canal so we don't re-call into canal_tolls per edge.
+    _canal_toll_usd: dict[str, float] = {}
+    for canal in {"suez", "panama"}:
+        t = _estimate_toll_usd(canal, vessel.name)
+        _canal_toll_usd[canal] = float(t) if t is not None else 0.0
+
+    speed_kmh = max(0.01, float(speed_kn) * 1.852)
+
+    for a, b, data in G.edges(data=True):
+        meta = data.get("meta")
+        dist_km = float(data.get("dist_km", 0.0))
+        queue_pen = float(data.get("queue_penalty_km", 0.0))
+
+        # ── weight_fast_h: voyage hours, weather-aware, no risk.
+        if meta is not None:
+            try:
+                edge_det = _fuel_for_edge(vessel, meta, speed_kn)
+                edge_hours = float(edge_det.get("hours", dist_km / speed_kmh))
+            except Exception:  # noqa: BLE001  fall back to flat distance/speed
+                edge_hours = dist_km / speed_kmh
+        else:
+            edge_hours = dist_km / speed_kmh
+        # Queue penalty was expressed in km — convert to hours at service speed.
+        weight_fast_h = edge_hours + (queue_pen / speed_kmh)
+
+        # ── weight_safe_stepped: hard-avoid risky chokepoints.
+        cp = _EDGE_CHOKEPOINT.get((a, b)) or _EDGE_CHOKEPOINT.get((b, a))
+        risk_for_edge = risk_scores.get(cp, 0) if cp else 0
+        weight_safe_stepped = (dist_km + queue_pen) * _safe_step_factor(risk_for_edge)
+
+        # ── weight_cheap_usd: real per-edge dollars.
+        # Fuel from vessel physics (already weather-aware); OPEX from edge_hours;
+        # risk surcharge proportional to fuel × edge-chokepoint-risk; canal toll
+        # applied once on each canal's interior edge.
+        if meta is not None:
+            try:
+                edge_det = _fuel_for_edge(vessel, meta, speed_kn)
+                edge_fuel_t = float(edge_det.get("fuel_t", 0.0))
+            except Exception:  # noqa: BLE001
+                edge_fuel_t = float(vessel.fuel_tpd(speed_kn)) * (edge_hours / 24.0)
+        else:
+            edge_fuel_t = float(vessel.fuel_tpd(speed_kn)) * (edge_hours / 24.0)
+        edge_fuel_usd = edge_fuel_t * float(bunker_usd_per_t)
+        edge_opex_usd = (edge_hours / 24.0) * float(opex_per_day)
+        # Per-edge risk surcharge — matches the post-hoc formula's intent
+        # (fuel × max_risk/400) but allocated per edge so Dijkstra sees the
+        # signal directly. Routes touching a high-risk chokepoint see fuel ×
+        # (cp_risk / 400) on the in-corridor edges only.
+        edge_risk_surcharge_usd = edge_fuel_usd * (risk_for_edge / 400.0)
+        # Canal toll: applied once, on the canal's interior edge.
+        toll_usd = 0.0
+        canal = _CANAL_INTERIOR_EDGES.get((a, b))
+        if canal:
+            toll_usd = _canal_toll_usd.get(canal, 0.0)
+        weight_cheap_usd = edge_fuel_usd + edge_opex_usd + edge_risk_surcharge_usd + toll_usd
+
+        data["weight_fast_h"]       = weight_fast_h
+        data["weight_safe_stepped"] = weight_safe_stepped
+        data["weight_cheap_usd"]    = weight_cheap_usd
+
+
+def _composite_score(
+    alt: dict, mins: dict, ranges: dict
+) -> float:
+    """Normalised composite — lowest wins. Each metric is z-scored over the
+    three named alternatives so they're equal-weighted regardless of units."""
+    def _z(value: float, m: str) -> float:
+        r = ranges.get(m, 0.0)
+        return ((value - mins[m]) / r) if r > 1e-9 else 0.0
+    eta_h = float(alt.get("ml_eta_h") or 0.0)
+    cost  = float(alt["economics"]["total_usd"])
+    risk  = float(alt["economics"]["max_chokepoint_risk"])
+    return _z(eta_h, "eta_h") + _z(cost, "cost") + _z(risk, "risk")
 
 
 def find_route_alternatives(
@@ -606,15 +722,22 @@ def find_route_alternatives(
     speed_kn: float,
     bunker_usd_per_t: float,
     opex_per_day: float,
-    cheapest_pool_size: int = 5,
+    ml_eta_h_for: callable | None = None,
 ) -> list[dict]:
-    """Return up to four named route alternatives (Recommended, Fastest,
-    Safest, Cheapest), each with its own economics breakdown.
+    """Return three named route alternatives (Fastest, Safest, Cheapest),
+    one of which is flagged as Recommended via composite scoring on
+    (ML-ETA, total USD, max chokepoint risk).
 
-    All four runs share the same graph — only the Dijkstra weight key changes,
-    so weather is fetched at most once. Cheapest enumerates the top-K paths
-    under the balanced weight and picks whichever has the lowest total cost
-    (fuel + risk surcharge + toll + opex × days).
+    Each alternative is one Dijkstra under its own per-edge weight (set by
+    `_apply_objective_weights` above): voyage hours, stepped risk multiplier,
+    and per-edge USD respectively. Recommended is then *derived* — no fourth
+    Dijkstra. This guarantees the three are genuinely different and the
+    Recommended choice can be explained by name vs. the other two.
+
+    `ml_eta_h_for(alt) -> float | None` is an optional callback: given an
+    alternative dict (with `chokepoints_used`, `total_dist_km`, etc.) returns
+    the ML-predicted total transit time in hours. When None, composite
+    scoring falls back to physics `voyage_days` from `economics`.
     """
     if origin not in PORTS or destination not in PORTS:
         return [{"error": f"Unknown port: {origin if origin not in PORTS else destination}"}]
@@ -625,19 +748,15 @@ def find_route_alternatives(
     dest_node = f"_port_{destination}"
     risk_scores = risk_scores or {}
 
-    seen_paths: set[tuple[str, ...]] = set()
+    # Compute the per-edge objective weights for this vessel/speed/economics
+    # snapshot. Cheap to do once before the three Dijkstras run.
+    _apply_objective_weights(G, risk_scores, vessel, speed_kn,
+                             bunker_usd_per_t, opex_per_day)
+
     out: list[dict] = []
 
     def _runner_up_for(weight_key: str, winning_path: list[str]) -> dict | None:
-        """Best topologically-distinct alternative path under `weight_key`.
-
-        `shortest_simple_paths` enumerates in weight order, so the next few
-        candidates are usually trivial perturbations of the winning path that
-        share the same chokepoints. We iterate further and keep the first
-        candidate whose chokepoint set genuinely differs (e.g. Cape detour
-        vs. Suez) — that's the alternative the user actually wants to see.
-        Falls back to the closest-cost candidate if no distinct one exists.
-        """
+        """Best topologically-distinct alternative path under `weight_key`."""
         winning_cps = frozenset(_summarise_path(
             winning_path, G, origin, destination, 0.0)["chokepoints_used"])
         first_alt: dict | None = None
@@ -668,13 +787,12 @@ def find_route_alternatives(
             return None
         return first_alt
 
-    # ── Recommended / Fastest / Safest: one Dijkstra per objective ──────────
-    for objective in ROUTE_OBJECTIVES[:3]:
+    # ── One Dijkstra per objective ──────────────────────────────────────────
+    for objective in ROUTE_OBJECTIVES:
         result = find_optimal_route(origin, destination, G, risk_scores,
                                      weight_key=objective["weight"])
         if "error" in result:
             continue
-        path_tuple = tuple(result["path"])
         result["objective"] = objective["key"]
         result["label"]     = objective["label"]
         result["tagline"]   = objective["tagline"]
@@ -683,90 +801,122 @@ def find_route_alternatives(
         result["economics"] = _route_total_cost_usd(
             result, vessel, speed_kn, bunker_usd_per_t, opex_per_day, risk_scores,
         )
-        result["duplicate_of"] = None
-        if path_tuple in seen_paths:
-            # Same path as a higher-priority alternative — flag it so the UI
-            # can show "= Recommended" rather than render an identical card.
-            for prior in out:
-                if tuple(prior["path"]) == path_tuple:
-                    result["duplicate_of"] = prior["objective"]
-                    break
-        seen_paths.add(path_tuple)
-        # Attach runner-up so the UI can show what the engine *would* have
-        # picked if the winning path were unavailable — concrete evidence
-        # that the alternative was evaluated, not that the search collapsed.
+        # ML ETA in hours — used both for composite scoring and for the
+        # ETA-anchored trade-vs-others line in the UI. Caller-injected so the
+        # router stays free of eta_model imports.
+        result["ml_eta_h"] = None
+        if ml_eta_h_for is not None:
+            try:
+                result["ml_eta_h"] = float(ml_eta_h_for(result))
+            except Exception:  # noqa: BLE001  ETA failure must not block routing
+                result["ml_eta_h"] = None
         result["runner_up"] = _runner_up_for(objective["weight"], result["path"])
         out.append(result)
 
-    # ── Cheapest: pool together the named-objective paths PLUS top-K under
-    # balanced weight, then pick whichever has the lowest total cost.
-    # Without seeding the pool with the Safest/Fastest paths the enumerator
-    # can miss a Cape detour that's cheaper because of avoided tolls + risk
-    # surcharge — `shortest_simple_paths` under one weight scheme only
-    # explores small perturbations of that single objective.
-    cheapest_obj = ROUTE_OBJECTIVES[3]
-    candidates: list[dict] = []
-    pooled_paths: set[tuple[str, ...]] = set()
+    if not out:
+        return out
 
-    # Seed with the three named-objective results (already computed above).
-    for prior in out:
-        pt = tuple(prior["path"])
-        if pt not in pooled_paths:
-            pooled_paths.add(pt)
-            candidates.append(prior)
+    # ── Convergence detection — alternatives sharing the same node path
+    # get the same `convergence_group`. The UI uses a single value across
+    # all alternatives as the trigger for the "all three converged" banner.
+    group_of: dict[tuple[str, ...], int] = {}
+    for alt in out:
+        pt = tuple(alt["path"])
+        if pt not in group_of:
+            group_of[pt] = len(group_of)
+        alt["convergence_group"] = group_of[pt]
 
-    # Augment with top-K shortest_simple_paths under balanced weight.
-    try:
-        for path in nx.shortest_simple_paths(G, orig_node, dest_node,
-                                              weight=cheapest_obj["weight"]):
-            pt = tuple(path)
-            if pt in pooled_paths:
-                continue
-            total_weighted = sum(
-                G[path[i]][path[i + 1]].get(cheapest_obj["weight"], 0)
-                for i in range(len(path) - 1)
-            )
-            cand = _summarise_path(path, G, origin, destination, total_weighted)
-            cand["economics"] = _route_total_cost_usd(
-                cand, vessel, speed_kn, bunker_usd_per_t, opex_per_day, risk_scores,
-            )
-            pooled_paths.add(pt)
-            candidates.append(cand)
-            if len(candidates) >= cheapest_pool_size + 3:
-                break
-    except nx.NetworkXNoPath:
-        pass
+    # ── Composite scoring — pick Recommended from the three. Falls back to
+    # physics voyage_days when ml_eta_h isn't available (model artifact missing
+    # or callback raised).
+    def _alt_eta_h(alt: dict) -> float:
+        if alt.get("ml_eta_h") is not None:
+            return float(alt["ml_eta_h"])
+        # voyage_days from physics — × 24 to express in hours so the mixed
+        # case (some alts have ML, some don't) still uses comparable units.
+        return float(alt["economics"].get("voyage_days", 0.0)) * 24.0
 
-    if candidates:
-        ranked = sorted(candidates, key=lambda c: c["economics"]["total_usd"])
-        cheapest = ranked[0]
-        # Build a fresh dict so we don't mutate a previously-emitted alternative
-        cheapest_copy = dict(cheapest)
-        cheapest_copy["objective"]    = cheapest_obj["key"]
-        cheapest_copy["label"]        = cheapest_obj["label"]
-        cheapest_copy["tagline"]      = cheapest_obj["tagline"]
-        cheapest_copy["color"]        = cheapest_obj["color"]
-        cheapest_copy["icon"]         = cheapest_obj["icon"]
-        cheapest_path_tuple = tuple(cheapest_copy["path"])
-        cheapest_copy["duplicate_of"] = None
-        for prior in out:
-            if tuple(prior["path"]) == cheapest_path_tuple:
-                cheapest_copy["duplicate_of"] = prior["objective"]
-                break
-        # Runner-up = next-cheapest pooled candidate that goes through a
-        # *different* chokepoint set, falling back to the next-cheapest
-        # distinct path if every candidate shares the winning chokepoints.
-        cheapest_cps = frozenset(cheapest_copy["chokepoints_used"])
-        distinct_ru = next(
-            (c for c in ranked[1:]
-             if tuple(c["path"]) != cheapest_path_tuple
-             and frozenset(c["chokepoints_used"]) != cheapest_cps),
-            None,
+    for alt in out:
+        alt["_eta_h_for_score"] = _alt_eta_h(alt)
+    mins = {
+        "eta_h": min(a["_eta_h_for_score"] for a in out),
+        "cost":  min(a["economics"]["total_usd"] for a in out),
+        "risk":  min(a["economics"]["max_chokepoint_risk"] for a in out),
+    }
+    maxs = {
+        "eta_h": max(a["_eta_h_for_score"] for a in out),
+        "cost":  max(a["economics"]["total_usd"] for a in out),
+        "risk":  max(a["economics"]["max_chokepoint_risk"] for a in out),
+    }
+    ranges = {m: maxs[m] - mins[m] for m in mins}
+
+    def _z(value: float, m: str) -> float:
+        r = ranges.get(m, 0.0)
+        return ((value - mins[m]) / r) if r > 1e-9 else 0.0
+
+    for alt in out:
+        alt["composite_score"] = (
+            _z(alt["_eta_h_for_score"],                m="eta_h")
+            + _z(alt["economics"]["total_usd"],         m="cost")
+            + _z(alt["economics"]["max_chokepoint_risk"], m="risk")
         )
-        cheapest_copy["runner_up"] = distinct_ru or next(
-            (c for c in ranked[1:] if tuple(c["path"]) != cheapest_path_tuple),
-            None,
+
+    # ── Vs-alternatives deltas + recommendation pick + rationale.
+    rec = min(out, key=lambda a: a["composite_score"])
+    rec_idx = out.index(rec)
+    rec_eta_h  = rec["_eta_h_for_score"]
+    rec_cost   = rec["economics"]["total_usd"]
+    rec_risk   = rec["economics"]["max_chokepoint_risk"]
+    rec_days   = rec["economics"]["voyage_days"]
+
+    for alt in out:
+        alt["is_recommended"] = (alt is rec)
+        alt["vs_alternatives"] = {
+            other["objective"]: {
+                "d_eta_h":  alt["_eta_h_for_score"] - other["_eta_h_for_score"],
+                "d_cost":   alt["economics"]["total_usd"] - other["economics"]["total_usd"],
+                "d_risk":   alt["economics"]["max_chokepoint_risk"] - other["economics"]["max_chokepoint_risk"],
+                "d_days":   alt["economics"]["voyage_days"] - other["economics"]["voyage_days"],
+            }
+            for other in out if other is not alt
+        }
+        # Cosmetic field used by the UI; not part of scoring.
+        alt["delta_vs_recommended"] = {
+            "d_eta_h": alt["_eta_h_for_score"]                - rec_eta_h,
+            "d_cost":  alt["economics"]["total_usd"]          - rec_cost,
+            "d_risk":  alt["economics"]["max_chokepoint_risk"] - rec_risk,
+            "d_days":  alt["economics"]["voyage_days"]        - rec_days,
+        }
+
+    # Build a recommendation reason in plain English. When all 3 converge
+    # the reason is a single sentence; when they diverge, it names the
+    # losers' tradeoffs explicitly.
+    all_same_path = len(set(alt["convergence_group"] for alt in out)) == 1
+    if all_same_path:
+        reason = (
+            f"All three objectives converged on the same route — same ML-ETA, "
+            f"same cost, same risk. See \"Why this is the only choice\" below "
+            f"for the runner-up Cape of Good Hope detour we evaluated."
         )
-        out.append(cheapest_copy)
+    else:
+        losers = [a for a in out if a is not rec]
+        bits = []
+        for L in losers:
+            d_eta_h  = L["_eta_h_for_score"]                 - rec_eta_h
+            d_cost   = L["economics"]["total_usd"]           - rec_cost
+            d_risk   = L["economics"]["max_chokepoint_risk"] - rec_risk
+            bits.append(
+                f"{L['label']} adds {d_eta_h:+.1f}h, ${d_cost/1000:+,.0f}k, "
+                f"{d_risk:+.0f} risk"
+            )
+        reason = f"{rec['label']} wins on composite score · " + " · ".join(bits)
+    rec["recommendation_reason"] = reason
+    for alt in out:
+        if alt is not rec:
+            alt["recommendation_reason"] = ""
+
+    # Clean up internal scratch field before returning.
+    for alt in out:
+        alt.pop("_eta_h_for_score", None)
 
     return out

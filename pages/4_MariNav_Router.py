@@ -25,9 +25,7 @@ from analytics import RiskAnalytics
 from components import filter_events
 from marinav_router import (
     build_shipping_graph,
-    find_optimal_route,
     find_route_alternatives,
-    ROUTE_OBJECTIVES,
     PORTS,
     CHOKEPOINT_ROUTES,
     H3_AVAILABLE,
@@ -45,7 +43,6 @@ from vessel_physics import (
 from marinav_router import _haversine_km
 import math
 from datetime import datetime, timezone
-from pathlib import Path
 
 from eta_model import (
     predict_total_for_route,
@@ -301,11 +298,10 @@ if len(shipping_df) > 0:
 </div>""", unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════════════════════
-# VOYAGE PARAMETERS — read from session_state so the route compute below sees
-# whatever the user last set in the "Further tuning" expander (which renders
-# under the globe, AFTER this block). On the first page load session_state is
-# empty, so the defaults apply — bit-for-bit identical to today's behaviour
-# for a sidebar-untouched user (every user, since the sidebar was collapsed).
+# VOYAGE PARAMETERS — speed, OPEX, bunker port and weather routing are all
+# driven by live inputs (vessel profile, FRED bunker prices, Open-Meteo). The
+# session_state.get(...) fallbacks below provide sensible per-vessel defaults
+# so the route always computes with current real-world values.
 # ══════════════════════════════════════════════════════════════════════════════
 vessel = VESSEL_PROFILES[vessel_name]
 speed_kn = float(st.session_state.get("mn_speed", vessel.design_speed_kn))
@@ -406,9 +402,30 @@ if compute or st.session_state.get("mnav_alternatives"):
                     weather_provider=wx_provider,
                     chokepoint_queue_penalty=chokepoint_queue_penalty,
                 )
+
+                # ML-ETA callback — the router uses this to compute the
+                # composite score that picks Recommended. Total ETA in hours
+                # across the chokepoints on each alternative, p50, in hours.
+                _ship_bin_for_eta = _vessel_to_ship_type_bin(vessel_name)
+                _eta_features_for_eta = _eta_features_per_chokepoint(_ship_bin_for_eta, speed_kn)
+
+                def _ml_eta_h_for(alt: dict) -> float | None:
+                    cps_ = alt.get("chokepoints_used") or []
+                    if not cps_:
+                        return None
+                    try:
+                        pred = predict_total_for_route(
+                            cps_, features_per_chokepoint=_eta_features_for_eta,
+                        )
+                    except Exception:  # noqa: BLE001
+                        return None
+                    p50 = pred.get("p50")
+                    return (float(p50) / 60.0) if p50 else None
+
                 alternatives = find_route_alternatives(
                     origin, destination, G, risk_scores,
                     vessel, speed_kn, bunker, float(opex_per_day),
+                    ml_eta_h_for=_ml_eta_h_for,
                 )
             except Exception as _exc:  # noqa: BLE001  surface routing errors visibly
                 import traceback as _tb
@@ -425,9 +442,10 @@ if compute or st.session_state.get("mnav_alternatives"):
             st.session_state["mnav_origin_last"]  = origin
             st.session_state["mnav_dest_last"]    = destination
             st.session_state["mnav_used_weather"] = bool(use_weather)
-            # Default pick = Recommended (balanced); fall back to first alt
+            # Default pick = the alternative the composite scorer flagged as
+            # is_recommended; fall back to first alt.
             st.session_state["mn_picked_route"] = next(
-                (a["objective"] for a in alternatives if a["objective"] == "balanced"),
+                (a["objective"] for a in alternatives if a.get("is_recommended")),
                 alternatives[0]["objective"],
             )
         _status.update(
@@ -437,7 +455,12 @@ if compute or st.session_state.get("mnav_alternatives"):
         )
 
     alternatives = st.session_state["mnav_alternatives"]
-    picked_key = st.session_state.get("mn_picked_route", "balanced")
+    # Default to whichever alt was flagged Recommended by composite scoring.
+    _rec_obj_default = next(
+        (a["objective"] for a in alternatives if a.get("is_recommended")),
+        alternatives[0]["objective"] if alternatives else "fastest",
+    )
+    picked_key = st.session_state.get("mn_picked_route", _rec_obj_default)
     # The "result" used by the existing Detail panel below is whichever
     # alternative the planner has currently picked.
     result = next(
@@ -461,10 +484,66 @@ if compute or st.session_state.get("mnav_alternatives"):
     # ══════════════════════════════════════════════════════════════════════════
     # ROUTE ALTERNATIVES — comparison cards (the heart of the new UI)
     # ══════════════════════════════════════════════════════════════════════════
-    # The "Recommended" alternative is the reference point for all deltas.
-    rec_alt = next((a for a in alternatives if a["objective"] == "balanced"),
+    # Recommended is whichever of {Fastest, Safest, Cheapest} won the
+    # composite score in find_route_alternatives. Used as the reference
+    # point for delta-vs-Recommended labels on the other two cards.
+    rec_alt = next((a for a in alternatives if a.get("is_recommended")),
                    alternatives[0])
     rec_econ = rec_alt["economics"]
+
+    # ── CONVERGENCE BANNER ────────────────────────────────────────────────────
+    # When all three alternatives land on the literal same node path, the
+    # composite-scoring rationale (eta + cost + risk) is "they all agree".
+    # Surface that explicitly with the runner-up info from the Safest objective
+    # (which is most likely to have a Cape-detour runner-up worth quoting).
+    _conv_groups = {a.get("convergence_group", -1) for a in alternatives}
+    if len(_conv_groups) == 1 and len(alternatives) >= 2:
+        # All three converged. Find the runner-up that uses a *different*
+        # chokepoint set — usually the Cape of Good Hope alternative.
+        _ru: dict | None = None
+        for a in alternatives:
+            ru = a.get("runner_up")
+            if ru and frozenset(ru.get("chokepoints_used") or []) != frozenset(rec_alt.get("chokepoints_used") or []):
+                _ru = ru
+                break
+        _ru_html = ""
+        if _ru is not None:
+            _ru_eco = _ru.get("economics", {})
+            _ru_via = " · ".join(_ru.get("chokepoints_used") or []) or "Open ocean detour"
+            _d_km  = _ru.get("total_dist_km", 0) - rec_alt.get("total_dist_km", 0)
+            _d_d   = _ru_eco.get("voyage_days", 0) - rec_econ.get("voyage_days", 0)
+            _d_usd = _ru_eco.get("total_usd", 0)   - rec_econ.get("total_usd", 0)
+            _ru_html = (
+                f'<div style="margin-top:6px;font-size:10px;color:#aaa;line-height:1.5">'
+                f'<b style="color:#22c55e">Runner-up evaluated:</b> '
+                f'<b>{_ru_via}</b> — '
+                f'{"+" if _d_km >= 0 else "−"}{abs(_d_km):,.0f} km, '
+                f'{"+" if _d_d  >= 0 else "−"}{abs(_d_d):.1f} days, '
+                f'{"+" if _d_usd >= 0 else "−"}${abs(_d_usd)/1000:,.0f}k vs the chosen route. '
+                f'Rejected because the chosen route wins on all three metrics.'
+                f'</div>'
+            )
+        _cps_str = " · ".join(rec_alt.get("chokepoints_used") or []) or "open ocean only"
+        _cost_str = f"${rec_econ['total_usd']/1000:,.0f}k"
+        _risk_str = f"{int(rec_econ['max_chokepoint_risk'])}/100"
+        # Single-line HTML — keeps Streamlit's CommonMark parser from
+        # treating indented HTML lines as code blocks.
+        _banner_html = (
+            '<div style="background:rgba(34,197,94,0.08);'
+            'border:1px solid rgba(34,197,94,0.25);'
+            'border-left:3px solid #22c55e;border-radius:4px;'
+            'padding:10px 14px;margin:8px 0 12px 0;font-size:11px;color:#cfe1ff">'
+            '<div style="font-size:10px;font-weight:700;color:#22c55e;'
+            'text-transform:uppercase;letter-spacing:0.4px;margin-bottom:3px">'
+            '✓ All three objectives recommend the same route'
+            '</div>'
+            f'Fastest, Safest, and Cheapest all converge on <b>{_cps_str}</b> — '
+            f'same ML ETA, same cost ({_cost_str}), same max chokepoint risk ({_risk_str}). '
+            'No tradeoff to make.'
+            f'{_ru_html}'
+            '</div>'
+        )
+        st.markdown(_banner_html, unsafe_allow_html=True)
 
     # ══════════════════════════════════════════════════════════════════════════
     # PREDICTOR HEALTH CHIP — one-line status so the user can tell at a glance
@@ -616,9 +695,18 @@ if compute or st.session_state.get("mnav_alternatives"):
     for col, alt in zip(alt_cols, alternatives):
         e = alt["economics"]
         is_picked = alt["objective"] == picked_key
-        is_rec    = alt["objective"] == "balanced"
+        is_rec    = bool(alt.get("is_recommended"))
         delta_days_vs_rec = e["voyage_days"] - rec_econ["voyage_days"]
         delta_usd_vs_rec  = e["total_usd"]   - rec_econ["total_usd"]
+        # ML-ETA delta vs Recommended in hours — the key metric to anchor
+        # comparisons on (the user explicitly asked for ETA on every card).
+        _alt_eta_h = alt.get("ml_eta_h")
+        _rec_eta_h = rec_alt.get("ml_eta_h")
+        delta_eta_h_vs_rec = (
+            (_alt_eta_h - _rec_eta_h)
+            if (_alt_eta_h is not None and _rec_eta_h is not None)
+            else None
+        )
 
         # Card colour intensity reflects whether it's currently picked.
         accent      = alt["color"]
@@ -741,13 +829,25 @@ if compute or st.session_state.get("mnav_alternatives"):
             eta_html = ""
 
         if is_rec:
-            delta_html = '<span style="color:#888">— reference</span>'
+            delta_html = '<span style="color:#888">— reference (Recommended)</span>'
         else:
             d_days_sign = "+" if delta_days_vs_rec >= 0 else ""
             d_usd_sign  = "+" if delta_usd_vs_rec >= 0 else "−"
             d_usd_color = "#ef4444" if delta_usd_vs_rec > 0 else "#22c55e" if delta_usd_vs_rec < 0 else "#888"
             d_days_color = "#ef4444" if delta_days_vs_rec > 0 else "#22c55e" if delta_days_vs_rec < 0 else "#888"
+            # ML-ETA delta — only shown when both alts have a model prediction.
+            eta_delta_chip = ""
+            if delta_eta_h_vs_rec is not None:
+                d_eta_sign = "+" if delta_eta_h_vs_rec >= 0 else "−"
+                d_eta_color = "#ef4444" if delta_eta_h_vs_rec > 0.05 else "#22c55e" if delta_eta_h_vs_rec < -0.05 else "#888"
+                eta_delta_chip = (
+                    f'<span style="color:#444">·</span> '
+                    f'<span style="color:{d_eta_color}" title="ML predicted ETA delta">'
+                    f'{d_eta_sign}{abs(delta_eta_h_vs_rec):.1f}h ETA'
+                    f'</span> '
+                )
             delta_html = (
+                f'{eta_delta_chip}'
                 f'<span style="color:{d_days_color}">{d_days_sign}{delta_days_vs_rec:.1f}d</span>'
                 f' <span style="color:#444">·</span> '
                 f'<span style="color:{d_usd_color}">{d_usd_sign}${abs(delta_usd_vs_rec)/1000:,.0f}k</span>'
@@ -764,6 +864,9 @@ if compute or st.session_state.get("mnav_alternatives"):
     <span style="font-size:11px;font-weight:700;color:{accent};text-transform:uppercase;letter-spacing:0.05em">
       {alt["label"]}
     </span>
+    {('<span style="margin-left:auto;font-size:9px;font-weight:700;color:#0a0a0a;'
+      'background:#22c55e;padding:1px 6px;border-radius:8px;'
+      'letter-spacing:0.4px;text-transform:uppercase">✓ Recommended</span>') if is_rec else ''}
   </div>
   <div style="font-size:9px;color:#666;margin-bottom:8px;line-height:1.3">{alt["tagline"]}</div>
   <div style="font-size:18px;font-weight:700;color:#e8e8e8;line-height:1.1">
@@ -794,80 +897,115 @@ if compute or st.session_state.get("mnav_alternatives"):
                 st.rerun()
 
     # ══════════════════════════════════════════════════════════════════════════
-    # WHY THIS ROUTE — auto-generated narrative for the picked alternative
+    # WHY THIS ROUTE — structured comparison + selection rationale
     # ══════════════════════════════════════════════════════════════════════════
     picked_econ = result["economics"]
-    why_lines: list[str] = []
+    cps_picked  = result["chokepoints_used"]
 
-    # 1. Headline summary of the picked route
-    cps_picked = result["chokepoints_used"]
-    cps_phrase = " and ".join(cps_picked) if cps_picked else "open ocean only (no monitored chokepoints)"
-    why_lines.append(
-        f"<b>{result['label']}</b> routes via <b>{cps_phrase}</b> — "
-        f"{result['total_dist_km']:,} km, {picked_econ['voyage_days']:.1f} days, "
-        f"<b>${picked_econ['total_usd']/1000:,.0f}k</b> total estimated cost."
+    # 3-row table: ML ETA · physics days · total $ · max risk · chokepoints,
+    # one row per named objective. The Recommended row is highlighted so the
+    # tradeoff is visible at a glance.
+    _row_html_parts = []
+    for a in alternatives:
+        eco_a = a["economics"]
+        ml_h  = a.get("ml_eta_h")
+        ml_str = f"{ml_h:.1f}h" if ml_h is not None else "—"
+        cps_a = " · ".join(a.get("chokepoints_used") or []) or "open ocean only"
+        is_rec_row = bool(a.get("is_recommended"))
+        bg = "rgba(34,197,94,0.10)" if is_rec_row else "transparent"
+        accent_row = "#22c55e" if is_rec_row else a["color"]
+        badge = (
+            '<span style="color:#22c55e;font-weight:700">✓ </span>'
+            if is_rec_row else ""
+        )
+        risk_color_r = (
+            "#ef4444" if eco_a["max_chokepoint_risk"] >= 70 else
+            "#f97316" if eco_a["max_chokepoint_risk"] >= 40 else
+            "#eab308" if eco_a["max_chokepoint_risk"] >= 15 else "#22c55e"
+        )
+        _row_html_parts.append(
+            f'<tr style="background:{bg}">'
+            f'<td style="padding:5px 8px;color:{accent_row};font-weight:600;border-bottom:1px solid #1a1a1a">'
+            f'{badge}{a["icon"]} {a["label"]}</td>'
+            f'<td style="padding:5px 8px;color:#a78bfa;text-align:right;border-bottom:1px solid #1a1a1a">{ml_str}</td>'
+            f'<td style="padding:5px 8px;color:#c8d6e5;text-align:right;border-bottom:1px solid #1a1a1a">{eco_a["voyage_days"]:.1f}d</td>'
+            f'<td style="padding:5px 8px;color:#c8d6e5;text-align:right;border-bottom:1px solid #1a1a1a">${eco_a["total_usd"]/1000:,.0f}k</td>'
+            f'<td style="padding:5px 8px;color:{risk_color_r};text-align:right;font-weight:600;border-bottom:1px solid #1a1a1a">{int(eco_a["max_chokepoint_risk"])}</td>'
+            f'<td style="padding:5px 8px;color:#888;border-bottom:1px solid #1a1a1a;font-size:10px">{cps_a}</td>'
+            f'</tr>'
+        )
+    table_html = (
+        '<table style="width:100%;border-collapse:collapse;margin:6px 0;font-size:11px">'
+        '<thead><tr style="color:#666;text-transform:uppercase;letter-spacing:0.4px;font-size:9px">'
+        '<th style="padding:4px 8px;text-align:left;border-bottom:1px solid #2a2a2a">Objective</th>'
+        '<th style="padding:4px 8px;text-align:right;border-bottom:1px solid #2a2a2a">ML ETA</th>'
+        '<th style="padding:4px 8px;text-align:right;border-bottom:1px solid #2a2a2a">Days</th>'
+        '<th style="padding:4px 8px;text-align:right;border-bottom:1px solid #2a2a2a">Total $</th>'
+        '<th style="padding:4px 8px;text-align:right;border-bottom:1px solid #2a2a2a">Risk</th>'
+        '<th style="padding:4px 8px;text-align:left;border-bottom:1px solid #2a2a2a">Chokepoints</th>'
+        '</tr></thead><tbody>'
+        + "".join(_row_html_parts)
+        + '</tbody></table>'
     )
 
-    # 2. Live risk callout for any high-risk chokepoint actually used
-    risky_cps_used = [(cp, risk_scores.get(cp, 0)) for cp in cps_picked
-                      if risk_scores.get(cp, 0) >= 40]
-    if risky_cps_used:
-        bullet = "; ".join(f"<b>{cp}</b> rated <b>{r}/100</b>" for cp, r in risky_cps_used)
-        why_lines.append(f"⚠ Live risk on this path: {bullet}.")
+    # The router's composite-scoring rationale, surfaced verbatim.
+    rec_reason = rec_alt.get("recommendation_reason") or (
+        f"<b>{rec_alt['label']}</b> wins on the composite of ML-ETA, total $, and max chokepoint risk."
+    )
 
-    # 3. Tradeoff vs the alternative-of-interest (cheapest alternative not picked)
-    other_alts = [a for a in alternatives if a["objective"] != result["objective"]
-                  and not a.get("duplicate_of")]
-    if other_alts:
-        # Find the alternative most different from the picked one (largest delta)
-        most_different = max(other_alts,
-                              key=lambda a: abs(a["economics"]["total_usd"] - picked_econ["total_usd"]))
-        diff_econ = most_different["economics"]
-        ddays = picked_econ["voyage_days"] - diff_econ["voyage_days"]
-        dusd  = picked_econ["total_usd"]   - diff_econ["total_usd"]
-        if abs(dusd) > 1000 or abs(ddays) > 0.1:
-            time_word = "saves" if ddays < 0 else "costs"
-            cost_word = "saves" if dusd < 0 else "costs"
-            why_lines.append(
-                f"vs <b>{most_different['label']}</b> "
-                f"({most_different['total_dist_km']:,} km via {' / '.join(most_different['chokepoints_used']) or 'open ocean'}): "
-                f"this route {time_word} <b>{abs(ddays):.1f} days</b> and "
-                f"{cost_word} <b>${abs(dusd)/1000:,.0f}k</b>."
-            )
-
-    # 4. Cost driver breakdown
-    fuel_pct = picked_econ["fuel_usd"] / max(1, picked_econ["total_usd"]) * 100
-    toll_pct = picked_econ["toll_usd"] / max(1, picked_econ["total_usd"]) * 100
-    risk_pct = picked_econ["risk_surcharge_usd"] / max(1, picked_econ["total_usd"]) * 100
-    opex_pct = picked_econ["opex_usd"] / max(1, picked_econ["total_usd"]) * 100
+    # Cost split for the picked alternative (whichever the user has clicked,
+    # not necessarily Recommended). Surfaced as a one-liner under the table.
+    fuel_pct = picked_econ["fuel_usd"]            / max(1, picked_econ["total_usd"]) * 100
+    toll_pct = picked_econ["toll_usd"]            / max(1, picked_econ["total_usd"]) * 100
+    risk_pct = picked_econ["risk_surcharge_usd"]  / max(1, picked_econ["total_usd"]) * 100
+    opex_pct = picked_econ["opex_usd"]            / max(1, picked_econ["total_usd"]) * 100
     drivers = []
     if fuel_pct >= 5: drivers.append(f"fuel <b>{fuel_pct:.0f}%</b>")
     if opex_pct >= 5: drivers.append(f"opex <b>{opex_pct:.0f}%</b>")
     if toll_pct >= 1: drivers.append(f"canal toll <b>{toll_pct:.0f}%</b>")
     if risk_pct >= 1: drivers.append(f"war-risk surcharge <b>{risk_pct:.0f}%</b>")
-    if drivers:
-        why_lines.append(f"Cost split: {' · '.join(drivers)}.")
+    cost_split_html = (
+        f'<div style="margin-top:6px;font-size:10px;color:#888">'
+        f'<b>{result["label"]}</b> cost split: {" · ".join(drivers)}'
+        f'</div>'
+    ) if drivers else ""
 
-    # 5. Toll cannot-transit warning
+    # Cannot-transit hard warnings (vessel too big for canal locks).
+    block_lines = []
     for cp in cps_picked:
         canal = "suez" if "Suez" in cp else "panama" if "Panama" in cp else None
         if canal and estimate_toll_usd(canal, vessel_class) is None:
-            why_lines.append(
-                f"⛔ Note: <b>{vessel_class}</b> cannot physically transit "
-                f"<b>{canal.title()} Canal</b> (vessel exceeds beam/draught limits)."
+            block_lines.append(
+                f'<div style="margin-top:4px;font-size:10px;color:#ef4444">'
+                f'⛔ <b>{vessel_class}</b> cannot physically transit <b>{canal.title()} Canal</b> '
+                f'(vessel exceeds beam/draught limits).'
+                f'</div>'
             )
+    block_html = "".join(block_lines)
 
-    why_html = "".join(f'<div style="margin:4px 0;line-height:1.55">{ln}</div>' for ln in why_lines)
-    st.markdown(f"""
-<div style="background:rgba(59,130,246,0.05);border:1px solid rgba(59,130,246,0.2);
-            border-left:3px solid {result['color']};border-radius:3px;
+    # Convergence vs divergence framing for the header line.
+    _all_converged = len({a.get("convergence_group", -1) for a in alternatives}) == 1
+    _header_word = "All three objectives agree" if _all_converged else (
+        f"Recommended: {rec_alt['label']}"
+    )
+
+    st.markdown(
+        f"""<div style="background:rgba(59,130,246,0.05);border:1px solid rgba(59,130,246,0.2);
+            border-left:3px solid {rec_alt['color']};border-radius:3px;
             padding:10px 14px;margin:10px 0 12px 0;font-size:11px;color:#cfe1ff">
-  <div style="font-size:9px;font-weight:700;color:{result['color']};text-transform:uppercase;
+  <div style="font-size:9px;font-weight:700;color:{rec_alt['color']};text-transform:uppercase;
               letter-spacing:0.5px;margin-bottom:4px">
-    {result['icon']} Why we{("'re recommending") if picked_key == "balanced" else "'ve picked"} this route
+    {rec_alt['icon']} {_header_word}
   </div>
-  {why_html}
-</div>""", unsafe_allow_html=True)
+  <div style="font-size:11px;color:#cfe1ff;margin:4px 0 2px 0;line-height:1.5">
+    {rec_reason}
+  </div>
+  {table_html}
+  {cost_split_html}
+  {block_html}
+</div>""",
+        unsafe_allow_html=True,
+    )
 
     # ══════════════════════════════════════════════════════════════════════════
     # Legacy single-route variables (used by the existing Detail panel below)
@@ -1138,16 +1276,34 @@ if compute or st.session_state.get("mnav_alternatives"):
                 cp_col  = risk_col(cp_risk)
                 # Find status from shipping_df
                 cp_status = "Unknown"
+                cp_as_of_raw = None
                 if len(shipping_df) > 0:
                     row = shipping_df[shipping_df["Route"] == cp]
                     if not row.empty:
                         cp_status = row.iloc[0]["Status"]
                         cp_delay  = row.iloc[0]["Average Delay"]
                         cp_cost   = row.iloc[0]["Cost Impact"]
+                        cp_as_of_raw = row.iloc[0].get("As Of")
                     else:
                         cp_delay, cp_cost = "—", "—"
                 else:
                     cp_delay, cp_cost = "—", "—"
+
+                # "As of N min ago" so a stale-cache "Operational" on a busy
+                # chokepoint is visible at a glance instead of misleading.
+                cp_as_of_str = "—"
+                if cp_as_of_raw:
+                    try:
+                        _t = pd.Timestamp(cp_as_of_raw)
+                        _age_min = (pd.Timestamp.now(tz="UTC").tz_localize(None) - _t.tz_localize(None)).total_seconds() / 60.0
+                        if _age_min < 1:
+                            cp_as_of_str = "just now"
+                        elif _age_min < 60:
+                            cp_as_of_str = f"{int(_age_min)}m ago"
+                        else:
+                            cp_as_of_str = f"{_age_min/60:.1f}h ago"
+                    except Exception:  # noqa: BLE001
+                        pass
 
                 sc_  = SC.get(cp_status, "#666")
 
@@ -1252,6 +1408,7 @@ if compute or st.session_state.get("mnav_alternatives"):
     <span>Delay: {cp_delay}</span>
     <span>Cost: {cp_cost}</span>
     {eta_delta_html}
+    <span style="color:#555">as of {cp_as_of_str}</span>
   </div>
   <div class="tw-risk-bar-bg" style="margin-top:4px">
     <div class="tw-risk-bar-fill" style="width:{cp_risk}%;background:{cp_col}"></div>
@@ -1684,198 +1841,58 @@ if compute or st.session_state.get("mnav_alternatives"):
 """, unsafe_allow_html=True)
 
     # ══════════════════════════════════════════════════════════════════════════
-    # FURTHER TUNING — voyage parameter controls, relocated here from the
-    # hidden sidebar. Widget values persist in st.session_state and are read
-    # at the top of the script on the next rerun, so the route compute picks
-    # them up. First page load uses the defaults below (identical to today's
-    # sidebar-untouched behaviour).
+    # MODEL STATUS — one-line health summary + link to the dedicated ETA
+    # Quality page for the full diagnostics (training metadata, drift, SHAP,
+    # calibration, per-chokepoint accuracy).
     # ══════════════════════════════════════════════════════════════════════════
-    with st.expander("⚙ Further tuning — speed, weather, costs", expanded=False):
-        st.caption(
-            "Adjust the voyage parameters that drive the route economics and "
-            "the ETA model. After changing a value, click **Apply settings & "
-            "recalculate** to re-run the route with your new inputs."
-        )
-        st.slider(
-            "Service speed (kn)", 8.0, 24.0,
-            float(vessel.design_speed_kn), 0.5,
-            key="mn_speed",
-            help="Slower steaming saves fuel but extends the voyage — see the "
-                 "Speed vs Cost chart below for the cost-minimising speed.",
-        )
-        st.checkbox(
-            "Weather-aware routing", value=True, key="mn_use_weather",
-            help="Sample Open-Meteo wind + wave at each backbone edge "
-                 "midpoint and weight Dijkstra accordingly.",
-        )
-        st.number_input(
-            "Daily OPEX excl. fuel ($/day)",
-            min_value=0, max_value=200_000,
-            value=_DEFAULT_OPEX_PER_DAY.get(vessel_name, 15_000),
-            step=1_000, key="mn_opex",
-            help="Charter hire + crew + insurance. Drives the slow-steaming "
-                 "break-even on the Speed vs Cost chart.",
-        )
-        st.selectbox(
-            "Bunker port", bunker_ports,
-            index=bunker_ports.index("Singapore") if "Singapore" in bunker_ports else 0,
-            key="mn_bunker_port",
-            help="Live VLSFO/IFO380 price from FRED. Singapore is the deepest "
-                 "bunker market and the safest default.",
-        )
-        st.checkbox(
-            "Also show the fallback formula's answer",
-            value=False, key="mn_compare_heuristic",
-            help="Show what the simple per-chokepoint rule of thumb would "
-                 "have predicted alongside the learned model's answer.",
-        )
-        if st.button("Apply settings & recalculate", key="mn_apply_tuning",
-                     type="primary", use_container_width=True,
-                     help="Re-run the route alternatives with the new inputs. "
-                          "Without this, the ML ETA cards update but the route "
-                          "$ economics stay cached."):
-            st.session_state.pop("mnav_alternatives", None)
-            st.rerun()
-
-    # ══════════════════════════════════════════════════════════════════════════
-    # ML DIAGNOSTICS — read-only model card for the academic reviewer.
-    # Identical contents to the original sidebar expander.
-    # ══════════════════════════════════════════════════════════════════════════
-    with st.expander("🤖 ML diagnostics (ETA predictor)", expanded=False):
-        st.caption(
-            "Technical detail for the project advisor / developer. "
-            "Everyday users can ignore this section."
-        )
-        _eta_meta = _eta_artifact_meta()
-        if not _eta_meta:
-            st.markdown(
-                "<span style='font-size:10px;color:#888'>Model artifact not loaded — "
-                "predictions will fall back to a per-chokepoint heuristic. Run "
-                "<code>python train_eta_model.py --seed</code> to train.</span>",
-                unsafe_allow_html=True,
+    try:
+        _ms_meta = _eta_artifact_meta() or {}
+        _ms_quality = _eta_quality_metrics_cached() or {}
+        if not _ms_meta:
+            _ms_color = "#ef4444"
+            _ms_text = (
+                "Using fallback formula — no trained model loaded."
+            )
+        elif _ms_quality.get("drift_flag"):
+            _ms_color = "#f97316"
+            _rolling = float(_ms_quality.get("rolling_mae_min", 0))
+            _training = float(_ms_quality.get("training_mae_min", 0))
+            _ms_text = (
+                f"Accuracy slipping — live MAE {_rolling:.0f} min vs "
+                f"{_training:.0f} min at training."
             )
         else:
-            from datetime import datetime as _dt
-            trained_at = _eta_meta.get("trained_at")
-            trained_str = (
-                _dt.fromtimestamp(float(trained_at)).strftime("%Y-%m-%d %H:%M")
-                if trained_at else "—"
-            )
-            cv = _eta_meta.get("cv_summary") or {}
-            best_hp = _eta_meta.get("best_hp") or {}
-            cv_line = (
-                f"<b>CV ({cv.get('n_splits', '?')} folds):</b> "
-                f"MAE {cv.get('mean_mae', '?')} ± {cv.get('std_mae', '?')} min · "
-                f"R² {cv.get('mean_r2', '?')}<br>"
-                if cv else ""
-            )
-            hp_line = (
-                f"<b>Best HP:</b> max_depth={best_hp.get('max_depth', '?')}, "
-                f"n_estimators={best_hp.get('n_estimators', '?')}, "
-                f"lr={best_hp.get('learning_rate', '?')}<br>"
-                if best_hp else ""
-            )
-            st.markdown(
-                f"<div style='font-size:10px;color:#aaa;line-height:1.6'>"
-                f"<b>Model:</b> XGBoost quantile regressor (q10/q50/q90)<br>"
-                f"<b>Version:</b> {_eta_meta.get('model_version', '?')}<br>"
-                f"<b>Trained:</b> {trained_str}<br>"
-                f"<b>Rows:</b> {_eta_meta.get('n_train', 0):,} train / {_eta_meta.get('n_test', 0):,} test "
-                f"(real {_eta_meta.get('real_rows', 0):,} + synth {_eta_meta.get('synthetic_rows', 0):,})<br>"
-                f"<b>Hold-out MAE:</b> {_eta_meta.get('mae_minutes', 0):.1f} min · "
-                f"<b>R²:</b> {_eta_meta.get('r2', 0):.3f}<br>"
-                f"{cv_line}"
-                f"{hp_line}"
-                f"</div>",
-                unsafe_allow_html=True,
-            )
-            _models_dir = Path(__file__).resolve().parent.parent / "models"
-
-            show_imp = st.checkbox("Show feature importances", value=False, key="mn_show_imp")
-            if show_imp:
-                _imp_path = _models_dir / "eta_feature_importance.png"
-                if _imp_path.exists():
-                    st.image(str(_imp_path), use_column_width=True)
-                else:
-                    st.caption("Plot not found — re-run the trainer.")
-
-            show_cal = st.checkbox("Show calibration plot", value=False, key="mn_show_cal")
-            if show_cal:
-                _cal_path = _models_dir / "eta_calibration.png"
-                if _cal_path.exists():
-                    st.image(str(_cal_path), use_column_width=True)
-                else:
-                    st.caption("Calibration plot not found — re-run the trainer.")
-
-            if cv.get("folds"):
-                show_cv = st.checkbox("Show CV fold-by-fold metrics", value=False, key="mn_show_cv")
-                if show_cv:
-                    cv_df = pd.DataFrame(cv["folds"])
-                    st.dataframe(cv_df, hide_index=True, use_container_width=True)
-
-            top5 = _eta_meta.get("hp_search_top5") or []
-            if top5:
-                show_hp = st.checkbox("Show hyperparameter sweep (top-5)", value=False, key="mn_show_hp")
-                if show_hp:
-                    st.dataframe(pd.DataFrame(top5), hide_index=True, use_container_width=True)
-
-            per_cp = _eta_meta.get("per_chokepoint_mae") or {}
-            if per_cp:
-                show_cp = st.checkbox("Per-chokepoint MAE", value=False, key="mn_show_cp_mae")
-                if show_cp:
-                    cp_df = pd.DataFrame(
-                        sorted(per_cp.items(), key=lambda kv: -kv[1]),
-                        columns=["Chokepoint", "MAE (min)"],
-                    )
-                    st.dataframe(cp_df, hide_index=True, use_container_width=True)
-
-            # ── Retrain controls ─────────────────────────────────────────
-            st.markdown(
-                "<div style='margin-top:8px;border-top:1px solid #1a1a1a;padding-top:6px'></div>",
-                unsafe_allow_html=True,
-            )
+            _ms_n_train = int(_ms_meta.get("n_train", 0))
+            _ms_trained_at = _ms_meta.get("trained_at")
             try:
-                from eta_scheduler import next_retrain_eta, retrain_now
-                _sched = next_retrain_eta()
-                _hours_left = _sched["seconds_until_cooldown_clears"] / 3600.0
-                if _sched["cooldown_elapsed"] and _sched["enough_data"]:
-                    _next_str = "ready now"
-                elif not _sched["enough_data"]:
-                    _next_str = f"waiting on data ({_sched['real_rows']} real rows / need ≥200)"
-                else:
-                    _next_str = f"in {_hours_left:.1f}h (24h cooldown)"
-                st.markdown(
-                    f"<div style='font-size:9px;color:#888;line-height:1.5'>"
-                    f"<b>Auto-retrain:</b> {_next_str}<br>"
-                    f"<b>Real rows in DB:</b> {_sched['real_rows']}"
-                    f"</div>",
-                    unsafe_allow_html=True,
-                )
-                if st.button("Retrain now", key="mn_retrain_now", use_container_width=True):
-                    with st.spinner("Retraining ETA model — this may take a few minutes..."):
-                        ok, msg = retrain_now(use_seed_fallback=True)
-                    if ok:
-                        st.success(msg)
-                        # Bust caches so the freshly-trained model is picked up.
-                        st.cache_resource.clear()
-                        try:
-                            _eta_artifact_meta.clear()
-                        except AttributeError:
-                            pass
-                        st.rerun()
-                    else:
-                        st.error(msg)
-            except Exception as exc:  # noqa: BLE001
-                st.caption(f"Scheduler unavailable: {exc}")
-
-            st.markdown(
-                "<div style='margin-top:8px;font-size:10px;color:#888'>"
-                "Live accuracy, coverage, drift detection and SHAP "
-                "feature inspector → "
-                "<a href='/ETA_Quality' target='_self' style='color:#a78bfa'>"
-                "ETA Quality dashboard</a></div>",
-                unsafe_allow_html=True,
+                _ms_trained_str = datetime.fromtimestamp(
+                    float(_ms_trained_at)
+                ).strftime("%Y-%m-%d")
+            except (TypeError, ValueError):
+                _ms_trained_str = "—"
+            _ms_color = "#22c55e"
+            _ms_text = (
+                f"Working well — learned from {_ms_n_train:,} past transits · "
+                f"last refreshed {_ms_trained_str}"
             )
+        st.markdown(
+            f"""<div style="background:{_ms_color}11;border:1px solid {_ms_color}44;
+                            border-left:3px solid {_ms_color};border-radius:4px;
+                            padding:10px 14px;margin:16px 0 8px 0;font-size:12px;
+                            color:{_ms_color}">
+              <b>🤖 ETA model · {_ms_text}</b>
+            </div>""",
+            unsafe_allow_html=True,
+        )
+    except Exception:  # noqa: BLE001  status is purely informational
+        pass
+
+    st.page_link(
+        "pages/5_ETA_Quality.py",
+        label="See how the model works →",
+        icon="🔬",
+        use_container_width=True,
+    )
 
     # ── Speed vs Cost (full-width below the columns) ─────────────────────────
     if physics_used and len(path_edges) > 0:

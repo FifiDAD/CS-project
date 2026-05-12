@@ -187,6 +187,64 @@ def transits_24h(bbox: list[float]) -> int:
         return 0
 
 
+def last_sighting_age_sec() -> float | None:
+    """Seconds since the freshest row in `sightings`, or None if empty/missing.
+
+    Powers the AIS pipeline panel's "last sighting" indicator. The websocket
+    consumer can stall silently — this is the single signal that tells the UI
+    whether the stream is actually live.
+    """
+    if not _DB_PATH.exists():
+        return None
+    try:
+        with sqlite3.connect(_DB_PATH) as con:
+            row = con.execute("SELECT MAX(ts) FROM sightings").fetchone()
+    except sqlite3.Error:
+        return None
+    if not row or row[0] is None:
+        return None
+    return max(0.0, time.time() - float(row[0]))
+
+
+def total_distinct_vessels(window_sec: int = 86400) -> int:
+    """Distinct MMSI count seen across all watched bboxes in `window_sec`."""
+    if not _DB_PATH.exists():
+        return 0
+    cutoff = time.time() - max(0, int(window_sec))
+    try:
+        with sqlite3.connect(_DB_PATH) as con:
+            row = con.execute(
+                "SELECT COUNT(DISTINCT mmsi) FROM sightings WHERE ts > ?",
+                (cutoff,),
+            ).fetchone()
+            return int(row[0]) if row else 0
+    except sqlite3.Error:
+        return 0
+
+
+def live_queue_snapshot(bbox: list[float], window_sec: int = 300) -> int:
+    """Distinct MMSI inside `bbox` over the last `window_sec` seconds.
+
+    bbox = [lat_min, lon_min, lat_max, lon_max]. Mirrors the queue-depth
+    feature the trainer extracts at vessel entry time, so per-card live
+    predictions see in-distribution values.
+    """
+    if not _DB_PATH.exists() or not bbox or len(bbox) != 4:
+        return 0
+    cutoff = time.time() - max(0, int(window_sec))
+    lat_min, lon_min, lat_max, lon_max = bbox
+    try:
+        with sqlite3.connect(_DB_PATH) as con:
+            row = con.execute(
+                """SELECT COUNT(DISTINCT mmsi) FROM sightings
+                   WHERE ts > ? AND lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?""",
+                (cutoff, lat_min, lat_max, lon_min, lon_max),
+            ).fetchone()
+            return int(row[0]) if row else 0
+    except sqlite3.Error:
+        return 0
+
+
 def transits_baseline(bbox: list[float], days: int = 7) -> float | None:
     """Median daily distinct-MMSI count over the last `days` days inside `bbox`.
 

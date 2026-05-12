@@ -120,7 +120,7 @@ All `dynamic_status.py` functions accept `events_df.to_json()` (a JSON string) r
 
 ### Risk Score Formula (`dynamic_status.py`)
 
-- **Chokepoint (0–100):** `critical_events × 25 + high_events × 10 + gdelt_articles × 3`
+- **Chokepoint (0–100):** `nga_sev × 45 + min(25, ais_drop_points) + critical_nearby × 25 + high_nearby × 10 + news_clusters_score × 6` — see `dynamic_status.py:183-190`. `news_clusters_score` is multi-source (≥2 distinct domains) and decays 0.5× after 24h; the per-chokepoint GDELT lookup uses a 7-day window.
 - **Port congestion (0–100):** `gdelt_articles × 2 + acled_events × 15 + weather_alert × 20`
 - **Regional (score):** `critical × 3 + high × 2 + other × 1` → thresholds at 2/4/6
 

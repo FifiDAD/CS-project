@@ -15,10 +15,12 @@ from __future__ import annotations
 
 import json
 import logging
+import sqlite3
 import subprocess
 import sys
 import threading
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 import eta_model
@@ -27,9 +29,27 @@ _HERE = Path(__file__).resolve().parent
 _TRAINER_SCRIPT = _HERE / "train_eta_model.py"
 _META_PATH = _HERE / "models" / "eta_meta.json"
 
-CHECK_INTERVAL_SEC = 24 * 3600  # daily wake-up
-RETRAIN_COOLDOWN_SEC = 24 * 3600  # don't retrain more than once a day
+# Main scheduler tick — shadow predictions + matcher run on this cadence.
+TICK_INTERVAL_SEC = 10 * 60   # 10 min
+# Retrain check happens once per ~24h, not every tick.
+RETRAIN_CHECK_INTERVAL_SEC = 24 * 3600
+RETRAIN_COOLDOWN_SEC = 24 * 3600
 N_MIN_REAL = 200  # mirrors train_eta_model.N_MIN_TOTAL — must be enough real rows
+
+# Shadow-prediction tuning.
+# An entry is "new" if the vessel had no in-bbox sighting in the prior 30 min.
+SHADOW_ENTRY_GAP_SEC = 30 * 60
+# Look for entries inside this trailing window each tick. Slightly bigger than
+# the tick interval so we don't miss vessels straddling the boundary.
+SHADOW_DETECT_WINDOW_SEC = 15 * 60
+# Don't relog within this window for the same (mmsi, chokepoint).
+SHADOW_DEDUP_SEC = 6 * 3600
+# Drain anonymous (NULL-MMSI) router predictions after 1h. They can never match,
+# so leaving them in flight just clutters the dashboard.
+NULL_MMSI_DRAIN_H = 1
+# Allow the matcher to look back this many seconds before predicted_at when
+# pairing shadow predictions to realised entries (AIS sampling jitter).
+MATCH_ENTRY_GRACE_SEC = 5 * 60
 
 _started = False
 _lock = threading.Lock()
@@ -129,23 +149,206 @@ def next_retrain_eta() -> dict:
     }
 
 
+def _detect_new_entries(
+    con: sqlite3.Connection,
+    cp: str,
+    bbox: list[float],
+    detect_window_sec: float,
+    entry_gap_sec: float,
+) -> list[tuple[int, float]]:
+    """Vessels whose first in-bbox sighting in `detect_window_sec` follows a
+    ≥`entry_gap_sec` absence — i.e. "just entered" rather than "still here".
+
+    Returns [(mmsi, first_sighting_ts), ...]. Empty list on any error.
+    """
+    now = time.time()
+    window_start = now - detect_window_sec
+    gap_start = window_start - entry_gap_sec
+    lat_min, lon_min, lat_max, lon_max = bbox
+    try:
+        # All distinct MMSIs sighted in the bbox within the detect window.
+        candidates = con.execute(
+            """SELECT mmsi, MIN(ts)
+               FROM sightings
+               WHERE ts >= ?
+                 AND lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?
+               GROUP BY mmsi""",
+            (window_start, lat_min, lat_max, lon_min, lon_max),
+        ).fetchall()
+    except sqlite3.Error:
+        return []
+    out: list[tuple[int, float]] = []
+    for mmsi, first_ts in candidates:
+        if mmsi is None:
+            continue
+        # Was this vessel inside the bbox in the prior gap window? If yes,
+        # it's a continuing transit, not a new entry.
+        try:
+            prior = con.execute(
+                """SELECT 1 FROM sightings
+                   WHERE mmsi = ? AND ts >= ? AND ts < ?
+                     AND lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?
+                   LIMIT 1""",
+                (mmsi, gap_start, window_start, lat_min, lat_max, lon_min, lon_max),
+            ).fetchone()
+        except sqlite3.Error:
+            continue
+        if prior is None:
+            out.append((int(mmsi), float(first_ts)))
+    return out
+
+
+def _has_recent_shadow(
+    con: sqlite3.Connection, mmsi: int, cp: str, dedup_sec: float
+) -> bool:
+    """True if an open prediction for (mmsi, cp) was logged in the last `dedup_sec`."""
+    cutoff = time.time() - dedup_sec
+    try:
+        row = con.execute(
+            """SELECT 1 FROM eta_predictions
+               WHERE mmsi = ? AND chokepoint_id = ? AND predicted_at >= ?
+               LIMIT 1""",
+            (mmsi, cp, cutoff),
+        ).fetchone()
+    except sqlite3.Error:
+        return True  # fail safe — don't double-log on a sqlite hiccup
+    return row is not None
+
+
+def _shadow_predict_tick() -> dict:
+    """Log shadow predictions for vessels just entering watched chokepoints.
+
+    For each chokepoint, finds MMSIs whose first sighting in the trailing
+    detect window was *after* a ≥30-min absence (real entries, not
+    continuing transits). For each, builds the feature vector the trainer
+    would have, calls `predict_transit_minutes(..., mmsi=mmsi, log=True)`,
+    and lets the row land in `eta_predictions` with a concrete MMSI so the
+    matcher can later close it out.
+
+    Returns {logged, skipped_dedup, skipped_features, cp_counts}.
+    """
+    try:
+        from ais_consumer import _DB_PATH, CHOKEPOINT_BBOXES, transits_24h, live_queue_snapshot
+        from eta_model import predict_transit_minutes, ship_type_bin, BBOX_DIAGONAL_KM
+    except Exception as exc:  # noqa: BLE001
+        _log.warning("shadow_tick: imports unavailable: %s", exc)
+        return {"logged": 0, "skipped_dedup": 0, "skipped_features": 0, "cp_counts": {}}
+
+    if not _DB_PATH.exists():
+        return {"logged": 0, "skipped_dedup": 0, "skipped_features": 0, "cp_counts": {}}
+
+    logged = skipped_dedup = skipped_features = 0
+    cp_counts: dict[str, int] = {}
+    now_dt = datetime.now(timezone.utc)
+
+    try:
+        with sqlite3.connect(_DB_PATH, timeout=5.0) as con:
+            for cp, bbox in CHOKEPOINT_BBOXES.items():
+                entries = _detect_new_entries(
+                    con, cp, bbox, SHADOW_DETECT_WINDOW_SEC, SHADOW_ENTRY_GAP_SEC
+                )
+                cp_logged = 0
+                for mmsi, entry_ts in entries:
+                    if _has_recent_shadow(con, mmsi, cp, SHADOW_DEDUP_SEC):
+                        skipped_dedup += 1
+                        continue
+                    # Pull the vessel's current state from positions; bail if
+                    # we can't construct a sane feature vector.
+                    pos = con.execute(
+                        "SELECT sog_kn, ship_type FROM positions WHERE mmsi = ?",
+                        (mmsi,),
+                    ).fetchone()
+                    if pos is None:
+                        skipped_features += 1
+                        continue
+                    sog_kn = float(pos[0]) if pos[0] is not None else 12.0
+                    if sog_kn < 0.5:
+                        # Anchored / drifting — don't predict transit for it.
+                        skipped_features += 1
+                        continue
+                    feats = {
+                        "chokepoint_id":         cp,
+                        "ship_type":             ship_type_bin(pos[1]),
+                        "entry_sog_kn":          sog_kn,
+                        "queue_depth":           int(live_queue_snapshot(bbox, 300)) or 1,
+                        "hour_of_day":           now_dt.hour,
+                        "day_of_week":           now_dt.weekday(),
+                        "month":                 now_dt.month,
+                        "recent_throughput_24h": int(transits_24h(bbox)) or 1,
+                        "bbox_diagonal_km":      float(BBOX_DIAGONAL_KM.get(cp, 300.0)),
+                    }
+                    try:
+                        predict_transit_minutes(cp, feats, mmsi=mmsi, log=True)
+                        logged += 1
+                        cp_logged += 1
+                    except Exception as exc:  # noqa: BLE001  one bad vessel must not abort the tick
+                        _log.debug("shadow_tick: predict failed for %s/%s: %s", mmsi, cp, exc)
+                        skipped_features += 1
+                if cp_logged:
+                    cp_counts[cp] = cp_logged
+    except sqlite3.Error as exc:
+        _log.warning("shadow_tick: sqlite error: %s", exc)
+
+    return {
+        "logged": logged,
+        "skipped_dedup": skipped_dedup,
+        "skipped_features": skipped_features,
+        "cp_counts": cp_counts,
+    }
+
+
 def _scheduler_loop() -> None:
-    """Daemon thread body — sleeps CHECK_INTERVAL_SEC between checks."""
+    """Daemon body — every TICK_INTERVAL_SEC runs the shadow tick + matcher,
+    and once per RETRAIN_CHECK_INTERVAL_SEC checks whether to retrain.
+
+    The shadow tick gives the matcher MMSI-attributed predictions to close
+    against; the matcher converts those into rolling accuracy / drift signals
+    on the ETA Quality page. The retrain check stays on its daily cadence.
+    """
+    last_retrain_check = 0.0
     while True:
         try:
-            status = next_retrain_eta()
-            if status["enough_data"] and status["cooldown_elapsed"]:
-                _log.info("eta_scheduler: triggering retrain (real_rows=%s)", status["real_rows"])
-                ok, msg = retrain_now(use_seed_fallback=False)
-                _log.info("eta_scheduler: retrain finished — ok=%s msg=%s", ok, msg)
-            else:
-                _log.debug(
-                    "eta_scheduler: skipping (real_rows=%s, cooldown_elapsed=%s)",
-                    status["real_rows"], status["cooldown_elapsed"],
+            # 1) Shadow predictions for live vessels just entering chokepoints.
+            shadow = _shadow_predict_tick()
+            if shadow["logged"]:
+                _log.info(
+                    "eta_scheduler: shadow tick logged=%s skipped_dedup=%s skipped_features=%s cps=%s",
+                    shadow["logged"], shadow["skipped_dedup"],
+                    shadow["skipped_features"], shadow["cp_counts"],
                 )
+
+            # 2) Close out completed transits + drain anonymous router preds.
+            try:
+                from eta_quality import match_open_predictions
+                counts = match_open_predictions(
+                    null_mmsi_lookback_h=NULL_MMSI_DRAIN_H,
+                    entry_grace_sec=MATCH_ENTRY_GRACE_SEC,
+                )
+                if counts["matched"] or counts["expired"]:
+                    _log.info(
+                        "eta_scheduler: matcher matched=%s expired=%s still_open=%s",
+                        counts["matched"], counts["expired"], counts["still_open"],
+                    )
+            except Exception as exc:  # noqa: BLE001
+                _log.warning("eta_scheduler: matcher tick failed: %s", exc)
+
+            # 3) Retrain check — only fires once a day.
+            now = time.monotonic()
+            if now - last_retrain_check >= RETRAIN_CHECK_INTERVAL_SEC:
+                last_retrain_check = now
+                status = next_retrain_eta()
+                if status["enough_data"] and status["cooldown_elapsed"]:
+                    _log.info("eta_scheduler: triggering retrain (real_rows=%s)", status["real_rows"])
+                    ok, msg = retrain_now(use_seed_fallback=False)
+                    _log.info("eta_scheduler: retrain finished — ok=%s msg=%s", ok, msg)
+                else:
+                    _log.debug(
+                        "eta_scheduler: retrain skipped (real_rows=%s, cooldown_elapsed=%s)",
+                        status["real_rows"], status["cooldown_elapsed"],
+                    )
         except Exception as exc:  # noqa: BLE001  must never kill the daemon thread
             _log.warning("eta_scheduler: tick failed: %s", exc)
-        time.sleep(CHECK_INTERVAL_SEC)
+        time.sleep(TICK_INTERVAL_SEC)
 
 
 def start_eta_scheduler() -> bool:

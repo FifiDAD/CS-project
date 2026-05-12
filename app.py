@@ -360,6 +360,22 @@ with panels_col:
                     st.session_state[route_key] = not is_open
 
             if is_open:
+                # "Data as of" — visible age of the cached risk read. The
+                # 15-min Streamlit cache means a misleading "Operational" on
+                # a busy chokepoint is usually a stale-cache artefact; the
+                # chip makes that explicit instead of silently misinforming.
+                _as_of_str = "—"
+                try:
+                    _as_of_ts = pd.Timestamp(row.get("As Of"))
+                    _age_min = (pd.Timestamp.now(tz="UTC").tz_localize(None) - _as_of_ts.tz_localize(None)).total_seconds() / 60.0
+                    if _age_min < 1:
+                        _as_of_str = "just now"
+                    elif _age_min < 60:
+                        _as_of_str = f"{int(_age_min)} min ago"
+                    else:
+                        _as_of_str = f"{_age_min/60:.1f} h ago"
+                except Exception:  # noqa: BLE001
+                    pass
                 st.markdown(f"""
 <div style="background:rgba(15,15,25,0.8);border:1px solid #1e1e2e;border-radius:3px;
             padding:10px 12px;margin-bottom:6px">
@@ -383,6 +399,10 @@ with panels_col:
     <div style="grid-column:1/-1">
       <div style="font-size:9px;color:#555;text-transform:uppercase;letter-spacing:0.3px">Disruption Signals</div>
       <div style="font-size:13px;font-weight:600;color:#c8d6e5">{row['News Signals']} news signals</div>
+    </div>
+    <div style="grid-column:1/-1">
+      <div style="font-size:9px;color:#555;text-transform:uppercase;letter-spacing:0.3px">Data Refreshed</div>
+      <div style="font-size:11px;color:#888">{_as_of_str}</div>
     </div>
   </div>
   <div style="background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.2);

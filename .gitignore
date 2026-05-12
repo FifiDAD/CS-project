@@ -1,6 +1,8 @@
 # Local runtime state
 .acled_token.json
 .ais_positions.db
+.ais_positions.db-shm
+.ais_positions.db-wal
 .requests_cache.sqlite
 
 # Byte-compiled / optimized / DLL files

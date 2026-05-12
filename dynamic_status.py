@@ -114,12 +114,14 @@ def compute_shipping_status(events_json: str) -> pd.DataFrame:
         high_nearby     = len(nearby[nearby["impact"] == "High"]) if len(nearby) > 0 else 0
 
         # GDELT news signal — multi-alias OR query catches articles that don't
-        # use the canonical strait name (e.g. "Persian Gulf tensions").
+        # use the canonical strait name (e.g. "Persian Gulf tensions"). The 7-day
+        # window catches sustained narratives (blockades, ongoing campaigns) that
+        # 48h would drop; the 24h decay below already half-weights older items.
         aliases = coords.get("aliases") or [f'"{strait_name}"']
         alias_clause = " OR ".join(aliases)
         articles = APIClient.get_gdelt_articles(
             f"({alias_clause}) AND (disruption OR attack OR delay OR closed OR blockade OR threat OR strike OR mine OR jamming)",
-            timespan="48h",
+            timespan="168h",
         )
         news_signal = len(articles)
 
@@ -225,6 +227,10 @@ def compute_shipping_status(events_json: str) -> pd.DataFrame:
             "AIS 24h":       ais_transits,
             "AIS Baseline":  round(ais_base, 1) if ais_base is not None else "—",
             "AIS Drop":      f"{int(ais_drop * 100)}%" if ais_drop is not None else "—",
+            # Freshness anchor — when the cached result was actually computed.
+            # The 15-min Streamlit TTL means this can be up to that old; the UI
+            # renders "as of N min ago" so a stale read is visible at a glance.
+            "As Of":         pd.Timestamp.utcnow().isoformat(),
         })
 
     return pd.DataFrame(rows)
