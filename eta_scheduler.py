@@ -26,6 +26,8 @@ from pathlib import Path
 import eta_model
 
 _HERE = Path(__file__).resolve().parent
+# Keep scheduler paths anchored to the project root so subprocess training
+# works the same whether launched from Streamlit or the command line.
 _TRAINER_SCRIPT = _HERE / "train_eta_model.py"
 _META_PATH = _HERE / "models" / "eta_meta.json"
 
@@ -53,11 +55,13 @@ MATCH_ENTRY_GRACE_SEC = 5 * 60
 
 _started = False
 _lock = threading.Lock()
+# Module logger lets Streamlit keep running even when scheduler messages are noisy.
 _log = logging.getLogger("eta_scheduler")
 
 
 def _last_trained_at() -> float:
     """Return UNIX timestamp of last successful training (0.0 if missing)."""
+    # Missing or unreadable metadata means "never trained" for cooldown purposes.
     if not _META_PATH.exists():
         return 0.0
     try:
@@ -101,6 +105,8 @@ def retrain_now(use_seed_fallback: bool = True) -> tuple[bool, str]:
     except Exception as exc:  # noqa: BLE001  matcher failure must not block retrain
         _log.warning("eta_scheduler: pre-retrain match failed: %s", exc)
 
+    # Run the trainer out-of-process so model imports, native libraries, and
+    # memory use cannot destabilize the Streamlit app process.
     args = [sys.executable, str(_TRAINER_SCRIPT), "--no-cv"]
     if use_seed_fallback:
         args.append("--seed")
@@ -118,6 +124,7 @@ def retrain_now(use_seed_fallback: bool = True) -> tuple[bool, str]:
         return False, f"Trainer subprocess failed to launch: {exc}"
 
     if proc.returncode != 0:
+        # Keep only the tail so UI/log messages stay readable after long trainer output.
         tail = (proc.stdout + proc.stderr).strip().splitlines()[-5:]
         return False, "Trainer exited with code "\
                       f"{proc.returncode}. Tail: " + " | ".join(tail)
@@ -133,6 +140,8 @@ def retrain_now(use_seed_fallback: bool = True) -> tuple[bool, str]:
 
 def next_retrain_eta() -> dict:
     """Return a dict describing the time-to-next-retrain check (for the UI)."""
+    # The UI uses this same status object to explain why an automatic retrain
+    # will or will not happen at the next scheduler tick.
     last = _last_trained_at()
     real_n = _real_row_count()
     enough_data = real_n >= N_MIN_REAL
@@ -354,6 +363,7 @@ def _scheduler_loop() -> None:
 def start_eta_scheduler() -> bool:
     """Spawn the scheduler thread once per process. Returns True if running."""
     global _started
+    # Guard against Streamlit reruns spawning duplicate daily scheduler threads.
     with _lock:
         if _started:
             return True

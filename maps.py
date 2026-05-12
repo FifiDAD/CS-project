@@ -32,7 +32,7 @@ TRAFFIC_COLORS = {
     "Critical":  "red",
     "Very High": "orange",
     "High":      "yellow",
-    "Medium":    "royalblue",
+    "Medium":    "limegreen",
     "Low":       "limegreen",
 }
 

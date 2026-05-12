@@ -85,6 +85,7 @@ RHO_AIR = 1.225  # kg/m^3
 KN_TO_MS = 0.5144
 
 # IMO MEPC.1/Circ.684 standard emission factors (kg CO2 per kg fuel burned).
+# Kept as fuel-grade keyed constants so emissions can track fuel switching.
 EMISSION_FACTORS_KG_CO2_PER_KG_FUEL: dict[str, float] = {
     "VLSFO":  3.114,
     "IFO380": 3.114,
@@ -118,6 +119,8 @@ class EdgeMeta:
 
 
 def midpoint(lat1: float, lon1: float, lat2: float, lon2: float) -> tuple[float, float]:
+    # Simple midpoint is sufficient here because weather samples are route-edge
+    # approximations, not navigation-grade waypoints.
     return ((lat1 + lat2) / 2.0, (lon1 + lon2) / 2.0)
 
 
@@ -139,10 +142,14 @@ def fuel_for_edge(v: VesselProfile, edge: EdgeMeta, speed_kn: float) -> dict:
     components are mechanical resistance forces, so they are converted via
     `/propulsive_eff` to reach equivalent brake power.
     """
+    # Convert meteorological wind direction into an along-course headwind
+    # component; positive values slow the vessel, negative values are tailwind.
     course = edge.bearing_deg
     delta = math.radians((edge.wind_dir_deg - course + 540.0) % 360.0 - 180.0)
     headwind_ms = (edge.wind_speed_ms or 0.0) * math.cos(delta)  # +head, -tail
 
+    # Calm-water power scales sharply with speed, so speed changes dominate
+    # fuel burn even before weather penalties are added.
     P_calm_kW = (v.displacement_t ** (2.0 / 3.0) * speed_kn ** 3) / v.admiralty_coeff
     speed_ms = max(0.1, speed_kn * KN_TO_MS)
     v_app = max(0.0, speed_ms + headwind_ms)
@@ -162,6 +169,8 @@ def fuel_for_edge(v: VesselProfile, edge: EdgeMeta, speed_kn: float) -> dict:
 
 
 def voyage_totals(v: VesselProfile, edges: list[EdgeMeta], speed_kn: float) -> dict:
+    # Sum edge-level physics outputs so route planners can compare complete
+    # voyage fuel and ETA with the same model used for individual legs.
     fuel = 0.0
     hours = 0.0
     for e in edges:
@@ -209,6 +218,8 @@ def monte_carlo_voyage(
             h_total += r["duration_h"]
         fuels.append(f_total)
         days.append(h_total / 24.0)
+    # Sorting lets the percentile helper pick empirical quantiles directly
+    # without pulling in NumPy just for this small Monte Carlo summary.
     fuels.sort(); days.sort()
     def pct(arr, p):
         idx = max(0, min(len(arr) - 1, int(p * (len(arr) - 1))))

@@ -39,6 +39,7 @@ LOADER_QUIPS: list[str] = [
 
 def _lottie_b64() -> str | None:
     global _LOTTIE_B64_CACHE
+    # Encode the animation once per process; Streamlit reruns this module often.
     if _LOTTIE_B64_CACHE is None and _LOTTIE_PATH.exists():
         _LOTTIE_B64_CACHE = base64.b64encode(_LOTTIE_PATH.read_bytes()).decode()
     return _LOTTIE_B64_CACHE
@@ -165,6 +166,7 @@ SBG = {
 }
 
 def risk_col(s: int) -> str:
+    # Shared traffic-light scale for numeric route and market risk scores.
     if s >= 70: return "#ef4444"
     if s >= 40: return "#f97316"
     if s >= 15: return "#eab308"
@@ -489,10 +491,12 @@ div[data-testid="stPageLink"] a[aria-current="page"] {
 
 
 def inject_css() -> None:
+    # Central CSS injection keeps all Streamlit pages visually consistent.
     st.markdown(_CSS, unsafe_allow_html=True)
 
 
 def render_header(crit: int, high: int, total: int, worst_status: str, count: int) -> None:
+    # Header mirrors live risk state: counts at left, freshness/rerun metadata at right.
     dot_col = SC.get(worst_status, "#666")
     sbg     = SBG.get(worst_status, "rgba(100,100,100,0.1)")
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M UTC")
@@ -523,6 +527,8 @@ def render_header(crit: int, high: int, total: int, worst_status: str, count: in
 
 
 def render_nav() -> None:
+    # Navigation is rendered in fixed Streamlit columns so every page has the
+    # same tab order and spacing.
     st.markdown('<div class="tw-nav-wrap">', unsafe_allow_html=True)
     c0, c1, c2, c3, c4, c5, _ = st.columns([1, 1, 1, 1, 1, 1, 3])
     with c0:
@@ -541,6 +547,7 @@ def render_nav() -> None:
 
 
 def render_footer() -> None:
+    # Footer lists data sources for quick operator confidence and debugging.
     st.markdown(f"""
 <div style="background:#0a0a0a;border-top:1px solid #1a1a1a;padding:8px 16px;
             display:flex;justify-content:space-between;margin-top:8px">

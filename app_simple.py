@@ -3,6 +3,7 @@
 import streamlit as st
 from datetime import datetime
 
+# Configure the standalone fallback page before rendering any Streamlit content.
 st.set_page_config(
     page_title="Global Events Dashboard",
     page_icon="🌍",
@@ -10,18 +11,21 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Lightweight fallback page used when the full dashboard dependencies are still loading.
 st.title("🌍 Global Events Dashboard")
 st.write("Real-time tracking of military strikes, shipping disruptions, and geopolitical conflicts affecting business.")
 
 st.write("---")
 
 # Status
+# Surface startup state before any live data is available.
 st.info("🔄 **API Initialization in Progress**")
 
 st.write("This dashboard is powered by the following FREE APIs:")
 
 col1, col2 = st.columns(2)
 
+# Static API capability list keeps the page useful even without Pandas/data imports.
 with col1:
     st.markdown("""
     ✅ **GDELT** - Global events & conflict
@@ -40,6 +44,7 @@ with col2:
 
 st.write("---")
 
+# Main onboarding copy explains what the full app will expose once loaded.
 st.markdown("""
 ### 🚀 **Getting Started**
 
@@ -91,9 +96,11 @@ Your keys have been securely set in `api_config.py`:
 **Last Updated**: """ + datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC'))
 
 # Sidebar
+# Minimal controls for the simplified page; the full app owns filtering and navigation.
 st.sidebar.title("🔍 Dashboard Controls")
 
 if st.sidebar.button("🔄 Refresh Page"):
+    # Manual rerun lets users retry startup after dependencies or API calls settle.
     st.rerun()
 
 st.sidebar.write("---")
