@@ -13,10 +13,13 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 _ROOT = Path(__file__).resolve().parent
+# Load project-local .env without overriding values already supplied by the host.
 load_dotenv(_ROOT / ".env", override=False)
 
 
 def _get(name: str, default: str | None = None) -> str | None:
+    # Treat common placeholder strings as missing secrets so callers can degrade
+    # cleanly instead of sending invalid credentials to external APIs.
     value = os.getenv(name, default)
     if value in ("", "YOUR_KEY_HERE", "YOUR_NEWSAPI_KEY_HERE"):
         return None
@@ -38,6 +41,7 @@ GROQ_API_KEY = _get("GROQ_API_KEY")
 
 def require(name: str, value: str | None) -> str:
     """Raise if a required secret is missing — for code paths that cannot degrade."""
+    # Use only where the caller cannot fall back to cached/sample data.
     if not value:
         raise RuntimeError(
             f"Missing required env var {name}. Add it to .env (see .env.example)."

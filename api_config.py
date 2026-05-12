@@ -3,6 +3,8 @@
 import os
 
 # Re-export keys for backwards compatibility with existing imports.
+# New code should import secrets from app_secrets.py directly, but older modules
+# still expect these names to live here.
 from app_secrets import (
     NEWSAPI_KEY,
     FRED_API_KEY,
@@ -29,6 +31,8 @@ MARITIME_RSS_FEEDS: list[tuple[str, str]] = [
 # API ENDPOINTS
 # ============================================
 
+# Raw endpoint constants are collected here so APIClient methods do not bury
+# service URLs inside request code.
 GDELT_BASE_URL      = "https://api.gdeltproject.org/api/v2/doc/doc"  # timeline modes too
 GDELT_DOC_URL       = "https://api.gdeltproject.org/api/v2/doc/doc"
 WORLD_BANK_BASE_URL = "https://api.worldbank.org/v2"
@@ -58,6 +62,7 @@ CACHE_TTL_PRICES = 1800   # 30 min — commodity prices, exchange rates, trade d
 # ============================================
 
 KEY_REGIONS = {
+    # Broad monitoring regions used for overview-level risk and map context.
     "Middle East": {"lat": 28, "lon": 45, "radius": 1000},
     "Eastern Ukraine": {"lat": 48.5, "lon": 37.5, "radius": 500},
     "South China Sea": {"lat": 10, "lon": 112, "radius": 800},
@@ -67,12 +72,14 @@ KEY_REGIONS = {
 }
 
 TRADE_MONITOR_COUNTRIES = [
+    # Mix of major trade partners and sanctioned/high-risk states to monitor.
     "China", "United States", "Germany", "Japan", "India",
     "United Kingdom", "France", "Italy", "Netherlands", "Canada",
     "Russia", "Iran", "North Korea", "Venezuela", "Syria"
 ]
 
 CRITICAL_PORTS = {
+    # Major ports used as static fallback markers and congestion scoring anchors.
     "Singapore":   {"lat":  1.35, "lon": 103.82, "risk_weight": 1.0},
     "Shanghai":    {"lat": 30.96, "lon": 121.56,  "risk_weight": 0.9},
     "Rotterdam":   {"lat": 51.97, "lon":   4.13,  "risk_weight": 0.8},
