@@ -8,17 +8,14 @@ live AIS vessel tracking, MariNav routing, and SHAP explanations.
 
 ## 1. Prerequisites
 
-The app runs on **Anaconda Python** (already installed on this machine at `/opt/anaconda3`).
-All commands below use the Anaconda pip/python — do NOT use the system Python
-(`/Library/Developer/CommandLineTools/...`), it is missing almost every package.
+- **Python 3.9 or higher** — download from https://www.python.org/downloads/
+- **pip** — comes bundled with Python
+- A terminal (Terminal on macOS/Linux, Command Prompt or PowerShell on Windows)
 
+Verify your setup:
 ```bash
-# Always verify you are using the right Python before installing anything
-/opt/anaconda3/bin/python --version
-# Should print: Python 3.x.x (not 2.x)
-
-which streamlit
-# Should print: /opt/anaconda3/bin/streamlit
+python --version
+pip --version
 ```
 
 ---
@@ -28,19 +25,19 @@ which streamlit
 From inside the project folder:
 
 ```bash
-cd "/Users/manuelantezza/Desktop/CS PROJECT/CS-project"
-/opt/anaconda3/bin/pip install -r requirements.txt
+cd CS-project
+pip install -r requirements.txt
 ```
 
-This installs every library the app needs. If you have a fresh Anaconda install,
+This installs every library the app needs. If you have a standard Python install,
 this single command is enough to get the core dashboard working.
 
 ---
 
 ## 3. Packages That Must Be Installed Individually
 
-Some packages are **not always pulled in** by `requirements.txt` in certain Anaconda
-environments. Install each one explicitly if the app misbehaves.
+Some packages are **not always pulled in correctly** depending on your environment.
+Install each one explicitly if the app misbehaves.
 
 ### 3.1 xgboost — ML ETA Predictor
 
@@ -50,27 +47,27 @@ shows the red warning banner:
 > "Predictor: using fallback formula only — no trained model loaded."
 
 ```bash
-/opt/anaconda3/bin/pip install xgboost
+pip install xgboost
 ```
 
 Verify:
 ```bash
-/opt/anaconda3/bin/python -c "import xgboost; print(xgboost.__version__)"
+python -c "import xgboost; print(xgboost.__version__)"
 ```
 
 ### 3.2 h3 — MariNav Hex-Grid Routing
 
-Needed for: the MariNav Router page (page 4). h3 is Uber's hexagonal geographic
-indexing library used to build the routing graph over the ocean. Without it the
-router cannot generate waypoints and the page will throw an ImportError.
+Needed for: the MariNav Router page. h3 is Uber's hexagonal geographic indexing
+library used to build the routing graph over the ocean. Without it the router
+cannot generate waypoints and the page will throw an ImportError.
 
 ```bash
-/opt/anaconda3/bin/pip install h3
+pip install h3
 ```
 
 Verify:
 ```bash
-/opt/anaconda3/bin/python -c "import h3; print(h3.__version__)"
+python -c "import h3; print(h3.__version__)"
 ```
 
 ### 3.3 shap — "Why this prediction?" Explanations
@@ -80,27 +77,26 @@ Needed for: the per-chokepoint SHAP explanation expanders on MariNav Router
 "No explanation available" instead of the top-3 feature contributions.
 
 ```bash
-/opt/anaconda3/bin/pip install shap
+pip install shap
 ```
 
 Verify:
 ```bash
-/opt/anaconda3/bin/python -c "import shap; print(shap.__version__)"
+python -c "import shap; print(shap.__version__)"
 ```
 
 ### 3.4 requests-cache — API Response Caching
 
 Needed for: caching external API responses (GDELT, ACLED, FRED, etc.) so the
-app does not hammer rate-limited APIs on every refresh. Without it some API
-methods fall back to uncached requests and you may hit rate limits faster.
+app does not hammer rate-limited APIs on every refresh.
 
 ```bash
-/opt/anaconda3/bin/pip install requests-cache
+pip install requests-cache
 ```
 
 Verify:
 ```bash
-/opt/anaconda3/bin/python -c "import requests_cache; print(requests_cache.__version__)"
+python -c "import requests_cache; print(requests_cache.__version__)"
 ```
 
 ### 3.5 feedparser — Maritime RSS News Feed
@@ -110,12 +106,12 @@ Splash247, The Maritime Standard) that populate the news section. Without this
 the RSS feeds return empty and only Guardian/NewsAPI articles appear.
 
 ```bash
-/opt/anaconda3/bin/pip install feedparser
+pip install feedparser
 ```
 
 Verify:
 ```bash
-/opt/anaconda3/bin/python -c "import feedparser; print(feedparser.__version__)"
+python -c "import feedparser; print(feedparser.__version__)"
 ```
 
 ---
@@ -125,7 +121,7 @@ Verify:
 If you want to install all the above at once:
 
 ```bash
-/opt/anaconda3/bin/pip install xgboost h3 shap requests-cache feedparser
+pip install xgboost h3 shap requests-cache feedparser
 ```
 
 ---
@@ -139,8 +135,7 @@ predictor chip to appear on MariNav Router.
 ### Option A — Seed with synthetic data (instant, no AIS history needed)
 
 ```bash
-cd "/Users/manuelantezza/Desktop/CS PROJECT/CS-project"
-/opt/anaconda3/bin/python train_eta_model.py --seed --no-cv
+python train_eta_model.py --seed --no-cv
 ```
 
 This generates ~3,000 synthetic vessel transits and trains the model in under
@@ -149,7 +144,7 @@ a minute. Good enough to test all ML features.
 ### Option B — Full training with CV and hyperparam sweep (slower, best accuracy)
 
 ```bash
-/opt/anaconda3/bin/python train_eta_model.py --seed
+python train_eta_model.py --seed
 ```
 
 Runs 5-fold time-series cross-validation + a 27-cell hyperparameter sweep before
@@ -167,8 +162,7 @@ After training, restart the Streamlit app — the predictor chip will turn green
 ## 6. Run the App
 
 ```bash
-cd "/Users/manuelantezza/Desktop/CS PROJECT/CS-project"
-/opt/anaconda3/bin/streamlit run app.py
+streamlit run app.py
 ```
 
 Opens at: **http://localhost:8501**
@@ -182,10 +176,15 @@ To stop: `Ctrl + C` in the terminal.
 The dashboard works with zero keys — it falls back to free APIs automatically.
 Adding keys unlocks better data quality and higher rate limits.
 
-Keys are set in the `.env` file (already present in the project folder):
+Copy the example env file and fill in your keys:
+
+```bash
+cp .env.example .env
+```
+
+Then open `.env` and replace the placeholders:
 
 ```
-# .env
 NEWSAPI_KEY=your_key_here
 FRED_API_KEY=your_key_here
 GUARDIAN_API_KEY=your_key_here
@@ -217,23 +216,22 @@ APIs that need **no key** and work immediately:
 Run the built-in API test script:
 
 ```bash
-cd "/Users/manuelantezza/Desktop/CS PROJECT/CS-project"
-/opt/anaconda3/bin/python test_apis.py
+python test_apis.py
 ```
 
 Run the test suite:
 
 ```bash
-/opt/anaconda3/bin/python -m pytest tests/ -v
+python -m pytest tests/ -v
 ```
 
-All 31 tests should pass. If xgboost or shap are missing some tests will skip
+All 31 tests should pass. If xgboost or shap are missing, some tests will skip
 or fail — install them (section 3 above) and re-run.
 
 Quick package check — paste this in Terminal to see what is and is not installed:
 
 ```bash
-/opt/anaconda3/bin/python -c "
+python -c "
 pkgs = {
     'streamlit': 'Core UI',
     'xgboost': 'ML ETA predictor',
@@ -253,7 +251,7 @@ for pkg, desc in pkgs.items():
         v = getattr(m, '__version__', 'ok')
         print(f'  OK   {pkg} ({v}) — {desc}')
     except ImportError:
-        print(f'  MISS {pkg} — {desc}  <-- needs pip install {pkg}')
+        print(f'  MISS {pkg} — {desc}  <-- needs: pip install {pkg}')
 "
 ```
 
@@ -263,28 +261,24 @@ for pkg, desc in pkgs.items():
 
 **Red warning banner on MariNav Router ("no trained model loaded")**
 → xgboost is not installed, or the model artifact is missing.
-→ Run: `/opt/anaconda3/bin/pip install xgboost` then retrain (section 5).
+→ Run: `pip install xgboost` then retrain (section 5).
 
 **MariNav Router page crashes or shows ImportError**
 → h3 is not installed.
-→ Run: `/opt/anaconda3/bin/pip install h3`
+→ Run: `pip install h3`
 
 **"Why this prediction?" expander shows no data**
 → shap is not installed.
-→ Run: `/opt/anaconda3/bin/pip install shap` and restart the app.
+→ Run: `pip install shap` and restart the app.
 
 **News section shows fewer articles than expected**
 → feedparser is not installed (no RSS feeds) or NEWSAPI_KEY is missing.
-→ Run: `/opt/anaconda3/bin/pip install feedparser`
+→ Run: `pip install feedparser`
 
-**API calls fail or return no data on every refresh**
-→ requests-cache is not installed (no caching).
-→ Run: `/opt/anaconda3/bin/pip install requests-cache`
+**API calls return no data on every refresh**
+→ requests-cache is not installed.
+→ Run: `pip install requests-cache`
 
 **App opens but map is blank**
 → Usually a plotly or pandas version mismatch.
-→ Run: `/opt/anaconda3/bin/pip install --upgrade plotly pandas`
-
-**"wrong" Python (system Python) is being used**
-→ Always prefix commands with `/opt/anaconda3/bin/` as shown above.
-→ Or activate the conda base environment: `conda activate base`
+→ Run: `pip install --upgrade plotly pandas`
