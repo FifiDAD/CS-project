@@ -55,6 +55,7 @@ def _events_within_radius(
 
 
 def _classify_topic(title: str) -> str:
+    # Group a news title into a simple topic bucket.
     title_lower = title.lower()
     if any(w in title_lower for w in ["ship", "vessel", "port", "strait", "canal", "freight", "maritime", "cargo"]):
         return "shipping"
@@ -85,6 +86,7 @@ def compute_shipping_status(events_json: str) -> pd.DataFrame:
         events_df = pd.DataFrame(columns=["latitude", "longitude", "impact"])
 
     # Ensure required columns exist
+    # Missing columns get safe defaults so scoring can still run.
     for col in ["latitude", "longitude", "impact"]:
         if col not in events_df.columns:
             events_df[col] = 0 if col != "impact" else "Low"
@@ -107,6 +109,7 @@ def compute_shipping_status(events_json: str) -> pd.DataFrame:
 
     rows = []
     for strait_name, coords in STRAIT_COORDINATES.items():
+        # Score each chokepoint from nearby events, news, warnings, and AIS data.
         nearby = _events_within_radius(
             events_df, coords["lat"], coords["lon"], coords["radius_km"]
         )
@@ -264,6 +267,7 @@ def compute_risk_summary(events_json: str) -> pd.DataFrame:
     rows = []
     for region, coords in KEY_REGIONS.items():
         radius_km = coords.get("radius", 500)
+        # Count events near the region center to estimate regional risk.
         nearby = _events_within_radius(
             events_df, coords["lat"], coords["lon"], radius_km
         )
@@ -350,6 +354,7 @@ def _ais_anchored_count(
               & (sub["lon"].between(lon - dlat * 2, lon + dlat * 2))]
     if len(box) == 0:
         return 0
+    # Check exact distance only after the faster box filter.
     inside = box.apply(
         lambda r: _haversine_km(r["lat"], r["lon"], lat, lon) <= radius_km, axis=1
     )
@@ -431,6 +436,7 @@ def compute_port_congestion(events_json: str) -> pd.DataFrame:
 
     rows = []
     for port_name, ref in PORT_BASELINES.items():
+        # Build one congestion row for each monitored port.
         lat = ref["lat"]; lon = ref["lon"]
         radius = ref["anchorage_radius_km"]
         berths = ref["berths"]
@@ -654,6 +660,7 @@ def get_news_feed(keywords: str = "shipping port conflict military supply chain 
     if classifications and len(classifications) == len(df.head(40)):
         head = df.head(40).copy().reset_index(drop=True)
         tail = df.iloc[40:].copy().reset_index(drop=True)
+        # Cluster only the newest articles, then keep older articles below them.
         head["_cluster"]  = [c["cluster"]  for c in classifications]
         head["_severity"] = [c["severity"] for c in classifications]
         head["_fresh"]    = [c["fresh"]    for c in classifications]
@@ -721,6 +728,7 @@ def cluster_news_by_region(news_df: pd.DataFrame) -> dict[str, pd.DataFrame]:
 
     for idx, t in titles.items():
         placed = False
+        # Put each article in the first matching region.
         for region, kws in _REGION_KEYWORDS:
             if any(kw in t for kw in kws):
                 buckets[region].append(idx)

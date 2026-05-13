@@ -53,6 +53,7 @@ _lock = threading.Lock()
 
 
 def _init_db() -> None:
+    # Create the local AIS tables if they do not exist yet.
     with sqlite3.connect(_DB_PATH) as con:
         con.execute(
             """CREATE TABLE IF NOT EXISTS positions (
@@ -80,6 +81,7 @@ def _init_db() -> None:
 
 
 def _upsert(con: sqlite3.Connection, msg: dict) -> None:
+    # Extract the vessel position from one AISStream message.
     meta = msg.get("MetaData", {}) or {}
     pos_msg = (msg.get("Message", {}) or {}).get("PositionReport", {}) or {}
     mmsi = meta.get("MMSI") or pos_msg.get("UserID")
@@ -88,6 +90,7 @@ def _upsert(con: sqlite3.Connection, msg: dict) -> None:
     if not (mmsi and lat is not None and lon is not None):
         return
     now = time.time()
+    # Keep one latest-position row per vessel for the live map.
     con.execute(
         """INSERT INTO positions (mmsi, lat, lon, sog_kn, cog_deg, name, ship_type, ts)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -104,6 +107,7 @@ def _upsert(con: sqlite3.Connection, msg: dict) -> None:
         ),
     )
     con.execute(
+        # Also keep a history row for transit counts and baselines.
         "INSERT INTO sightings (mmsi, lat, lon, ts) VALUES (?,?,?,?)",
         (mmsi, lat, lon, now),
     )
@@ -114,6 +118,7 @@ async def _run() -> None:
         return
     _init_db()
     # AISStream expects each box as [[lat_min, lon_min], [lat_max, lon_max]]
+    # Subscribe only to the areas the dashboard monitors.
     boxes_pairs = [[[b[0], b[1]], [b[2], b[3]]] for b in WATCH_BOXES]
     sub = json.dumps({
         "APIKey": AISSTREAM_KEY,
@@ -127,6 +132,7 @@ async def _run() -> None:
                 with sqlite3.connect(_DB_PATH) as con:
                     async for raw in ws:
                         try:
+                            # Store each valid message as soon as it arrives.
                             _upsert(con, json.loads(raw))
                             con.commit()
                         except (json.JSONDecodeError, sqlite3.Error):
@@ -141,6 +147,7 @@ def start_consumer() -> bool:
     if not (websockets and AISSTREAM_KEY):
         return False
     with _lock:
+        # Streamlit reruns should not open duplicate WebSocket threads.
         if _started:
             return True
         _started = True
@@ -152,6 +159,7 @@ def latest_positions(max_age_sec: int = 600) -> pd.DataFrame:
     """Return positions seen within the last `max_age_sec` seconds."""
     if not _DB_PATH.exists():
         return pd.DataFrame()
+    # Only return recent positions so stale vessels do not stay on the map.
     cutoff = time.time() - max_age_sec
     try:
         with sqlite3.connect(_DB_PATH) as con:
@@ -173,6 +181,7 @@ def transits_24h(bbox: list[float]) -> int:
     """
     if not _DB_PATH.exists() or not bbox or len(bbox) != 4:
         return 0
+    # Count unique vessels seen in this box during the last day.
     cutoff = time.time() - 86400
     lat_min, lon_min, lat_max, lon_max = bbox
     try:
@@ -210,6 +219,7 @@ def total_distinct_vessels(window_sec: int = 86400) -> int:
     """Distinct MMSI count seen across all watched bboxes in `window_sec`."""
     if not _DB_PATH.exists():
         return 0
+    # Negative windows are treated as zero seconds.
     cutoff = time.time() - max(0, int(window_sec))
     try:
         with sqlite3.connect(_DB_PATH) as con:

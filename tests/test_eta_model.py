@@ -33,6 +33,7 @@ def test_extract_transits_empty_db(empty_db):
 
 def test_extract_transits_simple_pass(empty_db, make_track, t0):
     """One vessel cleanly enters Suez at ~28°N, traverses ~3° north, exits."""
+    # Build a clean northbound track through the Suez box.
     points = []
     for i in range(8):
         # 8 sightings spaced 30 min apart, vessel moves north through Suez
@@ -146,6 +147,7 @@ def test_extract_transits_filters_non_commercial(empty_db, make_track, t0):
     nulltype_pts = [(28.0 + i * 0.4, 33.15, 12.0, None, t0 + 300_000 + i * 1800) for i in range(8)]
     make_track(empty_db, mmsi=1004, points=nulltype_pts)
 
+    # Compare unfiltered extraction with commercial-only extraction.
     all_df = extract_transits(empty_db, commercial_only=False)
     commercial_df = extract_transits(empty_db, commercial_only=True)
 
@@ -178,6 +180,7 @@ def test_extract_transits_legacy_db_without_sog(tmp_path):
 # ---------------------------------------------------------------------------
 
 def _sample_training_df() -> pd.DataFrame:
+    # Minimal training set used by encoder tests.
     return pd.DataFrame([
         {"chokepoint_id": "Suez Canal", "ship_type": "container",
          "entry_sog_kn": 11.0, "queue_depth": 10, "hour_of_day": 12,
@@ -350,6 +353,7 @@ def test_explain_prediction_returns_humanised_labels():
     expander showed `(?)`."""
     from eta_model import explain_prediction
 
+    # Complete feature rows should produce readable explanation labels.
     feats = {
         "chokepoint_id": "Suez Canal",
         "ship_type": "bulker",

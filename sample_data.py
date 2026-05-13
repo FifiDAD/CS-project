@@ -27,9 +27,11 @@ def get_events_data() -> pd.DataFrame:
     Never returns mock data unless DASHBOARD_USE_SAMPLE_DATA=1 is set.
     """
     if os.getenv("DASHBOARD_USE_SAMPLE_DATA") == "1":
+        # Use static demo rows only when explicitly enabled.
         return get_sample_events()
 
     try:
+        # Load the real combined event feed for normal dashboard use.
         from events_aggregator import get_combined_events
         df = get_combined_events(days=30)
     except Exception as exc:  # noqa: BLE001
@@ -41,6 +43,7 @@ def get_events_data() -> pd.DataFrame:
 
 def get_sample_events() -> pd.DataFrame:
     """Static sample events — dev/test only. Not used in production rendering."""
+    # Small fixed dataset used for local demos and tests.
     events = [
         {
             "event_id": "E001",

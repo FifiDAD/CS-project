@@ -42,6 +42,7 @@ Return ONLY the JSON array, no prose."""
 
 
 def _cache_key(titles: list[str]) -> str:
+    # Short hash used when the same title batch is classified again.
     h = hashlib.sha1("\n".join(titles).encode("utf-8", "ignore")).hexdigest()
     return h[:16]
 
@@ -55,6 +56,7 @@ def classify_titles(titles: tuple[str, ...]) -> list[dict] | None:
     if not GROQ_API_KEY or not titles:
         return None
 
+    # Number titles so the model can return results in the same order.
     user_msg = "\n".join(f"{i}. {t}" for i, t in enumerate(titles))
     body = {
         "model": GROQ_MODEL,
@@ -67,6 +69,7 @@ def classify_titles(titles: tuple[str, ...]) -> list[dict] | None:
         "max_tokens": 2000,
     }
     try:
+        # Ask Groq to classify all titles in one request.
         r = requests.post(
             GROQ_URL,
             headers={
@@ -94,6 +97,7 @@ def classify_titles(titles: tuple[str, ...]) -> list[dict] | None:
         items = parsed
     elif isinstance(parsed, dict):
         # Find the first array value — model often nests under "results"/"items"/etc.
+        # This accepts small JSON shape differences from the model.
         items = next((v for v in parsed.values() if isinstance(v, list)), None)
         if items is None:
             return None
@@ -106,6 +110,7 @@ def classify_titles(titles: tuple[str, ...]) -> list[dict] | None:
         for i in range(len(titles))
     ]
     for entry in items:
+        # Replace each default row with the model's answer when it is valid.
         if not isinstance(entry, dict):
             continue
         try:

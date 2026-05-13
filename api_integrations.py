@@ -49,6 +49,7 @@ def _gdelt_get(url: str, params: dict, timeout: int = 10) -> requests.Response |
     import time as _t
     for attempt, nap in enumerate((6, 12, 20)):
         try:
+            # Send every GDELT request through the same retry helper.
             r = _SESSION.get(url, params=params, headers=_GDELT_HEADERS, timeout=timeout)
         except requests.RequestException:
             return None
@@ -67,6 +68,7 @@ class APIClient:
     def get_gdelt_events(query="conflict military shipping"):
         """Fetch global events timeline from GDELT (free; needs User-Agent)."""
         try:
+            # Timeline mode returns counts over time, not article rows.
             params = {
                 'query': query,
                 'mode': 'TimelineVol',
@@ -112,6 +114,7 @@ class APIClient:
         """Fetch news from NewsAPI (500 requests/day free)"""
         try:
             if not NEWSAPI_KEY:
+                # Missing key means this source is skipped.
                 return pd.DataFrame()
 
             url = "https://newsapi.org/v2/everything"
@@ -198,6 +201,7 @@ class APIClient:
         port_pts = [(p["lat"], p["lon"]) for p in PORT_BASELINES.values()]
 
         def _near_port(lat: float, lon: float, max_km: float = 500.0) -> bool:
+            # Keep only quakes close enough to matter for ports.
             for plat, plon in port_pts:
                 dphi = radians(plat - lat)
                 dlam = radians(plon - lon)
@@ -266,6 +270,7 @@ class APIClient:
 
         rows = []
         for source_name, url in MARITIME_RSS_FEEDS:
+            # One broken RSS feed should not stop the others.
             try:
                 parsed = feedparser.parse(url, request_headers=_GDELT_HEADERS)
             except Exception:  # noqa: BLE001
@@ -613,6 +618,7 @@ class APIClient:
         from bs4 import BeautifulSoup
 
         try:
+            # Scrape all supported fuel tables from the same page.
             r = _SESSION.get(
                 SHIPANDBUNKER_URL,
                 headers={"User-Agent": "Mozilla/5.0 LogisticsDashboard/1.0"},
@@ -670,6 +676,7 @@ class APIClient:
         rows = []
         for _, w in warnings_df.iterrows():
             text = w.get("text", "") or ""
+            # Keep warnings that look like piracy or vessel-attack reports.
             if not pat.search(text):
                 continue
             if float(w.get("severity", 0.0) or 0.0) < 0.6:
@@ -832,6 +839,7 @@ class APIClient:
         articles: list[dict] = []
         _seen_urls: set[str] = set()
         for _q in QUERIES:
+            # Run several focused queries and merge unique article URLs.
             for _a in APIClient.get_gdelt_articles(_q, timespan=timespan) or []:
                 _u = _a.get("url") or ""
                 if _u and _u not in _seen_urls:
@@ -841,6 +849,7 @@ class APIClient:
         for a in articles:
             title = a.get("title") or ""
             title_lower = title.lower()
+            # Skip articles that do not mention a maritime topic.
             # Hard sanity filter — title must mention a maritime concept.
             if not any(kw in title_lower for kw in MARITIME_KEYWORDS):
                 continue
@@ -943,6 +952,7 @@ class DataProcessor:
         risk_scores = {}
 
         for region, coords in regions.items():
+            # Count events close to each configured region center.
             region_events = events_df[
                 (abs(events_df['latitude'] - coords['lat']) < 5) &
                 (abs(events_df['longitude'] - coords['lon']) < 5)

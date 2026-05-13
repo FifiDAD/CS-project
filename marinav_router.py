@@ -249,6 +249,7 @@ _EDGES: list[tuple[str, str]] = [
 
 def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """Great-circle distance in km."""
+    # Calculate distance between two map points.
     R = 6371.0
     dlat = math.radians(lat2 - lat1)
     dlon = math.radians(lon2 - lon1)
@@ -291,6 +292,7 @@ def build_shipping_graph(
 
     # Add backbone waypoints as nodes
     for node_id, (lat, lon) in _WP.items():
+        # Ocean nodes form the main route network.
         G.add_node(node_id, lat=lat, lon=lon, kind="ocean")
 
     # Build per-edge risk factor — applies to the FULL chokepoint corridor so
@@ -298,6 +300,7 @@ def build_shipping_graph(
     # Inspired by MariNav's per-cell hazard penalty (Vaishnav2804/MariNav).
     # risk 0 → factor 1× (no penalty), risk 100 → factor 8× (heavy penalty)
     def _edge_risk_factor(a: str, b: str) -> float:
+        # Increase edge cost when the edge belongs to a risky chokepoint.
         cp = _EDGE_CHOKEPOINT.get((a, b)) or _EDGE_CHOKEPOINT.get((b, a))
         if cp is None:
             return 1.0
@@ -379,6 +382,7 @@ def build_shipping_graph(
 
     # Add major ports as nodes and connect each to its nearest backbone waypoint
     for port_name, (lat, lon) in PORTS.items():
+        # Add real ports and connect each one to nearby ocean waypoints.
         node_id = f"_port_{port_name}"
         G.add_node(node_id, lat=lat, lon=lon, kind="port", name=port_name)
 
@@ -412,6 +416,7 @@ def build_shipping_graph(
 def _summarise_path(path: list[str], G: nx.Graph, origin: str, destination: str,
                     total_weighted: float) -> dict:
     """Shared helper: turn a node-id path into the canonical result dict."""
+    # Convert graph node IDs into coordinates and display data for the UI.
     path_coords = [(G.nodes[n]["lat"], G.nodes[n]["lon"]) for n in path]
 
     total_dist_km = sum(
@@ -518,6 +523,7 @@ def _route_total_cost_usd(
 
     edges = [e for e in result.get("path_edges", []) or [] if e is not None]
     if edges:
+        # Use per-edge vessel physics when edge metadata is available.
         det = _voyage_totals(vessel, edges, speed_kn)
         days = det["days"]
         fuel_t = det["fuel_t"]
@@ -536,6 +542,7 @@ def _route_total_cost_usd(
 
     toll_usd = 0.0
     for cp in result.get("chokepoints_used", []):
+        # Add canal tolls only for routes that use Suez or Panama.
         canal = "suez" if "Suez" in cp else "panama" if "Panama" in cp else None
         if canal:
             t = _estimate_toll_usd(canal, vessel.name)
@@ -647,6 +654,7 @@ def _apply_objective_weights(
     speed_kmh = max(0.01, float(speed_kn) * 1.852)
 
     for a, b, data in G.edges(data=True):
+        # Write all objective weights onto each edge for later Dijkstra runs.
         meta = data.get("meta")
         dist_km = float(data.get("dist_km", 0.0))
         queue_pen = float(data.get("queue_penalty_km", 0.0))
@@ -789,6 +797,7 @@ def find_route_alternatives(
 
     # ── One Dijkstra per objective ──────────────────────────────────────────
     for objective in ROUTE_OBJECTIVES:
+        # Run one shortest-path search for each route objective.
         result = find_optimal_route(origin, destination, G, risk_scores,
                                      weight_key=objective["weight"])
         if "error" in result:

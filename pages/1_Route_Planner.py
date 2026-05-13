@@ -22,11 +22,13 @@ inject_css()
 
 # ── Data ──────────────────────────────────────────────────────────────────────
 with st.spinner(""):
+    # Load shared events and market data used by the planner.
     events_df, oil_price, shipping_index, exchange_rates = load_core_data()
 
 events_json = events_df.to_json() if len(events_df) > 0 else pd.DataFrame().to_json()
 
 with st.spinner(""):
+    # Compute route risk, regional risk, and port congestion tables.
     shipping_df  = compute_shipping_status(events_json)
     risk_df      = compute_risk_summary(events_json)
     port_cong_df = compute_port_congestion(events_json)
@@ -35,6 +37,7 @@ analytics       = RiskAnalytics.get_summary_metrics(events_df, oil_price, shippi
 filtered_events = filter_events(events_df)
 
 def _parse_delay_h(s):
+    # Turn display text like "6 hours" into a number for scoring.
     try:    return float(str(s).replace(" hours", "").replace("+", "").strip())
     except: return 0.0
 
@@ -64,6 +67,7 @@ with planner_left:
 
     sc_col1, sc_col2 = st.columns([3, 1])
     with sc_col1:
+        # Let users test how the planner reacts if one route fails.
         scenario_route = st.selectbox(
             "SIMULATE ROUTE FAILURE →",
             ["None (live data)"] + route_names,
@@ -74,6 +78,7 @@ with planner_left:
 
     scenario_overrides = {}
     if scenario_route != "None (live data)":
+        # Force the selected route into a critical scenario for comparison.
         scenario_overrides[scenario_route] = "Critical - Avoid"
         st.markdown(f"""
 <div style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.2);
@@ -117,6 +122,7 @@ with planner_left:
     st.markdown('<div class="tw-label" style="margin-top:16px">Event Activity — Last 30 Days</div>',
                 unsafe_allow_html=True)
     if len(filtered_events) > 0:
+        # Count events by day for the activity timeline.
         daily = (pd.DataFrame({"date": filtered_events["date"].dt.date, "n": 1})
                  .groupby("date").sum().reset_index())
         fig_tl = go.Figure()

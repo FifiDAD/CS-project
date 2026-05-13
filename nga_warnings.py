@@ -42,6 +42,7 @@ _POS_DD = re.compile(
 
 
 def _dm_to_dd(deg: str, min_: str, hemi: str) -> float:
+    # Convert degrees/minutes text into decimal degrees.
     val = float(deg) + float(min_) / 60.0
     return -val if hemi.upper() in ("S", "W") else val
 
@@ -50,6 +51,7 @@ def _extract_positions(text: str) -> list[tuple[float, float]]:
     if not text:
         return []
     out: list[tuple[float, float]] = []
+    # Try degree-minute coordinates first.
     for m in _POS_DM.finditer(text):
         try:
             lat = _dm_to_dd(m.group(1), m.group(2), m.group(3))
@@ -59,6 +61,7 @@ def _extract_positions(text: str) -> list[tuple[float, float]]:
             continue
     if out:
         return out
+    # Fall back to decimal-degree coordinates.
     for m in _POS_DD.finditer(text):
         try:
             lat = float(m.group(1)) * (-1 if m.group(2).upper() == "S" else 1)
@@ -83,6 +86,7 @@ def _severity(text: str) -> float:
     if not text:
         return 0.0
     t = text.lower()
+    # Use the first matching keyword group as the warning severity.
     for weight, kws in _SEVERITY_KEYWORDS:
         if any(k in t for k in kws):
             return weight
@@ -136,6 +140,7 @@ def fetch_warnings() -> pd.DataFrame:
     for it in items:
         if not isinstance(it, dict):
             continue
+        # Join likely text fields into one warning body.
         text = " ".join(
             str(it.get(k, "") or "") for k in ("text", "navText", "subject", "title", "body")
         )
@@ -143,6 +148,7 @@ def fetch_warnings() -> pd.DataFrame:
         msg_year = it.get("msgYear")
         msg_id = f"{msg_year}-{it.get('msgNumber','')}" if msg_year else it.get("id", "")
         decay = _age_decay(msg_year, current_year)
+        # Store position lists because one warning can mention several points.
         rows.append({
             "id":       msg_id,
             "msgYear":  msg_year,
@@ -178,10 +184,12 @@ def severity_for_chokepoint(
     max_sev = 0.0
     count = 0
     for _, row in warnings_df.iterrows():
+        # Check every parsed point from the warning.
         for plat, plon in zip(row["lats"], row["lons"]):
             if abs(plat - lat) > dlat or abs(plon - lon) > dlon:
                 continue
             # Fine-grained haversine
+            # Confirm the point is really inside the radius.
             from math import asin, cos, radians, sin, sqrt
             dphi = radians(plat - lat)
             dlam = radians(plon - lon)

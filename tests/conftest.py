@@ -23,6 +23,7 @@ if str(PROJECT_ROOT) not in sys.path:
 @pytest.fixture
 def empty_db(tmp_path: Path) -> Path:
     """A SQLite file with the sightings schema but no rows."""
+    # Each test gets its own temporary AIS database.
     db = tmp_path / "test_ais.db"
     with sqlite3.connect(db) as con:
         con.execute(
@@ -47,6 +48,7 @@ def make_track(empty_db):
             (lat, lon, sog_kn, ship_type, ts), ...
         ])
     """
+    # Return a helper that inserts one synthetic vessel track.
     def _make(
         db: Path,
         mmsi: int,
@@ -81,6 +83,7 @@ def _isolate_prediction_log(tmp_path_factory, monkeypatch):
     """
     import eta_model
     tmp_db = tmp_path_factory.mktemp("eta_log") / "eta_log.db"
+    # Point prediction logging at a temp DB instead of the live app DB.
     monkeypatch.setattr(eta_model, "_DB_PATH", tmp_db)
     monkeypatch.setattr(eta_model, "_PREDICTIONS_TABLE_READY", False)
     yield tmp_db

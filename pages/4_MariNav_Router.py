@@ -63,6 +63,7 @@ def _eta_quality_metrics_cached() -> dict:
 
 
 def _vessel_to_ship_type_bin(name: str) -> str:
+    # Convert the selected vessel profile into the ETA model's ship type.
     n = (name or "").lower()
     if "tanker" in n:
         return "tanker"
@@ -90,6 +91,7 @@ def _render_interval_bar(p10_min: float, p50_min: float, p90_min: float, scale_m
     """
     if scale_max_min <= 0:
         scale_max_min = max(p90_min, 1.0)
+    # Convert minutes into percentages for the CSS bar.
     pct = lambda x: max(0.0, min(100.0, 100.0 * x / scale_max_min))
     left = pct(p10_min)
     right = pct(p90_min)
@@ -195,6 +197,7 @@ if not H3_AVAILABLE:
 
 # ── Data ──────────────────────────────────────────────────────────────────────
 with st.spinner(""):
+    # Load live events and market values for this router page.
     events_df, oil_price, shipping_index, exchange_rates = load_core_data()
 
 events_json  = events_df.to_json() if len(events_df) > 0 else pd.DataFrame().to_json()
@@ -205,6 +208,7 @@ filtered_evs = filter_events(events_df)
 if len(shipping_df) > 0:
     worst_status = shipping_df.sort_values("Risk Score", ascending=False).iloc[0]["Status"]
     # Build risk_scores dict for graph weighting: {route_name: score}
+    # The graph uses this dict to penalize risky chokepoints.
     risk_scores = dict(zip(shipping_df["Route"], shipping_df["Risk Score"].astype(int)))
 else:
     worst_status = "Operational"
@@ -241,6 +245,7 @@ st.markdown("""
 # ══════════════════════════════════════════════════════════════════════════════
 port_list = sorted(PORTS.keys())
 
+# Main route form: origin, destination, vessel, and calculate button.
 sel_col1, sel_col2, sel_col3, sel_col4, _ = st.columns([2, 2, 2, 1, 2])
 
 with sel_col1:
@@ -288,6 +293,7 @@ if compute:
 if len(shipping_df) > 0:
     high_risk_routes = shipping_df[shipping_df["Risk Score"] >= 40]
     if not high_risk_routes.empty:
+        # Warn users when live risk data will strongly affect route choices.
         names = " · ".join(high_risk_routes["Route"].tolist())
         st.markdown(f"""
 <div style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.2);
@@ -325,6 +331,7 @@ physics_profile_name = vessel_name
 # Live VLSFO from Ship & Bunker; fall back if scrape failed
 bunker = 600.0
 if len(bunker_df) > 0:
+    # Use the selected bunker port and vessel fuel grade when a price is available.
     match = bunker_df[(bunker_df["port"] == bunker_port) & (bunker_df["grade"] == vessel.fuel_grade)]
     if len(match) > 0:
         bunker = float(match.iloc[0]["price_usd_per_mt"])

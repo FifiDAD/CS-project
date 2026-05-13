@@ -9,6 +9,7 @@ Dashboard →" feels instant.
 import sys
 from pathlib import Path
 
+# Add the project root so this Streamlit page can import shared modules.
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 import streamlit as st
@@ -610,6 +611,7 @@ st.markdown(
 
 col_l, col_btn, col_r = st.columns([1, 2, 1])
 with col_btn:
+    # Send the user from the tutorial page into the live dashboard.
     if st.button("Open Main Dashboard →", use_container_width=True, type="primary"):
         st.switch_page("app.py")
 

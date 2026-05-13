@@ -74,6 +74,7 @@ def _generate() -> list[dict]:
     for cp, (mean_m, sigma_m, q_sens) in CHOKEPOINTS.items():
         diag = BBOX_DIAG_KM[cp]
         for _ in range(ROWS_PER_CHOKEPOINT):
+            # Randomize one transit while keeping the seed output repeatable.
             entry_ts = base_ts + rng.uniform(0, window_sec)
             queue = max(0, int(rng.normal(loc=10, scale=4)))
             entry_sog = float(np.clip(rng.normal(loc=11.0, scale=2.5), 4.0, 22.0))
@@ -108,6 +109,7 @@ def _generate() -> list[dict]:
 
 def main() -> None:
     rows = _generate()
+    # Create the output folder before writing the CSV.
     OUT.parent.mkdir(parents=True, exist_ok=True)
     with OUT.open("w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()))

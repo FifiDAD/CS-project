@@ -23,6 +23,7 @@ class RiskAnalytics:
     def calculate_supply_chain_impact(events_df, oil_price, shipping_index):
         """Calculate supply chain impact from events and costs"""
         
+        # Start with safe default values before adding live data.
         metrics = {
             'event_count': len(events_df),
             'critical_zones': 0,
@@ -62,6 +63,7 @@ class RiskAnalytics:
 
         alerts = []
         for idx, row in recent_events.iterrows():
+            # Turn each recent event into one alert item for the UI.
             row_dt = pd.to_datetime(row['date'], utc=True, errors='coerce')
             time_ago_h = ((now_utc - row_dt).total_seconds() / 3600
                           if pd.notna(row_dt) else 0.0)
@@ -80,6 +82,7 @@ class RiskAnalytics:
     def _get_recommended_action(event_type, impact_level):
         """Get recommended action based on event type and impact"""
         
+        # Simple action lookup based on event type and severity.
         actions = {
             'Military Strike': {
                 'Critical': '🚨 Reroute vessels immediately, activate contingency plans',
@@ -110,6 +113,7 @@ class RiskAnalytics:
         """Calculate financial impact of events"""
         
         # Base costs (USD per day)
+        # These are rough reference costs used for dashboard estimates.
         daily_shipping_rate = 50000  # per vessel
         fuel_daily = 8000  # per vessel
         
@@ -119,6 +123,7 @@ class RiskAnalytics:
             oil_multiplier = oil_price / 90  # baseline $90/barrel
         
         # Adjust for events
+        # Critical and high events increase the route risk multiplier.
         event_multiplier = 1.0
         critical_events = len(events_df[events_df['impact'] == 'Critical'])
         high_events = len(events_df[events_df['impact'] == 'High'])
@@ -130,6 +135,7 @@ class RiskAnalytics:
         if "affected_routes" in events_df.columns:
             affected_route_names = events_df["affected_routes"].explode().dropna().unique().tolist()
         if affected_route_names:
+            # Use the largest affected route as the fleet exposure estimate.
             affected_vessels = max(ROUTE_FLEET_SIZES.get(r, 30) for r in affected_route_names)
         else:
             affected_vessels = 30
@@ -181,6 +187,7 @@ class RiskAnalytics:
         
         # Determine worst affected region
         if len(events_df) > 0:
+            # Most frequent location is used as the current hotspot.
             region_counts = events_df.groupby('location').size().sort_values(ascending=False)
             if len(region_counts) > 0:
                 summary['worst_affected_region'] = region_counts.index[0]

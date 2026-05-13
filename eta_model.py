@@ -34,6 +34,7 @@ import pandas as pd
 # ---------------------------------------------------------------------------
 
 _HERE = Path(__file__).resolve().parent
+# Keep model files and AIS data tied to the project folder.
 _ARTIFACT_PATH = _HERE / "models" / "eta_xgb.joblib"
 _DB_PATH = _HERE / ".ais_positions.db"
 
@@ -153,6 +154,7 @@ MODEL_VERSION = "1.0"
 # ---------------------------------------------------------------------------
 
 def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    # Calculate distance between two map points.
     R = 6371.0
     p1, p2 = math.radians(lat1), math.radians(lat2)
     dp = math.radians(lat2 - lat1)
@@ -195,6 +197,7 @@ def extract_transits(db_path: str | Path, commercial_only: bool = True) -> pd.Da
 
     with sqlite3.connect(db_path) as con:
         # Tolerate older DBs that pre-date the sog_kn / ship_type columns.
+        # This lets old AIS databases still work after schema changes.
         cols = {r[1] for r in con.execute("PRAGMA table_info(sightings)")}
         select_cols = ["mmsi", "lat", "lon"]
         select_cols.append("sog_kn" if "sog_kn" in cols else "NULL AS sog_kn")
@@ -217,6 +220,7 @@ def extract_transits(db_path: str | Path, commercial_only: bool = True) -> pd.Da
 
     rows: list[dict] = []
     for cp, bbox in CHOKEPOINT_BBOXES.items():
+        # Look for completed vessel transits inside each chokepoint box.
         rows.extend(_transits_for_chokepoint(sightings, cp, bbox))
 
     if not rows:
@@ -258,6 +262,7 @@ def _transits_for_chokepoint(sightings: pd.DataFrame, cp: str, bbox: list[float]
         (sightings["lat"] >= bbox[0]) & (sightings["lat"] <= bbox[2])
         & (sightings["lon"] >= bbox[1]) & (sightings["lon"] <= bbox[3])
     )
+    # Keep only sightings inside this chokepoint before grouping by vessel.
     cp_sightings = sightings[inside].copy()
     if cp_sightings.empty:
         return []
@@ -310,6 +315,7 @@ def _transits_for_chokepoint(sightings: pd.DataFrame, cp: str, bbox: list[float]
             queue_depth = _queue_depth_at(sightings, bbox, entry["ts"], exclude_mmsi=int(mmsi))
             recent_throughput = _recent_throughput(sightings, bbox, entry["ts"])
 
+            # Time fields help the model learn daily and weekly patterns.
             from datetime import datetime, timezone
             dt = datetime.fromtimestamp(float(entry["ts"]), tz=timezone.utc)
 
@@ -378,6 +384,7 @@ def build_feature_matrix(
 
     cat_arr = encoder.fit_transform(df[CATEGORICAL_FEATURES].astype(str))
     num_arr = df[NUMERIC_FEATURES].to_numpy(dtype=float)
+    # Put encoded text columns and numeric columns into one training matrix.
     X = np.hstack([cat_arr, num_arr])
 
     cat_names = list(encoder.get_feature_names_out(CATEGORICAL_FEATURES))
@@ -389,6 +396,7 @@ def build_feature_matrix(
 
 def encode_inference_row(features: dict[str, Any], encoder) -> np.ndarray:
     """Encode a single inference example using a fitted encoder."""
+    # Use the same encoder that was saved with the trained model.
     cat_df = pd.DataFrame(
         [[str(features.get("chokepoint_id", "")), str(features.get("ship_type", "unknown"))]],
         columns=CATEGORICAL_FEATURES,
@@ -513,6 +521,7 @@ def _log_prediction(
 
 
 def _opt_float(v: Any) -> float | None:
+    # Convert optional values before writing them to SQLite.
     try:
         return float(v) if v is not None else None
     except (TypeError, ValueError):
@@ -646,6 +655,7 @@ def predict_transit_minutes(
 
 
 def _heuristic_prediction(cp: str, feats: dict, confidence: str) -> dict[str, Any]:
+    # Simple fallback used when the trained model cannot be used.
     base = HEURISTIC_MEAN_MIN.get(cp, 360.0)
     queue = float(feats.get("queue_depth", 10) or 10)
     # Linear queue penalty — same shape as the trainer learns.
@@ -692,6 +702,7 @@ def predict_total_for_route(
     n_trains: list[int] = []
     confidences: list[str] = []
     for cp in chokepoints:
+        # Add each chokepoint estimate to build the full route estimate.
         feats = {**default_features, **features_per_chokepoint.get(cp, {})}
         if force_heuristic:
             pred = _heuristic_prediction(cp, feats, confidence="heuristic")
@@ -788,6 +799,7 @@ _MONTH_NAMES = [
 
 def _format_shap_value(feat: str, value: Any) -> str:
     """Render a feature value for display next to its SHAP contribution."""
+    # Format values in units that are easy to read in the UI.
     if value is None or (isinstance(value, float) and math.isnan(value)):
         return "—"
     try:
