@@ -69,11 +69,13 @@ PORT_BASELINES: dict[str, dict] = {
 
 
 def port_list() -> list[str]:
+    # Return only the port names for dropdowns and lookups.
     return list(PORT_BASELINES.keys())
 
 
 def coords_lookup() -> dict[str, dict]:
     """Drop-in replacement for the legacy CRITICAL_PORTS dict shape."""
+    # Keep older map code working with the newer port baseline table.
     return {
         name: {"lat": d["lat"], "lon": d["lon"], "risk_weight": 1.0}
         for name, d in PORT_BASELINES.items()
@@ -84,6 +86,7 @@ def bounding_boxes(margin_km: float = 5.0) -> list[list[float]]:
     """AISStream-compatible [lat_min, lon_min, lat_max, lon_max] for each port."""
     boxes = []
     for d in PORT_BASELINES.values():
+        # Expand each port center by its anchorage radius plus a small margin.
         # 1° lat ≈ 111 km; 1° lon ≈ 111·cos(lat) km. Keep box symmetric in km.
         import math
         r_km = d["anchorage_radius_km"] + margin_km

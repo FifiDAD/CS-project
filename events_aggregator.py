@@ -23,12 +23,15 @@ from port_baselines import PORT_BASELINES
 # so we can score every event by minimum distance to a shipping corridor.
 _CORRIDOR_POINTS: list[tuple[float, float]] = []
 for _route in MAJOR_SHIPPING_ROUTES.values():
+    # Add every route waypoint as a corridor point.
     _CORRIDOR_POINTS.extend((c[0], c[1]) for c in _route["coords"])
 for _p in PORT_BASELINES.values():
+    # Add monitored ports so nearby events are kept too.
     _CORRIDOR_POINTS.append((_p["lat"], _p["lon"]))
 
 
 def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    # Calculate distance between two latitude/longitude points.
     R = 6371.0
     dlat = math.radians(lat2 - lat1)
     dlon = math.radians(lon2 - lon1)
@@ -62,6 +65,7 @@ def get_combined_events(
     frames: list[pd.DataFrame] = []
 
     try:
+        # Main live shipping events come from the curated GDELT query.
         ship = APIClient.get_shipping_events(timespan=f"{days*24}H")
     except Exception:  # noqa: BLE001
         ship = pd.DataFrame()
@@ -89,6 +93,7 @@ def get_combined_events(
 
     # USGS earthquakes near monitored ports — already coastal-filtered upstream
     try:
+        # Add recent earthquakes near ports as a second event source.
         quakes = APIClient.get_earthquakes(min_mag=4.5, days=7)
     except Exception:  # noqa: BLE001
         quakes = pd.DataFrame()
@@ -131,6 +136,7 @@ def get_combined_events(
     out = out[(out["latitude"] != 0) | (out["longitude"] != 0)]
 
     if len(out) > 0:
+        # Drop events that are too far from monitored routes or ports.
         out["corridor_distance_km"] = out.apply(
             lambda r: _min_corridor_distance_km(r["latitude"], r["longitude"]),
             axis=1,

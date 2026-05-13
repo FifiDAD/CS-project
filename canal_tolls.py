@@ -25,6 +25,7 @@ SUEZ_TOLLS_USD = {
 }
 
 PANAMA_TOLLS_USD = {
+    # None means the vessel is treated as unable to transit Panama.
     "Panamax":   350_000,
     "Capesize":  None,       # Capesize bulkers don't fit Neopanamax locks reliably
     "Suezmax":   None,       # Suezmax tankers exceed Neopanamax beam (49m)
@@ -46,13 +47,16 @@ _VESSEL_NAME_ALIASES = {
 
 def estimate_toll_usd(canal: str, vessel_class: str) -> int | None:
     """Return indicative toll in USD, or None if vessel cannot transit canal."""
+    # Pick the right toll table for the requested canal.
     table = {"suez": SUEZ_TOLLS_USD, "panama": PANAMA_TOLLS_USD}.get(canal.lower())
     if not table:
         return 0
     # Accept both short names ("VLCC") and physics-profile names ("VLCC tanker")
+    # This lets callers use names from vessel_physics directly.
     key = _VESSEL_NAME_ALIASES.get(vessel_class, vessel_class)
     return table.get(key)
 
 
 def can_transit(canal: str, vessel_class: str) -> bool:
+    # A missing toll means this vessel cannot use that canal.
     return estimate_toll_usd(canal, vessel_class) is not None

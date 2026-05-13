@@ -1,6 +1,7 @@
 """Configuration and constants for the Global Events Dashboard"""
 
 # Map settings
+# Default world view used when a page first renders the map.
 DEFAULT_MAP_CENTER = [20, 0]
 DEFAULT_MAP_ZOOM = 2
 
@@ -19,6 +20,7 @@ EVENT_TYPES = {
 }
 
 # Impact levels
+# Numeric levels let the app sort or compare severities.
 IMPACT_LEVELS = {
     "Critical": {"color": "#8B0000", "level": 3},
     "High": {"color": "#FF4500", "level": 2},
@@ -83,6 +85,7 @@ MAJOR_SHIPPING_ROUTES = {
 
 # Reference fleet sizes per route (vessels/day) — used for cost impact calculations
 ROUTE_FLEET_SIZES = {
+    # These values estimate how many vessels may be affected each day.
     "Suez Canal":        55,   # ~20k vessels/year
     "Strait of Hormuz":  35,
     "Singapore Strait":  80,   # busiest strait by vessel count
@@ -93,6 +96,7 @@ ROUTE_FLEET_SIZES = {
 
 # Status string → line color on the globe
 ROUTE_STATUS_COLORS = {
+    # Map route status labels to route line colors.
     "Operational":              "limegreen",
     "Operational - Alert":      "yellow",
     "Operational - High Risk":  "orange",

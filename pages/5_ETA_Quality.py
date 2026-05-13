@@ -49,6 +49,7 @@ render_nav()
 
 
 # ── Match any open predictions before computing metrics ────────────────────
+# Close predictions that now have matching AIS data.
 match_counts = match_open_predictions()
 metrics = compute_quality_metrics(window_days=30)
 
@@ -71,6 +72,7 @@ st.caption(
 # ══════════════════════════════════════════════════════════════════════════
 
 def _load_meta() -> dict:
+    # Read the saved training details for the explanation panels.
     p = Path(__file__).resolve().parent.parent / "models" / "eta_meta.json"
     if not p.exists():
         return {}
@@ -80,6 +82,7 @@ def _load_meta() -> dict:
         return {}
 
 
+# Metadata tells the page when and how the model was trained.
 meta = _load_meta()
 
 with st.container(border=True):
@@ -172,6 +175,7 @@ with st.container(border=True):
             value=float(_speed_default), step=0.5, key="eq_speed_pick",
         )
 
+    # Build the same feature row used for a live ETA prediction.
     feats = live_features_for_chokepoint(
         cp_pick, ship_type=_ship_bin, entry_sog_kn=float(speed_pick),
     )
@@ -298,6 +302,7 @@ with st.container(border=True):
             import sqlite3 as _sql
             db = Path(__file__).resolve().parent.parent / ".ais_positions.db"
             with _sql.connect(db, timeout=5.0) as con:
+                # Load recently matched predictions for the scatter chart.
                 scatter_df = pd.read_sql_query(
                     "SELECT chokepoint_id, p50_min, p10_min, p90_min, actual_min, mmsi "
                     "FROM eta_predictions "
@@ -423,6 +428,7 @@ with st.container(border=True):
     if not by_cp:
         st.caption("No finished predictions yet — table fills in as transits complete.")
     else:
+        # Build one accuracy row per chokepoint.
         rows = []
         for cp, m in by_cp.items():
             train_mae = float(training_per_cp.get(cp, 0.0) or 0.0)
@@ -471,6 +477,7 @@ with st.container(border=True):
 
     try:
         from eta_scheduler import next_retrain_eta, retrain_now
+        # Show whether the background retrainer is ready to run.
         sched = next_retrain_eta()
         hours_left = sched["seconds_until_cooldown_clears"] / 3600.0
         if sched["cooldown_elapsed"] and sched["enough_data"]:

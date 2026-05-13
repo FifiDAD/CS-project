@@ -28,6 +28,7 @@ inject_css()
 
 # ── Data ──────────────────────────────────────────────────────────────────────
 with lottie_loader():
+    # Load events, route status, regional risk, and news while the loader shows.
     events_df, oil_price, shipping_index, exchange_rates = load_core_data()
     events_json = events_df.to_json() if len(events_df) > 0 else pd.DataFrame().to_json()
     shipping_df  = compute_shipping_status(events_json)
@@ -57,6 +58,7 @@ render_nav()
 # Intelligence brief
 brief_lines = generate_intel_brief(filtered_events, news_feed_df, shipping_df)
 if brief_lines:
+    # Render the generated brief as compact labelled lines.
     brief_html = ""
     for ln in brief_lines:
         clean_ln = ln.replace("**", "")
@@ -99,6 +101,7 @@ with feed_left:
 
     # ── NGA Maritime Safety Warnings ──────────────────────────────────────────
     try:
+        # Pull official maritime warnings for the safety panel.
         nga_df = fetch_nga_warnings()
     except Exception:  # noqa: BLE001
         nga_df = pd.DataFrame()
@@ -129,6 +132,7 @@ with feed_left:
     # Recommended actions
     alerts = RiskAnalytics.get_regional_alerts(filtered_events, threshold_hours=48)
     if alerts:
+        # Show recent event-based action suggestions.
         st.markdown('<div class="tw-label" style="margin-top:12px">Recommended Actions</div>',
                     unsafe_allow_html=True)
         for alert in alerts[:5]:
@@ -211,6 +215,7 @@ with feed_right:
     active_topic = st.session_state.get("news_topic_filter", "All")
     tp_cols = st.columns(6)
     for tc, t in zip(tp_cols, ["All", "conflict", "shipping", "trade", "weather", "other"]):
+        # Topic buttons filter the news feed without leaving the page.
         lbl = "OTHER" if t == "other" else ("ALL" if t == "All" else t[:4].upper())
         if tc.button(lbl, key=f"tp_{t}",
                      type="primary" if active_topic == t else "secondary",
@@ -247,6 +252,7 @@ with feed_right:
         )
 
     if len(disp) > 0:
+        # Group articles into maritime regions before rendering.
         regions = cluster_news_by_region(disp)
         # Build the scrolling HTML with collapsible region sections
         sections_html = ""

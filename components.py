@@ -37,6 +37,7 @@ ROUTE_PORT_MAP = {
 
 
 def _risk_score_color(score: int) -> str:
+    # Map risk score ranges to traffic-light colors.
     if score >= 70:   return "#FF2222"
     if score >= 40:   return "#FF8C00"
     if score >= 15:   return "#FFD700"
@@ -68,6 +69,7 @@ def render_route_card(row: pd.Series, selected_route: str | None, port_cong_df: 
     rscolor = _risk_score_color(risk_score)
 
     # Highlight selected route with accent border
+    # The selected route is shown with a stronger border.
     selected = selected_route == route
     outer_border = "2px solid #2e7fff" if selected else f"1px solid #1a3a6c"
 
@@ -75,6 +77,7 @@ def render_route_card(row: pd.Series, selected_route: str | None, port_cong_df: 
     wind_html = ""
     nearest_port = ROUTE_PORT_MAP.get(route)
     if nearest_port and port_cong_df is not None and len(port_cong_df) > 0:
+        # Add weather details from the nearest mapped port when available.
         port_row = port_cong_df[port_cong_df["Port"] == nearest_port]
         if len(port_row) > 0:
             wind_ms = port_row.iloc[0].get("Wind (m/s)", 0)
@@ -146,6 +149,7 @@ def render_alert_strip(events_df: pd.DataFrame, max_alerts: int = 4) -> None:
 
     alerts = events_df[events_df["impact"].isin(["Critical", "High"])].sort_values("date", ascending=False).head(max_alerts)
     if len(alerts) == 0:
+        # If there are no severe alerts, show the newest events instead.
         alerts = events_df.sort_values("date", ascending=False).head(max_alerts)
 
     html = ""
@@ -188,6 +192,7 @@ def render_comparison_table(
         cost       = row["Cost Impact"]
 
         # Apply scenario override
+        # Scenario overrides force a route into the worst-case display state.
         if scenario_overrides and route in scenario_overrides:
             status     = "Critical - Avoid"
             risk_score = 100
@@ -201,6 +206,7 @@ def render_comparison_table(
         rec_color = "#00CC44" if is_best else "#6b9cc4"
 
         # Port congestion for nearest port
+        # Show congestion for the nearest port tied to this route.
         nearest = ROUTE_PORT_MAP.get(route)
         cong_text = "—"
         if nearest and port_cong_df is not None and len(port_cong_df) > 0:
@@ -258,6 +264,7 @@ def generate_intel_brief(events_df: pd.DataFrame, news_df: pd.DataFrame, shippin
     if not events_df.empty:
         critical = events_df[events_df["impact"] == "Critical"]
         if len(critical) > 0:
+            # Lead with the newest critical event.
             top = critical.sort_values("date", ascending=False).iloc[0]
             lines.append(f"🚨 **Most severe event:** {top['type']} in **{top['location']}** — {str(top.get('description',''))[:80]}")
 
@@ -285,6 +292,7 @@ def filter_events(events_df, event_type=None, impact_level=None, search_text=Non
     """Filter events by type, impact, and free text search."""
     filtered = events_df.copy()
     if event_type and event_type != "All Types":
+        # Apply each filter only when the user selected a real value.
         filtered = filtered[filtered["type"] == event_type]
     if impact_level and impact_level != "All Levels":
         filtered = filtered[filtered["impact"] == impact_level]
