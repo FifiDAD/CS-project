@@ -34,6 +34,7 @@ from eta_model import CHOKEPOINT_BBOXES, _ensure_predictions_table
 # ---------------------------------------------------------------------------
 
 _HERE = Path(__file__).resolve().parent
+# Use the same local database and model metadata as the ETA predictor.
 DB_PATH = _HERE / ".ais_positions.db"
 META_PATH = _HERE / "models" / "eta_meta.json"
 
@@ -74,6 +75,7 @@ def _find_next_transit(
     if not bbox:
         return None
     lat_min, lon_min, lat_max, lon_max = bbox
+    # Find sightings for this vessel inside this chokepoint after the prediction.
     rows = con.execute(
         """SELECT ts FROM sightings
            WHERE mmsi = ? AND ts >= ? AND ts <= ?
@@ -131,6 +133,7 @@ def match_open_predictions(
 
     now_ts = time.time()
     lookback_sec = lookback_h * 3600
+    # Rows without MMSI can only expire, because they cannot match a vessel.
     null_lookback_sec = (null_mmsi_lookback_h if null_mmsi_lookback_h is not None else lookback_h) * 3600
     matched = expired = still_open = 0
 
@@ -249,6 +252,7 @@ def _open_counts(db: Path) -> tuple[int, int]:
 
 
 def _pinball_loss(actual: np.ndarray, pred: np.ndarray, alpha: float) -> float:
+    # Measure how good one quantile prediction is.
     diff = actual - pred
     return float(np.mean(np.maximum(alpha * diff, (alpha - 1) * diff)))
 
@@ -306,11 +310,13 @@ def compute_quality_metrics(
 
     by_cp: dict[str, dict[str, float]] = {}
     if not df.empty:
+        # Build separate metrics for each chokepoint.
         for cp, group in df.groupby("chokepoint_id"):
             by_cp[str(cp)] = _row_metrics(group)
 
     by_day: list[dict[str, Any]] = []
     if not df.empty:
+        # Build daily metrics for the trend chart.
         df_day = df.assign(
             day=pd.to_datetime(df["predicted_at"], unit="s").dt.floor("D")
         )
@@ -380,6 +386,7 @@ def recent_predictions(
     except (sqlite3.Error, pd.errors.DatabaseError):
         return pd.DataFrame()
     if not df.empty:
+        # Convert stored seconds into readable timestamps.
         df["predicted_at"] = pd.to_datetime(df["predicted_at"], unit="s")
     return df
 
@@ -417,6 +424,7 @@ def live_features_for_chokepoint(
     queue = 0
     throughput = 0
     if db.exists():
+        # Count unique vessels so repeated AIS messages do not inflate totals.
         try:
             with sqlite3.connect(db, timeout=5.0) as con:
                 row = con.execute(
@@ -484,6 +492,7 @@ def compute_confidence_score(
     live_pts = 0.0
     live_label = ""
     if quality and isinstance(quality.get("by_chokepoint"), dict):
+        # Add live accuracy only when this chokepoint has enough matched rows.
         cp_q = quality["by_chokepoint"].get(chokepoint_id)
         if cp_q and cp_q.get("n_closed", 0) >= 5:
             acc15 = float(cp_q.get("accuracy_pct_15", 0.0) or 0.0)

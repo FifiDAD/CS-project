@@ -20,6 +20,7 @@ def isolated_models_dir(tmp_path, monkeypatch):
     Done by importing train_eta_model and rebinding the module-level paths.
     """
     import train_eta_model as t
+    # Store generated model files in the test temp directory.
     monkeypatch.setattr(t, "MODELS_DIR", tmp_path / "models")
     monkeypatch.setattr(t, "ARTIFACT_PATH", tmp_path / "models" / "eta_xgb.joblib")
     monkeypatch.setattr(t, "META_PATH", tmp_path / "models" / "eta_meta.json")
@@ -50,6 +51,7 @@ def test_trainer_refuses_below_threshold(tmp_path, monkeypatch):
     """Trainer must exit nonzero when there's not enough data and --seed not supplied."""
     import train_eta_model as t
 
+    # Use an empty database path so the trainer cannot meet the data threshold.
     monkeypatch.setattr(t, "DEFAULT_DB", tmp_path / "missing.db")
     monkeypatch.setattr(t, "MODELS_DIR", tmp_path / "models")
     monkeypatch.setattr(t, "ARTIFACT_PATH", tmp_path / "models" / "eta_xgb.joblib")

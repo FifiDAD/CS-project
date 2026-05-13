@@ -51,6 +51,7 @@ def _insert_prediction(
     source: str = "model",
 ) -> str:
     import uuid
+    # Give each test prediction a unique row id.
     pid = uuid.uuid4().hex
     with sqlite3.connect(db) as con:
         con.execute(
@@ -75,6 +76,7 @@ def _insert_sighting(db: Path, *, mmsi: int, lat: float, lon: float, ts: float) 
 def fresh_db(tmp_path: Path, monkeypatch) -> Path:
     db = tmp_path / "test.db"
     _seed_db(db)
+    # Redirect both modules to the test database.
     monkeypatch.setattr(eta_quality, "DB_PATH", db)
     monkeypatch.setattr(eta_model, "_DB_PATH", db)
     monkeypatch.setattr(eta_model, "_PREDICTIONS_TABLE_READY", False)
@@ -127,6 +129,7 @@ def test_match_open_predictions_fills_actual(fresh_db: Path):
         fresh_db, cp="Suez Canal", predicted_at=t_pred, mmsi=42,
         p10=600, p50=900, p90=1300,
     )
+    # Prediction is followed by sightings from the same MMSI.
     # Two sightings inside Suez bbox (27..33 lat, 31..35 lon), separated
     # by 15h so the run is bounded by the lookback.
     _insert_sighting(fresh_db, mmsi=42, lat=30.0, lon=32.5, ts=t_entry)
@@ -188,6 +191,7 @@ def test_compute_quality_metrics_empty(fresh_db: Path):
 def test_compute_quality_metrics_perfect_predictions(fresh_db: Path):
     """When p50 == actual for every row, MAE=0, accuracy=100%, coverage=1.0."""
     now = time.time()
+    # Insert matched rows where prediction equals reality.
     for i in range(20):
         _insert_prediction(
             fresh_db, cp="Suez Canal", predicted_at=now - i * 3600,
