@@ -35,6 +35,13 @@ from api_config import (
 
 _GDELT_HEADERS = {"User-Agent": "LogisticsDashboard/1.0 (contact: ops@example.com)"}
 
+# Shared HTTP session for connection reuse. Keep-alive + TLS handshake reuse
+# meaningfully shaves cold-load time across the many sequential calls to
+# GDELT, FRED, OpenWeather, Open-Meteo, NewsAPI, Guardian, etc. Behaviour
+# is identical to module-level _SESSION.get() because requests_cache (when
+# installed above) patches both functions and sessions.
+_SESSION = requests.Session()
+
 
 def _gdelt_get(url: str, params: dict, timeout: int = 10) -> requests.Response | None:
     """GDELT throttles to 1 req / 5 sec and gets stricter after repeated 429s.
@@ -42,7 +49,7 @@ def _gdelt_get(url: str, params: dict, timeout: int = 10) -> requests.Response |
     import time as _t
     for attempt, nap in enumerate((6, 12, 20)):
         try:
-            r = requests.get(url, params=params, headers=_GDELT_HEADERS, timeout=timeout)
+            r = _SESSION.get(url, params=params, headers=_GDELT_HEADERS, timeout=timeout)
         except requests.RequestException:
             return None
         if r.status_code == 429 and attempt < 2:
@@ -116,7 +123,7 @@ class APIClient:
                 'apiKey': NEWSAPI_KEY
             }
 
-            response = requests.get(url, params=params, timeout=5)
+            response = _SESSION.get(url, params=params, timeout=5)
             response.raise_for_status()
 
             articles = response.json().get('articles', [])
@@ -150,7 +157,7 @@ class APIClient:
                 'api-key': GUARDIAN_API_KEY
             }
 
-            response = requests.get(url, params=params, timeout=10)
+            response = _SESSION.get(url, params=params, timeout=10)
             response.raise_for_status()
 
             results = response.json().get('response', {}).get('results', [])
@@ -180,7 +187,7 @@ class APIClient:
         }.get((min_mag, days),
               "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_week.geojson")
         try:
-            r = requests.get(feed, timeout=15)
+            r = _SESSION.get(feed, timeout=15)
             r.raise_for_status()
             features = r.json().get("features", [])
         except (requests.RequestException, ValueError):
@@ -300,7 +307,7 @@ class APIClient:
         if not GNEWS_KEY:
             return pd.DataFrame()
         try:
-            r = requests.get(
+            r = _SESSION.get(
                 "https://gnews.io/api/v4/search",
                 params={
                     "q":     query,
@@ -344,7 +351,7 @@ class APIClient:
         if not NEWSDATA_KEY:
             return pd.DataFrame()
         try:
-            r = requests.get(
+            r = _SESSION.get(
                 "https://newsdata.io/api/1/news",
                 params={
                     "q":        query,
@@ -391,7 +398,7 @@ class APIClient:
                 'sort_order': 'desc',
             }
 
-            response = requests.get(url, params=params, timeout=5)
+            response = _SESSION.get(url, params=params, timeout=5)
             if response.status_code == 200:
                 data = response.json()
                 observations = data.get('observations', [])
@@ -421,7 +428,7 @@ class APIClient:
                 'sort_order': 'desc',
             }
 
-            response = requests.get(url, params=params, timeout=5)
+            response = _SESSION.get(url, params=params, timeout=5)
             if response.status_code == 200:
                 data = response.json()
                 observations = data.get('observations', [])
@@ -441,7 +448,7 @@ class APIClient:
         try:
             url = f"{NOAA_ALERTS_URL}?point={lat},{lon}"
 
-            response = requests.get(url, timeout=5)
+            response = _SESSION.get(url, timeout=5)
             response.raise_for_status()
 
             features = response.json().get('features', [])
@@ -479,7 +486,7 @@ class APIClient:
                 "appid": OPENWEATHER_KEY,
                 "units": "metric",
             }
-            response = requests.get(OPENWEATHER_URL, params=params, timeout=5)
+            response = _SESSION.get(OPENWEATHER_URL, params=params, timeout=5)
             response.raise_for_status()
             data = response.json()
             return {
@@ -506,7 +513,7 @@ class APIClient:
                 'per_page': 10,
             }
 
-            response = requests.get(url, params=params, timeout=5)
+            response = _SESSION.get(url, params=params, timeout=5)
             response.raise_for_status()
 
             data = response.json()
@@ -522,7 +529,7 @@ class APIClient:
         """Get currencies from Open Exchange Rates (free tier)"""
         try:
             url = "https://api.exchangerate-api.com/v4/latest/USD"
-            response = requests.get(url, timeout=5)
+            response = _SESSION.get(url, timeout=5)
             response.raise_for_status()
 
             data = response.json()
@@ -552,7 +559,7 @@ class APIClient:
                 "current": "wave_height,wave_period,wind_wave_height,swell_wave_height,ocean_current_velocity,ocean_current_direction",
                 "timezone": "UTC",
             }
-            r = requests.get(OPEN_METEO_MARINE, params=params, timeout=10)
+            r = _SESSION.get(OPEN_METEO_MARINE, params=params, timeout=10)
             r.raise_for_status()
             current = r.json().get("current", {}) or {}
             return {
@@ -575,7 +582,7 @@ class APIClient:
         Empty dict on failure. Cached 1h (Open-Meteo updates hourly).
         """
         try:
-            r = requests.get(
+            r = _SESSION.get(
                 "https://api.open-meteo.com/v1/forecast",
                 params={
                     "latitude": lat,
@@ -606,7 +613,7 @@ class APIClient:
         from bs4 import BeautifulSoup
 
         try:
-            r = requests.get(
+            r = _SESSION.get(
                 SHIPANDBUNKER_URL,
                 headers={"User-Agent": "Mozilla/5.0 LogisticsDashboard/1.0"},
                 timeout=15,

@@ -4,11 +4,15 @@ import streamlit as st
 import pandas as pd
 from streamlit_autorefresh import st_autorefresh
 
+from concurrent.futures import ThreadPoolExecutor
+
 from analytics import RiskAnalytics
 from maps import create_dashboard_map
 from components import filter_events
 from dynamic_status import compute_shipping_status, compute_port_congestion
 from data_loader import load_core_data
+from disk_cache import disk_cached
+from api_config import CACHE_TTL_EVENTS, CACHE_TTL_PRICES
 from ui_helpers import (
     inject_css, render_header, render_nav, render_footer,
     SC, SBG, risk_col, IMPACT_COL, IMPACT_ICON, lottie_loader, CONG_COL,
@@ -46,10 +50,27 @@ if "has_seen_welcome" not in st.session_state:
 # 15–30 min; compute_shipping_status / compute_port_congestion are cached
 # separately and accept a JSON string (not a DataFrame) as the cache key.
 with lottie_loader():
-    events_df, oil_price, shipping_index, exchange_rates = load_core_data()
+    # Disk cache survives Streamlit restarts (Streamlit's @st.cache_data
+    # is per-process). On the second restart within the TTL window the
+    # heavy API + GDELT round-trips are skipped entirely.
+    events_df, oil_price, shipping_index, exchange_rates = disk_cached(
+        "core_data:v1", CACHE_TTL_PRICES, load_core_data,
+    )
     events_json = events_df.to_json() if len(events_df) > 0 else pd.DataFrame().to_json()
-    shipping_df  = compute_shipping_status(events_json)
-    port_cong_df = compute_port_congestion(events_json)
+    # shipping_status and port_congestion both *read* events_json and
+    # neither writes shared state — run them concurrently so wall-clock
+    # is max(t_shipping, t_ports) instead of the sum.
+    def _shipping(j=events_json):
+        return disk_cached(f"shipping:{hash(j)}", CACHE_TTL_EVENTS,
+                           compute_shipping_status, j)
+    def _ports(j=events_json):
+        return disk_cached(f"ports:{hash(j)}", CACHE_TTL_EVENTS,
+                           compute_port_congestion, j)
+    with ThreadPoolExecutor(max_workers=2) as _pool:
+        _f_ship = _pool.submit(_shipping)
+        _f_port = _pool.submit(_ports)
+        shipping_df  = _f_ship.result()
+        port_cong_df = _f_port.result()
 
 # Surface live-feed health rather than silently substituting defaults.
 if events_df is None or len(events_df) == 0:

@@ -1,5 +1,6 @@
 """Shared cached data loading — used by all TradeWatch pages."""
 import threading
+from concurrent.futures import ThreadPoolExecutor
 
 import pandas as pd
 import streamlit as st
@@ -13,11 +14,15 @@ from api_config import CACHE_TTL_EVENTS
 @st.cache_data(ttl=CACHE_TTL_EVENTS)
 def load_core_data():
     # Shared hot path for every page: load live events and market context once.
-    events         = get_events_data()
-    oil_price      = APIClient.get_oil_price()
-    shipping_idx   = APIClient.get_shipping_index()
-    exchange_rates = APIClient.get_exchange_rates()
-    return events, oil_price, shipping_idx, exchange_rates
+    # The four calls are independent — fan out across a small thread pool so
+    # wall-clock = max(call) instead of sum(call). Each call already has its
+    # own @st.cache_data, retries, and timeouts; return values are unchanged.
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        f_events   = pool.submit(get_events_data)
+        f_oil      = pool.submit(APIClient.get_oil_price)
+        f_freight  = pool.submit(APIClient.get_shipping_index)
+        f_fx       = pool.submit(APIClient.get_exchange_rates)
+        return f_events.result(), f_oil.result(), f_freight.result(), f_fx.result()
 
 
 # Single-flight lock so multiple Landing reruns don't stack identical

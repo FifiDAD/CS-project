@@ -4,6 +4,7 @@
 .ais_positions.db-shm
 .ais_positions.db-wal
 .requests_cache.sqlite
+.cache/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
