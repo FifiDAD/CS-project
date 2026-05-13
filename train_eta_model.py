@@ -84,7 +84,7 @@ class FoldResult:
 # Data loading / validation
 # ---------------------------------------------------------------------------
 
-def _load_data(db_path: Path, use_seed: bool) -> pd.DataFrame:
+def _load_data(db_path: Path, use_seed: bool, fast: bool = False) -> pd.DataFrame:
     # Extract only commercial AIS transits so leisure/fishing/military tracks
     # do not distort chokepoint ETA estimates for shipping routes.
     real = extract_transits(db_path, commercial_only=True)
@@ -100,13 +100,15 @@ def _load_data(db_path: Path, use_seed: bool) -> pd.DataFrame:
         )
         print(f"  vessel mix: {bin_breakdown}")
         # Diagnostic: how many rows the SQL filter dropped this run.
-        try:
-            unfiltered_n = len(extract_transits(db_path, commercial_only=False))
-            excluded_n = max(0, unfiltered_n - real_n)
-            if excluded_n:
-                print(f"  excluded: {excluded_n} fishing/pleasure/military transits skipped")
-        except Exception:  # noqa: BLE001  diagnostic only
-            pass
+        # Skipped under --fast: it re-extracts the entire transits table.
+        if not fast:
+            try:
+                unfiltered_n = len(extract_transits(db_path, commercial_only=False))
+                excluded_n = max(0, unfiltered_n - real_n)
+                if excluded_n:
+                    print(f"  excluded: {excluded_n} fishing/pleasure/military transits skipped")
+            except Exception:  # noqa: BLE001  diagnostic only
+                pass
 
     if not use_seed:
         return real
@@ -410,12 +412,16 @@ def main() -> None:
         help="Skip CV + hyperparam sweep (use default config). Faster for iteration.",
     )
     parser.add_argument("--cv-splits", type=int, default=5, help="Number of time-series CV folds")
+    parser.add_argument(
+        "--fast", action="store_true",
+        help="Fast retrain: small n_estimators, skip SHAP + plots. For UI 'Retrain' button.",
+    )
     args = parser.parse_args()
 
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
     db_path = Path(args.db)
 
-    df = _load_data(db_path, use_seed=args.seed)
+    df = _load_data(db_path, use_seed=args.seed, fast=args.fast)
     if df.empty:
         print("ERROR: no training rows found. Use --seed for cold start.")
         sys.exit(1)
@@ -453,6 +459,8 @@ def main() -> None:
                 "skipping CV. Use --cv-splits=3 to force."
             )
         best_hp = {"max_depth": 5, "n_estimators": 300, "learning_rate": 0.08}
+        if args.fast:
+            best_hp = {"max_depth": 4, "n_estimators": 80, "learning_rate": 0.15}
         print(f"Using default config: {best_hp}")
     else:
         best_hp, hp_search, cv_folds = _hyperparameter_sweep(
@@ -543,9 +551,12 @@ def main() -> None:
     import joblib
     joblib.dump(bundle, ARTIFACT_PATH)
     META_PATH.write_text(json.dumps(bundle["meta"], indent=2, default=str))
-    _save_feature_importance(q50, feat_names, IMPORTANCE_PNG)
-    _save_calibration_plot(y_test, p50_pred, CALIBRATION_PNG)
-    shap_ok = _save_shap_values(q50, X_test, feat_names)
+    if args.fast:
+        shap_ok = False
+    else:
+        _save_feature_importance(q50, feat_names, IMPORTANCE_PNG)
+        _save_calibration_plot(y_test, p50_pred, CALIBRATION_PNG)
+        shap_ok = _save_shap_values(q50, X_test, feat_names)
 
     size_kb = ARTIFACT_PATH.stat().st_size // 1024
     print(f"\nSaved {_fmt_path(ARTIFACT_PATH)} ({size_kb} KB)")

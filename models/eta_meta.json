@@ -1,20 +1,15 @@
 {
   "model_version": "1.0",
-  "trained_at": 1778414149.31858,
-  "n_train": 1248,
-  "n_test": 312,
-  "mae_minutes": 120.77,
-  "r2": 0.3486,
+  "trained_at": 1778668250.508099,
+  "n_train": 1491,
+  "n_test": 373,
+  "mae_minutes": 157.84,
+  "r2": -0.6378,
   "per_chokepoint_mae": {
-    "Bab el-Mandeb": 19.8,
-    "Bosphorus": 43.4,
-    "English Channel": 154.8,
-    "Panama Canal": 52.0,
-    "Singapore Strait": 39.7,
-    "Strait of Hormuz": 42.8,
-    "Strait of Malacca": 51.0,
-    "Suez Canal": 163.5,
-    "Taiwan Strait": 98.4
+    "Bosphorus": 30.0,
+    "English Channel": 160.3,
+    "Singapore Strait": 320.6,
+    "Suez Canal": 112.4
   },
   "feature_names": [
     "chokepoint_id_Bab el-Mandeb",
@@ -39,21 +34,21 @@
     "recent_throughput_24h",
     "bbox_diagonal_km"
   ],
-  "real_rows": 200,
-  "synthetic_rows": 1360,
+  "real_rows": 674,
+  "synthetic_rows": 1190,
   "best_hp": {
-    "max_depth": 5,
-    "n_estimators": 300,
-    "learning_rate": 0.08
+    "max_depth": 4,
+    "n_estimators": 80,
+    "learning_rate": 0.15
   },
   "hp_search_top5": [],
   "cv_summary": null,
   "vessel_mix": {
-    "container": 402,
-    "unknown": 364,
-    "tanker": 272,
-    "bulker": 265,
-    "other": 257
+    "unknown": 642,
+    "container": 447,
+    "tanker": 287,
+    "other": 259,
+    "bulker": 229
   },
   "sample_weight_schedule": {
     "container": 1.0,

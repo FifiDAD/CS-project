@@ -88,7 +88,7 @@ def _real_row_count() -> int:
         return 0
 
 
-def retrain_now(use_seed_fallback: bool = True) -> tuple[bool, str]:
+def retrain_now(use_seed_fallback: bool = True, fast: bool = False) -> tuple[bool, str]:
     """Invoke the trainer in a subprocess. Returns (success, message).
 
     Runs train_eta_model.py with --no-cv for fast subprocess turn-around (CV
@@ -99,17 +99,21 @@ def retrain_now(use_seed_fallback: bool = True) -> tuple[bool, str]:
     # Close out any open predictions first so the dashboard's live MAE
     # picks up the most recent transits, and so any future training
     # extension that pulls from eta_predictions sees up-to-date labels.
-    try:
-        from eta_quality import match_open_predictions
-        match_open_predictions()
-    except Exception as exc:  # noqa: BLE001  matcher failure must not block retrain
-        _log.warning("eta_scheduler: pre-retrain match failed: %s", exc)
+    # Skipped in fast mode — the matcher does a per-prediction sqlite scan.
+    if not fast:
+        try:
+            from eta_quality import match_open_predictions
+            match_open_predictions()
+        except Exception as exc:  # noqa: BLE001  matcher failure must not block retrain
+            _log.warning("eta_scheduler: pre-retrain match failed: %s", exc)
 
     # Run the trainer out-of-process so model imports, native libraries, and
     # memory use cannot destabilize the Streamlit app process.
     args = [sys.executable, str(_TRAINER_SCRIPT), "--no-cv"]
     if use_seed_fallback:
         args.append("--seed")
+    if fast:
+        args.append("--fast")
     try:
         proc = subprocess.run(
             args,

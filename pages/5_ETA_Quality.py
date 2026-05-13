@@ -92,6 +92,24 @@ with st.container(border=True):
     n_real = int(meta.get("real_rows", 0))
     n_synth = int(meta.get("synthetic_rows", 0))
     n_train_total = int(meta.get("n_train", 0))
+
+    st.caption(
+        f"Last retrained: {trained_str} · {n_train_total:,} transits "
+        f"({n_real:,} real · {n_synth:,} simulated)"
+    )
+    if st.button("Retrain model", key="eq_retrain_top"):
+        try:
+            from eta_scheduler import retrain_now as _retrain_now
+            with st.spinner("Retraining…"):
+                ok, msg = _retrain_now(use_seed_fallback=True, fast=True)
+            (st.success if ok else st.error)(msg)
+            if ok:
+                st.cache_data.clear()
+                st.cache_resource.clear()
+                st.rerun()
+        except Exception as exc:  # noqa: BLE001
+            st.error(f"Retrain failed: {exc}")
+
     st.markdown(
         f"""
 **What we're predicting.** For each major shipping chokepoint on a route
