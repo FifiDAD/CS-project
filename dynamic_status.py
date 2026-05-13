@@ -176,15 +176,17 @@ def compute_shipping_status(events_json: str) -> pd.DataFrame:
             (len(events_df) > 0) or (news_signal > 0) or nga_alive or ais_transits > 0
         )
 
-        # Composite risk score 0–100. Rebalanced so a single dominant input
-        # can't peg the score on its own:
-        #   - NGA contributes up to +45 (was +80) — a closure-class warning
-        #     should be a strong signal, not the only signal.
-        #   - AIS drop is capped at +25 (was +50) so a noisy day can't
-        #     account for half the score.
-        #   - News uses multi-source clusters (×6) instead of raw GDELT
-        #     article counts (was ×3). Clusters are far rarer than
-        #     articles, so a trending headline no longer floods the score.
+        # ─── THE CHOKEPOINT RISK FORMULA ────────────────────────────────
+        # This is the headline 0-100 score every chokepoint card shows.
+        # Five signals are blended, each capped so no single source can
+        # dominate. The weights were rebalanced after early versions let
+        # one trending headline peg the score to 100.
+        #   - nga_sev × 45        official navigation warnings (up to 45)
+        #   - ais_points (≤25)    AIS transit drop vs 7-day baseline
+        #   - critical_nearby×25  confirmed nearby Critical events
+        #   - high_nearby × 10    nearby High-impact events
+        #   - clusters × 6        multi-source corroborated news clusters
+        # Final cap at 100 — that's the worst the UI shows.
         risk_score = min(
             100,
             int(round(nga_sev * 45))
@@ -194,6 +196,11 @@ def compute_shipping_status(events_json: str) -> pd.DataFrame:
             + int(round(news_clusters_score * 6))
         )
 
+        # Convert the 0-100 score into the four UI states.
+        # Each band sets a friendly status label, an expected delay in
+        # hours, and a cost-impact percentage — both scaled linearly with
+        # how far inside the band the score sits. "Unavailable" is shown
+        # when every upstream is silent so we can't say anything reliably.
         if not feed_alive:
             status  = "Unavailable"
             delay_h = 0
@@ -272,6 +279,11 @@ def compute_risk_summary(events_json: str) -> pd.DataFrame:
             events_df, coords["lat"], coords["lon"], radius_km
         )
 
+        # Tally events by impact level. The regional risk formula
+        # weights them 3 / 2 / 1 — critical events count three times as
+        # much as ordinary ones. (total - critical - high) is the count
+        # of everything that is neither critical nor high — i.e. the
+        # "background noise" rows that still nudge the score up a bit.
         critical = len(nearby[nearby["impact"] == "Critical"]) if len(nearby) > 0 else 0
         high     = len(nearby[nearby["impact"] == "High"]) if len(nearby) > 0 else 0
         total    = len(nearby)

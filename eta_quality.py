@@ -75,7 +75,11 @@ def _find_next_transit(
     if not bbox:
         return None
     lat_min, lon_min, lat_max, lon_max = bbox
-    # Find sightings for this vessel inside this chokepoint after the prediction.
+    # Pull every AIS sighting of THIS vessel that landed inside THIS
+    # chokepoint's bounding box, within the lookback window. We use
+    # `after_ts - entry_grace_sec` as the lower bound so a sighting that
+    # arrived a few seconds *before* predicted_at (due to AIS sampling
+    # cadence) still counts as the entry — see docstring above.
     rows = con.execute(
         """SELECT ts FROM sightings
            WHERE mmsi = ? AND ts >= ? AND ts <= ?
@@ -272,13 +276,16 @@ def _row_metrics(df: pd.DataFrame) -> dict[str, float]:
             "pinball_p50": 0.0,
             "pinball_p90": 0.0,
         }
+    # Pull the four columns we care about as numpy arrays for vectorised math.
     actual = df["actual_min"].to_numpy(dtype=float)
     p10 = df["p10_min"].to_numpy(dtype=float)
     p50 = df["p50_min"].to_numpy(dtype=float)
     p90 = df["p90_min"].to_numpy(dtype=float)
+    # MAE = average of |median prediction − actual|. The headline accuracy
+    # number for a quantile model — what the operator sees on the chip.
     abs_err = np.abs(p50 - actual)
-    # Cap pct error denominator to avoid blow-up on near-zero actuals (which
-    # shouldn't happen given the 5-min floor, but belt-and-braces).
+    # MAPE uses a clamped denominator so a freak 0-minute actual can't
+    # divide-by-zero. Floor of 1 min is well below the 5-min transit floor.
     denom = np.maximum(actual, 1.0)
     pct_err = np.abs(p50 - actual) / denom
     return {

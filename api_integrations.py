@@ -1,4 +1,22 @@
-"""API Integration Module - Fetch real data from free APIs"""
+"""API Integration Module — fetch real data from external services.
+
+This module is the dashboard's single point of contact with the
+outside world. Everything live (oil price, news, weather, conflict
+events, NGA warnings, FX, shipping index, vessel tracks) flows
+through `APIClient` static methods declared below.
+
+Three layered defences against upstream flakiness:
+
+1. **Shared session** (`_SESSION`) — connection re-use, fewer TLS
+   handshakes, faster cold loads when we hit many services.
+2. **Persistent on-disk HTTP cache** (`requests_cache`) — survives
+   process restarts, so a dev reload doesn't burn API quota.
+3. **Streamlit `@st.cache_data` TTL** on every public method —
+   memoises within one user session for the configured TTL.
+
+GDELT is the only upstream that throttles aggressively, so it gets
+its own retry helper (`_gdelt_get`) with growing back-off.
+"""
 
 import os
 from pathlib import Path
@@ -47,12 +65,23 @@ def _gdelt_get(url: str, params: dict, timeout: int = 10) -> requests.Response |
     """GDELT throttles to 1 req / 5 sec and gets stricter after repeated 429s.
     Retry with growing back-off (6s, 12s, 20s)."""
     import time as _t
+    # Three attempts with growing sleep between them. Why these
+    # specific values: GDELT's documented limit is one request every
+    # five seconds, so 6s clears the first throttle, 12s lets a
+    # repeated 429 cool down, and 20s is the polite ceiling before we
+    # give up and let the caller fall back to cached data.
     for attempt, nap in enumerate((6, 12, 20)):
         try:
-            # Send every GDELT request through the same retry helper.
+            # Use the shared session so cookies + keep-alive persist
+            # across retries. If the network itself blew up (DNS,
+            # timeout, etc), bail immediately — there's nothing to
+            # retry against.
             r = _SESSION.get(url, params=params, headers=_GDELT_HEADERS, timeout=timeout)
         except requests.RequestException:
             return None
+        # 429 = Too Many Requests. Sleep then retry, but only twice
+        # (attempt < 2). On the third try, return whatever we got so
+        # the caller can decide whether the partial response is usable.
         if r.status_code == 429 and attempt < 2:
             _t.sleep(nap)
             continue
@@ -389,11 +418,23 @@ class APIClient:
     @staticmethod
     @st.cache_data(ttl=CACHE_TTL_PRICES)
     def get_oil_price():
-        """Fetch oil prices from FRED API (completely free)"""
+        """Fetch oil prices from FRED API (completely free).
+
+        This is a worked example of the standard APIClient pattern that
+        every method on this class follows:
+          1. If no API key is configured, return a sensible default so
+             the dashboard never crashes mid-render.
+          2. Build the request with documented params.
+          3. Send via the shared session; check status; parse JSON.
+          4. On ANY failure, fall through to the same default value.
+        """
         try:
             if not FRED_API_KEY:
                 return 78.45
 
+            # FRED series ID DCOILWTICO = WTI Crude Oil spot price (USD/bbl).
+            # We pull the 5 most recent daily observations and pick the
+            # first one that isn't a "." (FRED's missing-value sentinel).
             url = "https://api.stlouisfed.org/fred/series/observations"
             params = {
                 'series_id': 'DCOILWTICO',
@@ -408,12 +449,17 @@ class APIClient:
                 data = response.json()
                 observations = data.get('observations', [])
                 if observations:
+                    # `next(...)` short-circuits — returns the first
+                    # observation whose value is not the "." missing
+                    # marker. Cheaper than filtering the whole list.
                     value_str = next((o['value'] for o in observations if o['value'] != '.'), None)
                     if value_str:
                         return float(value_str)
 
+            # Any non-200 status, empty list, or missing values lead here.
             return 78.45
         except Exception:
+            # Network error, JSON parse error, etc — fall through.
             return 78.45
 
     @staticmethod

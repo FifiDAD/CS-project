@@ -283,8 +283,12 @@ def _transits_for_chokepoint(sightings: pd.DataFrame, cp: str, bbox: list[float]
         sog_eff = np.clip(sog_eff, 0.0, 35.0)
         grp = grp.assign(sog_eff=sog_eff)
 
+        # ─── Split sightings into separate "runs" inside the bbox ─────
+        # A vessel that goes in, out, then back in again must produce TWO
+        # transits — not one giant smeared transit covering the gap.
+        # `gaps` flags every consecutive pair of sightings more than
+        # GAP_MINUTES apart, and cumsum gives each run a unique id.
         ts = grp["ts"].to_numpy()
-        # Split into runs of consecutive sightings <= GAP_MINUTES apart.
         gaps = np.diff(ts) > GAP_MINUTES * 60.0
         run_ids = np.concatenate([[0], np.cumsum(gaps)])
         for run_id in np.unique(run_ids):
@@ -293,6 +297,9 @@ def _transits_for_chokepoint(sightings: pd.DataFrame, cp: str, bbox: list[float]
             if len(run) < 2:
                 continue
 
+            # First sighting in this run = entry, last = exit. Duration
+            # is just the time between them. Reject runs that are too
+            # short to be a real transit, or too long to be plausible.
             entry = run.iloc[0]
             exit_ = run.iloc[-1]
             duration_min = (exit_["ts"] - entry["ts"]) / 60.0
@@ -589,11 +596,14 @@ def predict_transit_minutes(
     `log=False` disables the SQLite write — used by tests/trainer that
     call predict_transit_minutes in tight loops.
     """
+    # STEP 1 — Normalise the feature dict.
+    # Caller may pass an integer AIS ship-type code OR a pre-binned string.
+    # We coerce to one of the canonical SHIP_TYPE_BINS so the encoder
+    # below always sees a value it was trained on.
     cp = chokepoint_id
     feats = dict(features)
     feats.setdefault("chokepoint_id", cp)
     feats.setdefault("bbox_diagonal_km", BBOX_DIAGONAL_KM.get(cp, 300.0))
-    # Coerce ship_type: accept either an integer AIS code or a pre-binned string.
     st = feats.get("ship_type", "unknown")
     if not isinstance(st, str):
         st = ship_type_bin(st)
@@ -601,6 +611,10 @@ def predict_transit_minutes(
         st = "unknown"
     feats["ship_type"] = st
 
+    # STEP 2 — Try to load the trained model.
+    # If the .joblib file isn't there (first-run / model deleted), we
+    # fall straight to the per-chokepoint heuristic so the UI never
+    # blanks. The prediction is still logged so it can be quality-checked.
     bundle = load_artifact()
     if bundle is None:
         pred = _heuristic_prediction(cp, feats, confidence="heuristic")
@@ -610,9 +624,10 @@ def predict_transit_minutes(
 
     encoder = bundle["encoder"]
     model_version = (bundle.get("meta") or {}).get("model_version")
-    # Detect unseen chokepoints — if the encoder hasn't seen this category,
-    # transform yields an all-zero block for that column group, which the
-    # model would silently extrapolate from. Catch that and fall back.
+    # STEP 3 — Reject unseen chokepoints.
+    # If the model was never trained on this chokepoint, the one-hot
+    # encoder would silently emit a zero column and the booster would
+    # extrapolate nonsense. Detect the mismatch and use the heuristic.
     known_cps = set()
     for name in encoder.get_feature_names_out(CATEGORICAL_FEATURES):
         if name.startswith("chokepoint_id_"):
@@ -623,6 +638,11 @@ def predict_transit_minutes(
             _log_prediction(cp, feats, pred, mmsi, model_version=model_version)
         return pred
 
+    # STEP 4 — Run inference through all three quantile boosters.
+    # q10 / q50 / q90 are three independent XGBoost regressors. They
+    # share the same features but were each fit to a different quantile
+    # loss, so they bracket the prediction with a 10th / 50th / 90th
+    # percentile range — the operator's "best/expected/worst" view.
     try:
         X = encode_inference_row(feats, encoder)
         p10 = float(bundle["q10"].predict(X)[0])
@@ -634,8 +654,10 @@ def predict_transit_minutes(
             _log_prediction(cp, feats, pred, mmsi, model_version=model_version)
         return pred
 
-    # Quantile regressors trained independently can occasionally cross.
-    # Sort and clip to a sensible range.
+    # STEP 5 — Make the interval well-formed.
+    # Since the three quantile regressors are trained independently,
+    # their outputs can occasionally cross (p90 < p50 etc). Sort to
+    # restore monotonicity and clip to the global min/max transit bounds.
     pts = sorted([p10, p50, p90])
     p10, p50, p90 = pts
     p10 = max(MIN_DURATION_MIN, p10)

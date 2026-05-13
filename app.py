@@ -1,4 +1,24 @@
-"""TradeWatch — Shipping Route Intelligence · Overview"""
+"""TradeWatch — Shipping Route Intelligence · Overview page.
+
+This is the Streamlit entry point. Reading top-to-bottom, the file:
+
+  1. Starts the AIS WebSocket and the ETA-model retraining daemon
+     (both idempotent — calling start_X() twice is a no-op).
+  2. Configures the Streamlit page and injects custom CSS.
+  3. On first visit, redirects to the Landing page.
+  4. Loads the core data (events, oil, shipping index, FX) and computes
+     shipping-status + port-congestion DataFrames concurrently inside
+     an animated loader.
+  5. Pulls KPI numbers and the filter-aware event view.
+  6. Renders header, nav, then a two-column layout: globe on the left,
+     status panels on the right, followed by four tabs (Shipping &
+     Ports, Analytics, Impact, Fuel Calculator).
+
+All heavy work goes through disk_cached(...) so a Streamlit restart
+does not re-fetch from upstream APIs while their TTL window is still
+warm. Every long-running call is non-blocking — the page renders
+something useful even when an upstream is down.
+"""
 
 import streamlit as st
 import pandas as pd

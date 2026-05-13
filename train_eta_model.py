@@ -178,8 +178,13 @@ def _check_thresholds(df: pd.DataFrame) -> None:
 # ---------------------------------------------------------------------------
 
 def _make_quantile(alpha: float, max_depth: int, n_estimators: int, learning_rate: float):
-    # XGBoost's quantile objective gives direct p10/p50/p90 ETA estimates
-    # instead of fitting a single mean prediction and guessing uncertainty later.
+    # Build one XGBoost quantile regressor.
+    # We train three of these (alpha = 0.1 / 0.5 / 0.9) so that we get a
+    # full prediction interval rather than a single point estimate. The
+    # `reg:quantileerror` objective tells XGBoost to minimise pinball loss
+    # at the requested alpha — i.e. fit the chosen percentile of y|X.
+    # subsample/colsample at 0.85 add a bit of regularisation; tree_method
+    # "hist" is the fastest backend and supports quantile loss.
     from xgboost import XGBRegressor
     return XGBRegressor(
         objective="reg:quantileerror",
@@ -259,16 +264,24 @@ def _cv_score_q50(X_sorted, y_sorted, hp: dict, n_splits: int,
     """
     from sklearn.model_selection import TimeSeriesSplit
 
+    # Time-series CV: the splitter always trains on rows BEFORE the test
+    # rows in time order — never leaking the future. That's why the data
+    # was sorted by entry_ts upstream. We use the median (alpha=0.5)
+    # quantile to pick HPs because that's the headline accuracy metric.
     capped_hp = {**hp, "n_estimators": min(hp["n_estimators"], 300)}
     splitter = TimeSeriesSplit(n_splits=n_splits)
     folds: list[FoldResult] = []
     for k, (tr, te) in enumerate(splitter.split(X_sorted), start=1):
+        # Slice training and test rows for this fold; sample weights
+        # follow row indices so weighted training stays consistent.
         X_tr, X_te = X_sorted[tr], X_sorted[te]
         y_tr, y_te = y_sorted[tr], y_sorted[te]
         w_tr = sample_weight[tr] if sample_weight is not None else None
         m = _train_quantile(X_tr, y_tr, alpha=0.5, hp=capped_hp,
                             sample_weight=w_tr)
         p = m.predict(X_te)
+        # Record both MAE (interpretable: minutes off) and R² (does the
+        # model actually beat a flat-mean baseline?) for each fold.
         folds.append(FoldResult(
             fold=k, mae=_mae(p, y_te), r2=_r2(p, y_te),
             n_train=len(tr), n_test=len(te),

@@ -142,22 +142,37 @@ def fuel_for_edge(v: VesselProfile, edge: EdgeMeta, speed_kn: float) -> dict:
     components are mechanical resistance forces, so they are converted via
     `/propulsive_eff` to reach equivalent brake power.
     """
-    # Convert meteorological wind direction into an along-course headwind
-    # component; positive values slow the vessel, negative values are tailwind.
+    # STEP 1 — Project the wind vector onto the course line.
+    # Meteorological wind direction is "where wind comes from", so the
+    # angle between (wind direction) and (vessel course) tells us whether
+    # the wind hits the bow (headwind, slows us) or the stern (tailwind,
+    # helps us). The (+540) % 360 - 180 trick wraps the angle into [-180,180].
     course = edge.bearing_deg
     delta = math.radians((edge.wind_dir_deg - course + 540.0) % 360.0 - 180.0)
     headwind_ms = (edge.wind_speed_ms or 0.0) * math.cos(delta)  # +head, -tail
 
-    # Calm-water power scales sharply with speed, so speed changes dominate
-    # fuel burn even before weather penalties are added.
+    # STEP 2 — Calm-water shaft power from the admiralty coefficient.
+    # The relationship is roughly cubic in speed, which is why even a
+    # 1-knot speed cut can save a noticeable amount of fuel. This term
+    # already bundles hull+propeller losses (it's empirical), so we do
+    # NOT divide by `propulsive_eff` again here.
     P_calm_kW = (v.displacement_t ** (2.0 / 3.0) * speed_kn ** 3) / v.admiralty_coeff
     speed_ms = max(0.1, speed_kn * KN_TO_MS)
+
+    # STEP 3 — Extra power needed to push through wind and waves.
+    # Wind drag uses the standard 0.5·ρ·Cd·A·v² aerodynamic formula on
+    # the *apparent* airspeed (ship speed + headwind). Wave resistance
+    # is modelled as proportional to Hs² — a common simplification.
     v_app = max(0.0, speed_ms + headwind_ms)
     F_wind = 0.5 * RHO_AIR * v.cd_wind * v.frontal_area_m2 * v_app * v_app          # N
     F_wave = v.k_wave * (edge.wave_h_m or 0.0) ** 2 * 1000.0                         # N
+    # Mechanical force × speed = power. We divide by propulsive efficiency
+    # because these are resistance forces at the hull, not brake power.
     P_extra_shaft_kW = (F_wind + F_wave) * speed_ms / 1000.0                         # kW at prop shaft
     P_brake_kW = P_calm_kW + P_extra_shaft_kW / max(0.05, v.propulsive_eff)
 
+    # STEP 4 — Convert power × time into fuel mass.
+    # SFOC is grams of fuel per kWh, so (kW × g/kWh × h) / 1e6 gives tonnes.
     duration_h = (edge.dist_km * 1000.0) / speed_ms / 3600.0
     fuel_t = P_brake_kW * v.sfoc_g_kwh * duration_h / 1.0e6
     return {
@@ -196,13 +211,21 @@ def monte_carlo_voyage(
     Wave: lognormal multiplier so Hs stays ≥ 0, σ in log-space = wave_sigma.
     Returns P10/P50/P90 fuel and ETA days plus the full sample arrays.
     """
+    # Seeded RNG keeps the dashboard reproducible across reloads — same
+    # forecast in, same P10/P50/P90 out. Change seed=None for fresh draws.
     rng = random.Random(seed)
     fuels: list[float] = []
     days: list[float] = []
+    # Outer loop: N independent voyages. Inner loop: each edge gets its
+    # own noisy wind and wave multipliers so different parts of the route
+    # can be "lucky" or "unlucky" independently — same as reality.
     for _ in range(n):
         f_total = 0.0
         h_total = 0.0
         for e in edges:
+            # Wind is symmetric around 1 (can be calmer or stronger).
+            # Wave uses a lognormal so the multiplier stays positive — a
+            # wave-height of zero or negative is non-physical.
             wind_mult = 1.0 + rng.gauss(0.0, wind_sigma)
             wave_mult = math.exp(rng.gauss(0.0, wave_sigma))
             perturbed = EdgeMeta(
