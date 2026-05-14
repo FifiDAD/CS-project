@@ -14,7 +14,7 @@ near the end.
 
 ```bash
 unzip "<our submission zip>"
-cd "CS PROJECT/CS-project"
+cd "CS PROJECT/CS-project" (or just `cd CS-project`) #if you opened the CS PROJECT folder in VSCode
 pip install -r "READ ME FIRST – Setup & Installations/requirements.txt"
 streamlit run app.py
 # then open http://localhost:8501 in your browser
