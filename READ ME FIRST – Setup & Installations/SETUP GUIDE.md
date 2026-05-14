@@ -19,7 +19,12 @@ pip install -r "READ ME FIRST – Setup & Installations/requirements.txt"
 streamlit run app.py
 # then open http://localhost:8501 in your browser
 ```
-
+( ▎macOS only: xgboost also needs Apple's OpenMP runtime, which pip can't 
+  ▎ install. If you see "Library not loaded: libomp.dylib" or the "using 
+  ▎ fallback formula only" banner even after pip install xgboost, run:
+  ▎ brew install libomp
+  ▎ (Linux ships libgomp by default; Windows ships vcomp140.dll with Visual C++ 
+  ▎ Redistributable.))
 Read on for the full version.
 
 ---
