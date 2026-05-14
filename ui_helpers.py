@@ -1,4 +1,26 @@
-"""Shared CSS, color maps, header/nav/footer rendering for TradeWatch pages."""
+# =============================================================================
+# ui_helpers.py — SHARED LOOK-AND-FEEL
+# =============================================================================
+# This file is the "house style" for every page in our app. Anything
+# visual that's the same on more than one page lives here so we don't
+# have to copy-paste it. The things it exports:
+#
+#   - inject_css()      : the dark "Naval Command" theme CSS for the
+#                         whole app (fonts, colours, table styling, etc.)
+#   - render_header()   : the top status bar (critical events / high /
+#                         total + the worst-route chip)
+#   - render_nav()      : the navigation row that lets the user jump
+#                         between pages
+#   - render_footer()   : the dark footer with copyright / disclaimer
+#   - lottie_loader()   : a context manager that displays a cute
+#                         animated cargo-ship loading spinner while
+#                         heavy data is being fetched.
+#   - colour dictionaries (SC, SBG, IMPACT_COL, CONG_COL, TOPIC_COLOR,
+#     TOPIC_ICON) — central source of truth for status-to-colour
+#     mappings used everywhere on the dashboard.
+#   - risk_col(score)   : maps a 0-100 risk score to a traffic-light
+#                         colour string (green / yellow / orange / red).
+# =============================================================================
 import base64
 import random
 from contextlib import contextmanager

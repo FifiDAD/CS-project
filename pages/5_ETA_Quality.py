@@ -1,12 +1,29 @@
-"""TradeWatch — ETA Quality
-
-Live tracking of the chokepoint ETA model: what it actually does, what it's
-predicting right now, and how those predictions compare to reality.
-
-NOTE: the model is XGBoost quantile regression (gradient boosting on
-decision trees) — explicitly not deep learning. This page never trains
-anything; it only inspects, measures, and surfaces the existing model.
-"""
+# =============================================================================
+# 5_ETA_Quality.py — THE "ETA QUALITY" PAGE (model accuracy dashboard)
+# =============================================================================
+# This page is the "report card" for our ETA (Estimated Time of Arrival)
+# prediction model. Every time a vessel is about to enter one of the
+# monitored maritime chokepoints (Suez, Hormuz, Malacca, Panama, etc.),
+# we record what our model predicted. Once the vessel actually finishes
+# transiting (we see it leave the chokepoint via AIS), we go back and
+# compare the prediction to what really happened.
+#
+# This page summarises those (predicted, actual) pairs into:
+#   - MAE     : Mean Absolute Error in minutes (how far off, on average)
+#   - MAPE    : same thing as a percentage
+#   - Hit-rate within +/-15% and +/-25% tolerance
+#   - p10-p90 interval coverage (are our 80% confidence ranges honest?)
+#   - Pinball loss at each quantile
+#   - Per-chokepoint drift flag (rolling MAE > 1.25x training MAE)
+#
+# IMPORTANT (for the professor): the model is XGBoost quantile regression
+# — gradient-boosted decision trees. It is NOT deep learning / not a
+# neural network. We picked XGBoost because it trains in seconds, gives
+# us calibrated confidence intervals, and produces SHAP explainability
+# values out of the box. This page never TRAINS anything — that happens
+# inside eta_scheduler.py / train_eta_model.py. This page only INSPECTS
+# the predictions and reports how the model has been doing.
+# =============================================================================
 
 from __future__ import annotations
 
@@ -70,9 +87,19 @@ st.caption(
 # ══════════════════════════════════════════════════════════════════════════
 # 1. How the ETA is calculated
 # ══════════════════════════════════════════════════════════════════════════
+# This section is the "explain what the model is" panel. It loads the
+# metadata file that gets saved alongside the trained model and uses it
+# to tell the user when the model was last trained, how many transits it
+# saw during training (split between real AIS data and seed/simulated
+# data), and what the fallback formula is when the model can't predict.
 
 def _load_meta() -> dict:
-    # Read the saved training details for the explanation panels.
+    # Reads the small JSON file we save when we train the model. It lives
+    # at models/eta_meta.json (relative to the main CS-project folder).
+    # The file holds things like the training date, number of rows used,
+    # the best hyperparameters found by the sweep, etc. If the file is
+    # missing (e.g. user hasn't trained yet) we return an empty dict so
+    # the page still loads cleanly with placeholder dashes.
     p = Path(__file__).resolve().parent.parent / "models" / "eta_meta.json"
     if not p.exists():
         return {}
@@ -158,6 +185,13 @@ Slowest likely = Most likely × 1.30
 # ══════════════════════════════════════════════════════════════════════════
 # 2. Live feature inspector — what would the model predict right now?
 # ══════════════════════════════════════════════════════════════════════════
+# This is a little "try it yourself" widget. The user picks a chokepoint
+# + a vessel type + a speed, and we live-feed those choices through the
+# model and show:
+#   - exactly which input numbers the model is seeing
+#   - what it predicts (fastest / most-likely / slowest)
+#   - the top 5 factors that pushed the prediction up or down (SHAP).
+# Great for showing a professor what the model actually pays attention to.
 
 with st.container(border=True):
     st.markdown("##### 2 — Live feature inspector")
@@ -252,6 +286,15 @@ with st.container(border=True):
 # ══════════════════════════════════════════════════════════════════════════
 # 3. Live accuracy KPIs
 # ══════════════════════════════════════════════════════════════════════════
+# Four big "scorecard" numbers showing how well the model has been doing
+# over the last 30 days. These are computed in eta_quality.py by joining
+# our prediction log against the actual AIS sightings:
+#   - Within ±15%   : % of predictions that landed within 15% of real
+#   - Within ±25%   : same with a looser tolerance
+#   - Coverage      : % of times the real value fell inside p10-p90
+#                     (target = 80%, since p10-p90 is supposed to be an
+#                     80% confidence interval)
+#   - Average error : mean absolute error in minutes (delta vs training).
 
 with st.container(border=True):
     st.markdown("##### 3 — How accurate have we been? (last 30 days)")
@@ -304,6 +347,12 @@ with st.container(border=True):
 # ══════════════════════════════════════════════════════════════════════════
 # 4. Predicted vs actual scatter (live data)
 # ══════════════════════════════════════════════════════════════════════════
+# A scatter chart where every dot is one finished prediction. X axis =
+# what really happened (actual transit time in hours), Y axis = what we
+# predicted. We draw a dashed diagonal y = x line: any dot on the line
+# was a perfect prediction. Dots above = we overestimated; below = we
+# underestimated. The data is pulled from the eta_predictions table in
+# the local SQLite database (.ais_positions.db).
 
 with st.container(border=True):
     st.markdown("##### 4 — Predicted vs actual")
@@ -379,6 +428,10 @@ with st.container(border=True):
 # ══════════════════════════════════════════════════════════════════════════
 # 4b. Recent logged predictions (raw audit table)
 # ══════════════════════════════════════════════════════════════════════════
+# A raw table of the last 50 individual predictions the system has made.
+# Useful as an "audit trail" — you can see exactly what was predicted for
+# each vessel, what the inputs were at the time, and whether reality has
+# come in yet. Data comes from the eta_predictions SQLite table.
 
 with st.container(border=True):
     st.markdown("##### 4b — Recent predictions")
@@ -438,6 +491,11 @@ with st.container(border=True):
 # ══════════════════════════════════════════════════════════════════════════
 # 5. Per-chokepoint table
 # ══════════════════════════════════════════════════════════════════════════
+# Same accuracy KPIs from section 3, but broken down by chokepoint, so we
+# can see whether one place (say, the Panama Canal) is dragging the
+# overall accuracy down. The "Live vs training" column compares the
+# current error rate to the error we had during training — if it's >1.25
+# we flag the chokepoint as "getting worse" so we know to retrain.
 
 with st.container(border=True):
     st.markdown("##### 5 — Accuracy by chokepoint")
@@ -472,6 +530,11 @@ with st.container(border=True):
 # ══════════════════════════════════════════════════════════════════════════
 # 6. Drift & retraining
 # ══════════════════════════════════════════════════════════════════════════
+# "Drift" = when the model's accuracy starts getting noticeably worse
+# over time because the real world has changed (more traffic, new
+# chokepoint patterns, etc.). This section shows a green/red banner
+# summarising the drift state and a "Retrain now" button that triggers
+# the trainer in eta_scheduler.py to rebuild the model on the latest data.
 
 with st.container(border=True):
     st.markdown("##### 6 — Is the model still accurate?")

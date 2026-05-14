@@ -1,9 +1,51 @@
-"""TradeWatch — Intel Feed"""
+# =============================================================================
+# 2_Intel_Feed.py — THE "INTEL FEED" PAGE (news + warnings + threat watch)
+# =============================================================================
+# This page is the "news desk" of our project. It pulls together everything
+# that is happening RIGHT NOW around the world that could affect shipping —
+# from official maritime warnings, to recent conflict events, to general
+# news articles — and presents it as one scannable feed.
+#
+# Where the data on this page comes from:
+#   - load_core_data()           -> our cached loader; returns events + market data.
+#   - compute_shipping_status()  -> 0-100 risk score for each shipping route.
+#   - compute_risk_summary()     -> risk grade per region of the world.
+#   - get_news_feed()            -> live news (Guardian API + NewsAPI),
+#                                   tagged by topic (conflict / shipping /
+#                                   trade / weather / other).
+#   - fetch_nga_warnings()       -> official US National Geospatial-Intelligence
+#                                   Agency maritime safety warnings.
+#   - cluster_news_by_region()   -> groups news articles by maritime region
+#                                   (Suez / Hormuz / Malacca / etc.) so the
+#                                   feed is organised, not a flat list.
+#
+# Layout: left column = regional risk table + NGA warnings + recommended
+# actions + multi-source threat watch + event-type chart. Right column =
+# the live news feed with topic filter buttons.
+# =============================================================================
 
+# Streamlit = our web app framework.
 import streamlit as st
+# pandas = tables / data manipulation.
 import pandas as pd
+# plotly.express = quick charting library used here for the event-type bar chart.
 import plotly.express as px
 
+# Our own project modules:
+#   - RiskAnalytics              : KPI numbers (critical / high / total events)
+#                                  and regional alerts.
+#   - filter_events              : drops irrelevant / old events.
+#   - generate_intel_brief       : turns the day's data into the short
+#                                  bulleted "Intelligence Brief" at the top.
+#   - compute_shipping_status,   : live risk-scoring functions (see CLAUDE.md
+#     compute_risk_summary,        for the exact formulas).
+#     get_news_feed,
+#     cluster_news_by_region.
+#   - fetch_nga_warnings         : downloads the official NGA maritime
+#                                  warnings RSS feed.
+#   - load_core_data             : cached events + market data loader.
+#   - ui_helpers                 : shared header / nav / footer + topic
+#                                  colours + the cute "lottie" loading spinner.
 from analytics import RiskAnalytics
 from components import filter_events, generate_intel_brief
 from dynamic_status import (
@@ -27,12 +69,19 @@ st.set_page_config(
 inject_css()
 
 # ── Data ──────────────────────────────────────────────────────────────────────
+# lottie_loader() is a context manager that shows a nice animated loading
+# spinner while the slow data-loading inside the `with` block is running.
 with lottie_loader():
-    # Load events, route status, regional risk, and news while the loader shows.
+    # Get the shared core data (events + oil + freight index + currencies).
     events_df, oil_price, shipping_index, exchange_rates = load_core_data()
+    # Convert the events table to a JSON string — required for cache keys
+    # because Streamlit's @st.cache_data can't hash DataFrames directly.
     events_json = events_df.to_json() if len(events_df) > 0 else pd.DataFrame().to_json()
+    # Compute the route risk table (5 rows, one per shipping route).
     shipping_df  = compute_shipping_status(events_json)
+    # Compute the regional risk table (rows per region of the world).
     risk_df      = compute_risk_summary(events_json)
+    # Fetch the live news feed (Guardian + NewsAPI, tagged by topic).
     news_feed_df = get_news_feed()
 
 analytics       = RiskAnalytics.get_summary_metrics(events_df, oil_price, shipping_index)
@@ -55,10 +104,13 @@ render_nav()
 # INTEL FEED
 # ══════════════════════════════════════════════════════════════════════════════
 
-# Intelligence brief
+# ── Intelligence Brief ───────────────────────────────────────────────────────
+# generate_intel_brief() looks at the current data and writes a short list
+# of bullet points like "Suez at HIGH risk · 12 articles in last 24h" —
+# essentially an auto-generated executive summary of the day. The block
+# below splits each bullet into a label and a detail and styles them.
 brief_lines = generate_intel_brief(filtered_events, news_feed_df, shipping_df)
 if brief_lines:
-    # Render the generated brief as compact labelled lines.
     brief_html = ""
     for ln in brief_lines:
         clean_ln = ln.replace("**", "")
@@ -80,9 +132,15 @@ if brief_lines:
         unsafe_allow_html=True,
     )
 
+# Split the body of the page into two equal columns:
+#   left  = risk tables, NGA warnings, recommended actions, threat watch, charts
+#   right = the live news feed grouped by region
 feed_left, feed_right = st.columns([1, 1], gap="large")
 
 with feed_left:
+    # ── Regional Risk Assessment table ─────────────────────────────────
+    # Same regional risk data shown on the Route Planner page, repeated
+    # here because intel analysts usually want it next to the news.
     st.markdown('<div class="tw-label">Regional Risk Assessment</div>', unsafe_allow_html=True)
     if len(risk_df) > 0:
         rows = ""
@@ -100,12 +158,18 @@ with feed_left:
 </table>""", unsafe_allow_html=True)
 
     # ── NGA Maritime Safety Warnings ──────────────────────────────────────────
+    # The NGA (US National Geospatial-Intelligence Agency) publishes
+    # official maritime hazard warnings — piracy zones, ongoing naval
+    # exercises, missile danger areas, drifting hulks, etc. We fetch them
+    # live from the NGA feed (see nga_warnings.py). The try/except is a
+    # safety net so the page still renders if NGA's server is down.
     try:
-        # Pull official maritime warnings for the safety panel.
         nga_df = fetch_nga_warnings()
     except Exception:  # noqa: BLE001
         nga_df = pd.DataFrame()
     if len(nga_df) > 0:
+        # Only show warnings with a severity score of at least 0.55 (i.e.
+        # the genuinely important ones), sorted with the worst first.
         active = nga_df[nga_df["severity"] >= 0.55].sort_values("severity", ascending=False)
         if len(active) > 0:
             st.markdown('<div class="tw-label" style="margin-top:12px">Maritime Safety Warnings (NGA)</div>',
@@ -129,10 +193,13 @@ with feed_left:
   <div style="font-size:11px;color:#ccc;line-height:1.4">{snippet}</div>
 </div>""", unsafe_allow_html=True)
 
-    # Recommended actions
+    # ── Recommended Actions ───────────────────────────────────────────
+    # Looks at the events from the last 48 hours and suggests concrete
+    # actions like "consider diverting traffic from Bab-el-Mandeb" — these
+    # are simple rule-based recommendations, not AI-generated, so they're
+    # predictable and defensible to a non-technical audience.
     alerts = RiskAnalytics.get_regional_alerts(filtered_events, threshold_hours=48)
     if alerts:
-        # Show recent event-based action suggestions.
         st.markdown('<div class="tw-label" style="margin-top:12px">Recommended Actions</div>',
                     unsafe_allow_html=True)
         for alert in alerts[:5]:
@@ -149,9 +216,11 @@ with feed_left:
 </div>""", unsafe_allow_html=True)
 
     # ── Multi-source Threat Watch ────────────────────────────────────────────
-    # Surfaces events that also appear as map markers — i.e. corroborated by
-    # ≥2 distinct news domains. Each row carries the article URL so the
-    # clickable links the user expected on the map live here instead.
+    # This section is our "trust filter" for events. We only show events
+    # that have been reported by at least 2 different news websites
+    # (the "on_map" flag is set elsewhere when n_sources >= 2). This way
+    # we avoid alerting on a single rumour. Each row links out to the
+    # actual article so a user can click through and read the source.
     if "on_map" in filtered_events.columns:
         on_map_events = (
             filtered_events[filtered_events["on_map"].fillna(False)]
@@ -194,9 +263,15 @@ with feed_left:
   <div style="font-size:10px;margin-top:3px">{link_html}</div>
 </div>""", unsafe_allow_html=True)
 
+    # ── Event Breakdown chart ─────────────────────────────────────────
+    # A small bar chart at the bottom of the left column counting events
+    # by category (Conflict, Shipping, Weather, …). Helps the user see
+    # at a glance what kind of disruptions dominate right now.
     st.markdown('<div class="tw-label" style="margin-top:14px">Event Breakdown</div>',
                 unsafe_allow_html=True)
     if len(filtered_events) > 0:
+        # value_counts() = pandas built-in that tallies how many rows
+        # fall into each unique value of the "type" column.
         ec = filtered_events["type"].value_counts()
         fig_ec = px.bar(x=ec.index, y=ec.values,
                         color=ec.values, color_continuous_scale=["#222", "#ef4444"])
@@ -210,12 +285,19 @@ with feed_left:
         st.plotly_chart(fig_ec, use_container_width=True, config={"displayModeBar": False})
 
 with feed_right:
+    # ── Live news feed (right column) ──────────────────────────────────
+    # The right half of the page is a scrolling list of every article we
+    # have pulled in from Guardian + NewsAPI, grouped by maritime region.
     st.markdown('<div class="tw-label">Live Intelligence Feed</div>', unsafe_allow_html=True)
 
+    # st.session_state is Streamlit's per-user, per-tab memory. We use it
+    # to remember which topic filter (All / conflict / shipping / ...) the
+    # user currently has selected, even when the page reruns.
     active_topic = st.session_state.get("news_topic_filter", "All")
+    # Row of 6 little filter buttons spanning the column.
     tp_cols = st.columns(6)
     for tc, t in zip(tp_cols, ["All", "conflict", "shipping", "trade", "weather", "other"]):
-        # Topic buttons filter the news feed without leaving the page.
+        # Each button changes the saved filter and triggers a page rerun.
         lbl = "OTHER" if t == "other" else ("ALL" if t == "All" else t[:4].upper())
         if tc.button(lbl, key=f"tp_{t}",
                      type="primary" if active_topic == t else "secondary",
@@ -232,6 +314,8 @@ with feed_right:
         unsafe_allow_html=True,
     )
 
+    # Helper that turns one row of the news DataFrame (one article) into
+    # the HTML we want to show: topic icon, timestamp, source, title link.
     def _render_article(art) -> str:
         topic  = art.get("topic", "other")
         tc_    = TOPIC_COLOR.get(topic, "#666")
@@ -252,9 +336,14 @@ with feed_right:
         )
 
     if len(disp) > 0:
-        # Group articles into maritime regions before rendering.
+        # cluster_news_by_region looks at each article's text and figures
+        # out which maritime region it belongs to (Suez / Hormuz / Malacca
+        # / Panama / Bosphorus / English Channel / Other). The result is
+        # a dict { region_name: dataframe_of_articles }.
         regions = cluster_news_by_region(disp)
-        # Build the scrolling HTML with collapsible region sections
+        # Build the HTML as one big string: each region becomes a <details>
+        # element (a native HTML expand/collapse panel) with the article
+        # cards inside. Regions with ≥3 articles open automatically.
         sections_html = ""
         for region, region_df in regions.items():
             count = len(region_df)
@@ -285,4 +374,5 @@ with feed_right:
     else:
         st.info("No articles loaded.")
 
+# Shared footer (copyright + disclaimer) — same on every page.
 render_footer()

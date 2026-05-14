@@ -1,21 +1,27 @@
-"""Reference data for the top monitored ports.
-
-Berth counts and median in-port turnaround days are taken from public,
-peer-reviewed sources:
-  - UNCTAD Maritime Transport Review (2023, 2024)
-  - World Bank Container Port Performance Index (CPPI 2024)
-  - Lloyd's List One Hundred Ports (2024)
-  - Port-authority annual reports (Singapore MPA, Port of Rotterdam,
-    Port of LA, Shanghai International Port Group, etc.)
-
-Anchorage radius is the distance from the geographic centre of the port
-within which vessels with `sog_kn < 0.5` are counted as queueing. Radii
-range 15–60 km depending on harbour size and historical anchorage extent
-(verified against AIS heat-maps).
-
-`baseline_turnaround_days` is the *median* time at berth, not anchorage —
-multiply by queue/berths to get expected wait, not total time in port.
-"""
+# =============================================================================
+# port_baselines.py — STATIC BASELINE DATA FOR THE 8 MONITORED PORTS
+# =============================================================================
+# A tiny lookup table of "normal" operating numbers for each of the
+# major ports we monitor: how many berths the port has and what its
+# typical median turnaround time (in days) is during normal operations.
+# We compare against these numbers to decide whether the live AIS
+# anchored-vessel count is "high" (congested) or "normal".
+#
+# All numbers come from publicly available, peer-reviewed sources:
+#   - UNCTAD Maritime Transport Review (2023, 2024)
+#   - World Bank Container Port Performance Index (CPPI 2024)
+#   - Lloyd's List One Hundred Ports (2024)
+#   - Port-authority annual reports (Singapore MPA, Port of Rotterdam,
+#     Port of LA, Shanghai International Port Group, etc.)
+# These rarely change so we hard-code them rather than fetching live.
+#
+# anchorage_radius_km = how far from the port centre we count anchored
+#   (sog_kn < 0.5) vessels as "queueing". Ranges 15-60 km depending on
+#   harbour size and historical anchorage spread, verified against AIS
+#   heat-maps.
+# baseline_turnaround_days = median time AT BERTH (not anchorage). To
+#   estimate expected wait, multiply by queue/berths.
+# =============================================================================
 
 from __future__ import annotations
 

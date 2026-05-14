@@ -1,12 +1,21 @@
-"""Groq-powered news classifier — clusters duplicates, scores severity,
-and flags freshness so stale items stop dominating the feed.
-
-Design:
-- One batched chat-completion call per render. Cached 5 min keyed on input
-  titles, so repeat reruns are free.
-- Falls back to identity (no clustering, all fresh) if GROQ_API_KEY is
-  missing or the API call fails — never blocks rendering.
-"""
+# =============================================================================
+# news_classifier.py — OPTIONAL AI-POWERED NEWS DEDUPLICATION
+# =============================================================================
+# Our news feed comes from several sources (Guardian, NewsAPI, GDELT) and
+# they often report the same story multiple times under slightly
+# different titles. This file uses the Groq API (a fast hosted LLM
+# service) to look at all the article titles at once and cluster the
+# duplicates together, while also scoring severity and freshness.
+#
+# Design choices:
+#   - ONE batched chat call per page render (not one per article) so it
+#     stays cheap.
+#   - Cached for 5 minutes keyed on the input titles, so repeat
+#     Streamlit reruns within the same window are free.
+#   - If the Groq API key is missing OR the API errors out, we silently
+#     fall back to "no clustering, all articles are fresh and unique" so
+#     the dashboard never blocks waiting on an optional feature.
+# =============================================================================
 
 from __future__ import annotations
 

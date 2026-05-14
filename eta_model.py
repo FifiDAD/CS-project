@@ -1,22 +1,53 @@
-"""Chokepoint ETA Predictor — ML inference + training-data extraction.
-
-The model predicts how many minutes a vessel will take to clear a maritime
-chokepoint (Suez, Hormuz, Singapore Strait, etc.) given current queue
-depth, ship type, and time-of-day. Three quantile XGBoost regressors
-(p10 / p50 / p90) provide a prediction interval rather than a point
-estimate.
-
-Public surface:
-    extract_transits(db_path)    → DataFrame of labeled transits from AIS history
-    build_feature_matrix(df)     → (X, y, encoder, feature_names) for training
-    predict_transit_minutes(cp, features)  → {p10, p50, p90, n_train, confidence}
-
-The inference path always returns a dict — when the artifact is missing
-or the chokepoint was unseen at training time, it falls back to a
-per-chokepoint heuristic so the UI never blanks. xgboost / joblib are
-lazy-imported inside load_artifact() so app_simple.py and other lean
-import paths remain functional in environments without ML libs.
-"""
+# =============================================================================
+# eta_model.py — THE MACHINE LEARNING ETA PREDICTOR
+# =============================================================================
+# This file contains our ETA (Estimated Time of Arrival) prediction model.
+# Specifically, it predicts: "given a vessel about to enter chokepoint X,
+# how many minutes will it take that vessel to clear the chokepoint?"
+#
+# The model:
+#   - We use XGBoost (eXtreme Gradient Boosting) quantile regression.
+#     This is a gradient-boosted decision tree model — NOT deep learning.
+#     We picked XGBoost because it's fast, robust, doesn't need much data,
+#     and we can train three quantile models at once to get prediction
+#     INTERVALS, not just point estimates.
+#   - We train three separate booster models:
+#         p10 = "10% chance the transit is faster than this"
+#         p50 = "best single guess (the median)"
+#         p90 = "10% chance the transit is slower than this"
+#     So the user gets a confidence band (p10..p90) rather than a single
+#     number that might be very wrong.
+#
+# The inputs (features) we feed the model are:
+#   - which chokepoint              (Suez / Hormuz / etc.)
+#   - ship type bin                  (tanker / bulker / container / other)
+#   - entry speed in knots
+#   - how many vessels currently in the chokepoint    (live, from AIS)
+#   - how many vessels have been through in last 24h  (live, from AIS)
+#   - hour of day, day of week, month                 (traffic patterns)
+#   - chokepoint size (km across)                     (static)
+#
+# Where the training data comes from:
+#   We extract historical "transits" from the local SQLite database that
+#   stores all incoming AIS positions. A transit = a vessel entering a
+#   chokepoint's bounding box, then later leaving it. The function
+#   extract_transits() does that join. When we don't have enough real
+#   data yet, train_eta_model.py can seed the dataset with simulated
+#   transits so the page always has something to predict from.
+#
+# Public functions that the rest of the app imports from this file:
+#   - extract_transits(db_path)            : pull labelled training rows
+#   - build_feature_matrix(df)             : turn rows -> X, y, encoder
+#   - predict_transit_minutes(cp, feats)   : return {p10, p50, p90, ...}
+#   - predict_total_for_route(...)         : sum predictions across legs
+#   - explain_prediction(feats, top_k=5)   : SHAP top-K contributions
+#
+# Safety net: if the trained model artifact is missing, the predict_*
+# functions silently fall back to a simple per-chokepoint heuristic
+# formula so the dashboard never shows a blank ETA. The xgboost / joblib
+# / shap libraries are lazy-imported inside load_artifact() so the
+# lighter app_simple.py still loads on machines without ML libs.
+# =============================================================================
 
 from __future__ import annotations
 
@@ -177,6 +208,12 @@ MAX_DURATION_MIN = 60 * 72  # 72h hard cap
 QUEUE_WINDOW_SEC = 300      # ±5 min around entry to compute queue_depth
 
 
+# Reads our local SQLite AIS database and reconstructs every historical
+# chokepoint transit. For each vessel, we look at the timeline of its
+# positions and detect: "this vessel was outside Suez, then inside Suez,
+# then outside again" — that whole inside-segment is one labelled
+# training example. The returned DataFrame has one row per transit with
+# entry/exit timestamps + ship metadata.
 def extract_transits(db_path: str | Path, commercial_only: bool = True) -> pd.DataFrame:
     """Walk the sightings table and return one row per completed transit.
 
@@ -372,6 +409,11 @@ def _recent_throughput(sightings: pd.DataFrame, bbox: list[float], entry_ts: flo
 # Feature matrix
 # ---------------------------------------------------------------------------
 
+# Turns the table of past transits into the (X, y) format XGBoost expects:
+#   X = a matrix of input features (one row per transit, one column per feature)
+#   y = a vector of target values (the actual transit times in minutes)
+# Also returns the one-hot encoder so we can re-apply the same encoding
+# at prediction time, and the list of feature names for diagnostics.
 def build_feature_matrix(
     df: pd.DataFrame,
 ) -> tuple[np.ndarray, np.ndarray, Any, list[str]]:
@@ -543,6 +585,9 @@ def _opt_int(v: Any) -> int | None:
 
 
 @functools.lru_cache(maxsize=1)
+# Loads the trained model file from disk (models/eta_xgb.joblib). The
+# file is created by train_eta_model.py. Returns None if it hasn't been
+# trained yet — every caller then falls back to the heuristic formula.
 def load_artifact() -> dict | None:
     """Load the trained joblib bundle. Returns None if missing or unloadable.
 
@@ -567,6 +612,13 @@ def load_artifact() -> dict | None:
         return None
 
 
+# The main prediction function. Takes a chokepoint name + a dict of
+# current feature values, runs the three quantile XGBoost models, and
+# returns a dict with p10, p50, p90 transit times in minutes, plus
+# metadata (how many training rows the model saw for this chokepoint,
+# whether it had to fall back to the heuristic, etc.). Also logs every
+# prediction to the eta_predictions table in SQLite so eta_quality.py
+# can later check how accurate we were when the vessel actually exits.
 def predict_transit_minutes(
     chokepoint_id: str,
     features: dict[str, Any],

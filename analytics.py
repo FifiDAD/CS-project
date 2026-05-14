@@ -1,13 +1,26 @@
-"""Analytics Engine - Business Impact Analysis.
-
-This module turns a DataFrame of risk events plus live market numbers
-(oil price, shipping index, FX rates) into the headline KPIs the
-dashboard displays: how many critical zones exist right now, how much
-extra cost a fleet is bearing today, what action an operator should
-take. All functions here are pure math on the inputs they receive —
-no API calls, no caching, no side effects — so they are cheap to call
-and easy to unit-test.
-"""
+# =============================================================================
+# analytics.py — KPI CALCULATIONS (no API calls, just maths)
+# =============================================================================
+# This file is the "pure maths" layer of the dashboard. It takes data
+# that was already loaded from somewhere else (events DataFrame, oil
+# price, freight index, FX rates) and crunches it into the small
+# headline numbers we show in the top-of-page header bar and the
+# financial-impact panel:
+#
+#   - critical_events / high_events / total_events  (KPI bar)
+#   - daily / monthly cost increase USD             (financial panel)
+#   - oil_multiplier  : oil price vs $90 baseline
+#   - event_risk_multiplier : extra cost from active risk events
+#   - regional_alerts : recommended action suggestions
+#
+# Everything is implemented as @staticmethods on a class called
+# RiskAnalytics so the dashboard code can call e.g.
+# `RiskAnalytics.get_summary_metrics(events_df, oil, idx)` and get the
+# whole KPI dict back at once.
+#
+# NO side effects: no API calls, no caching, no writes to disk. Just
+# arithmetic. That makes this file easy to unit-test (see tests/).
+# =============================================================================
 
 import pandas as pd
 from datetime import datetime, timedelta

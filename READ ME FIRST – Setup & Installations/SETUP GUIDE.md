@@ -202,6 +202,8 @@ Where to get each key (all free tiers):
 | `OPENWEATHER_KEY` | https://openweathermap.org/api — free tier | Port weather alerts |
 | `AISSTREAM_KEY` | https://aisstream.io — free tier | Live vessel position WebSocket feed |
 
+"WE INCLUDED OUR API KEYS IN THE PROJECT SUBMISSION COMMENT SO YOU CAN SUCCSESFULLY HOST LOCALLY"
+
 APIs that need **no key** and work immediately:
 - ACLED (conflict events)
 - GDELT (global event intelligence)

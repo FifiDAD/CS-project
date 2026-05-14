@@ -1,5 +1,32 @@
 
-"""Map visualization functions for the Global Events Dashboard"""
+# =============================================================================
+# maps.py — DRAWING THE 3D GLOBE
+# =============================================================================
+# This file is where the big interactive 3D globe on the main dashboard
+# is built. It only does visualisation — no API calls, no computation
+# of risk scores. We use Plotly's orthographic projection so the user
+# can drag the globe around with the mouse.
+#
+# The main public function is create_dashboard_map() which takes all
+# the data you might want to draw (events, route statuses, port
+# congestion, AIS vessel positions, piracy incidents) and toggle flags
+# for each layer, and returns a Plotly Figure object the page renders.
+#
+# Layers drawn (each can be turned on/off):
+#   - Shipping routes      : 5 named lanes coloured by status
+#                            (config.MAJOR_SHIPPING_ROUTES + config.ROUTE_STATUS_COLORS)
+#   - Ports                : 8 markers coloured by live congestion score
+#                            (api_config.CRITICAL_PORTS)
+#   - Event markers        : ACLED + GDELT events, sized by impact level
+#   - AIS vessels          : live vessel positions from our SQLite cache
+#   - Piracy incidents     : recent piracy from the IMB feed
+#   - Day/night terminator : grey overlay showing where it's night right now
+#
+# The visual style ("Naval Command palette") — graphite land, near-black
+# ocean, cyan coastlines, gold borders, 15° graticule — is applied
+# inside this file via update_geos(). Don't override those colours
+# elsewhere or the look breaks.
+# =============================================================================
 
 import numpy as np
 import pandas as pd
@@ -87,6 +114,10 @@ _ISO3_TO_ISO2 = {
 
 # Returns the geographic point on Earth's surface directly below the sun right now.
 # Used to position the day/night overlay and the ☀️ marker on the map.
+# Returns the latitude/longitude of the point on Earth where the sun is
+# directly overhead RIGHT NOW (the "subsolar point"). We need this to
+# draw the grey night-side overlay on the globe. Uses a simplified solar
+# position calculation — accurate enough for visual purposes.
 def _get_subsolar_point():
     """Return (lat, lon) of the point on Earth directly under the sun (UTC now)."""
     now = datetime.now(timezone.utc)
@@ -234,6 +265,10 @@ def _add_day_night(fig, lat_s, lon_s):
     ))
 
 
+# The MAIN function of this file. Builds the entire 3D globe figure
+# from all the data layers it's given, with toggleable visibility for
+# each layer. Returns a Plotly Figure object — the calling page (app.py)
+# just hands it to st.plotly_chart() to display.
 def create_dashboard_map(
     events_df,
     show_routes=True,

@@ -1,20 +1,35 @@
-"""ETA model live-quality tracking.
-
-This module closes the loop on `eta_model.predict_transit_minutes()`. Every
-prediction is logged to `eta_predictions` at call time; once the same
-vessel finishes transiting the chokepoint bbox, the matcher fills in the
-actual transit duration. From the (predicted, actual) pairs we compute
-live accuracy, interval coverage, and drift metrics.
-
-No machine learning happens here. The matcher walks `sightings`, the
-metrics are simple aggregates, and the confidence score is a small
-weighted blend. Pandas + numpy + sqlite only.
-
-Public surface:
-    match_open_predictions(db_path, lookback_h) -> dict counts
-    compute_quality_metrics(db_path, window_days, chokepoint_id) -> dict
-    compute_confidence_score(chokepoint_id, pred, quality) -> (int, str)
-"""
+# =============================================================================
+# eta_quality.py — TRACKING HOW GOOD OUR ETA PREDICTIONS ARE
+# =============================================================================
+# This file is the "feedback loop" for our ETA prediction model. Every
+# time eta_model.predict_transit_minutes() makes a prediction, that
+# prediction is written to the eta_predictions table in our local
+# SQLite database. Later, once we actually see the vessel finish
+# transiting the chokepoint via AIS, this file's matcher comes along
+# and fills in the "what really happened" column.
+#
+# From those (predicted, actual) pairs we compute:
+#   - MAE / MAPE                 : average miss in minutes / %
+#   - Accuracy %                 : fraction of predictions within ±15% / ±25%
+#   - Interval coverage          : how often reality landed inside our
+#                                  p10..p90 band (target = 80%)
+#   - Pinball loss               : a calibration metric for quantile preds
+#   - Bias                       : are we systematically over/underestimating?
+#   - Drift flag                 : true when rolling MAE > 1.25× training MAE
+#   - Confidence score           : a 0-100 single number we show on each
+#                                  route card so the user knows how much
+#                                  to trust each prediction.
+#
+# IMPORTANT: NO machine learning happens in this file. The matcher just
+# walks the SQLite sightings table, the metrics are simple averages, and
+# the confidence score is a small weighted blend. Pure pandas + numpy +
+# sqlite. Page 5 (ETA Quality) is the UI surface for everything in here.
+#
+# Public surface:
+#   match_open_predictions(db_path, lookback_h) -> dict counts
+#   compute_quality_metrics(db_path, window_days, chokepoint_id) -> dict
+#   compute_confidence_score(chokepoint_id, pred, quality) -> (int, str)
+# =============================================================================
 
 from __future__ import annotations
 

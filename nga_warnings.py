@@ -1,15 +1,33 @@
-"""NGA Maritime Safety Broadcast Warnings — authoritative live feed of
-official navigational hazards (closures, mines, GPS jamming, attacks,
-exercises) published by the U.S. National Geospatial-Intelligence Agency.
-
-No API key required. Public endpoint:
-    https://msi.nga.mil/api/publications/broadcast-warn
-
-Used by `dynamic_status.compute_shipping_status` as the single most
-authoritative chokepoint signal: if NGA has issued an active closure-
-or attack-class warning inside the chokepoint bounding box the
-chokepoint score is pinned to Critical regardless of news/event noise.
-"""
+# =============================================================================
+# nga_warnings.py — OFFICIAL NGA MARITIME WARNINGS FEED
+# =============================================================================
+# The NGA (US National Geospatial-Intelligence Agency) publishes a free
+# stream of "Maritime Safety Broadcast Warnings" — these are the
+# official notices to mariners. Things like "Suez Canal closed for
+# maintenance from X to Y", "Mines reported at lat/lon", "GPS jamming
+# active in this area", "Attack on vessel reported here", and naval
+# exercise zones. They are the single most authoritative signal we
+# have for whether a chokepoint is safe right now.
+#
+# This file fetches that feed from the public NGA endpoint (no API key
+# needed), assigns a 0-1 SEVERITY score to each warning based on its
+# text (an attack-class warning scores high, an exercise lower), and
+# exposes two functions:
+#
+#   - fetch_warnings()                  -> DataFrame of all current warnings
+#   - severity_for_chokepoint(cp, df)   -> the worst severity inside a
+#                                          given chokepoint bounding box.
+#
+# dynamic_status.compute_shipping_status() multiplies the chokepoint
+# severity by 45 in the final 0-100 risk score formula.
+#
+# Public endpoint: https://msi.nga.mil/api/publications/broadcast-warn
+#
+# IMPORTANT: NGA warnings are treated as the strongest signal in the
+# risk score. If an active closure-class or attack-class warning is
+# present inside a chokepoint bbox, that chokepoint gets pinned to
+# Critical regardless of any other noise from news/events.
+# =============================================================================
 
 from __future__ import annotations
 

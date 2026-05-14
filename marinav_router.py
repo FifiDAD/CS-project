@@ -1,18 +1,46 @@
-"""
-Maritime route optimizer for TradeWatch.
-
-Routing methodology inspired by MariNav (https://github.com/Vaishnav2804/MariNav)
-by Vaishnav2804 and contributors. Key concepts borrowed:
-  - Uber H3 hexagonal grid representation of ocean space
-  - NetworkX graph-based shortest-path routing with risk-weighted edges
-  - Chokepoint risk penalties that steer routes toward safer alternatives
-
-Adaptation for TradeWatch: instead of AIS training data + RL policy,
-this module uses an explicit global maritime backbone graph whose edges
-are weighted by geographic distance × live TradeWatch risk scores.
-When a chokepoint like the Suez Canal has a high risk score, Dijkstra
-automatically prefers the Cape of Good Hope detour.
-"""
+# =============================================================================
+# marinav_router.py — THE ROUTING ENGINE (the brain of MariNav Router)
+# =============================================================================
+# This is THE file that decides which path a ship should take. It does
+# not draw anything and it does not call APIs — it just contains the
+# routing maths. The user-facing page (pages/4_MariNav_Router.py) calls
+# into this module whenever the user clicks "Calculate Route".
+#
+# How the algorithm works, in plain English:
+#
+#   1. We treat the world's oceans as a network of hexagonal tiles using
+#      Uber's H3 grid (H3 is a free library that chops up the surface of
+#      the Earth into hexagons of roughly equal size). At H3_RES = 4,
+#      each hexagon is ~220 km across.
+#
+#   2. We connect ports and major waypoints with edges (the "shipping
+#      backbone"). The backbone is stored in this file as a static list
+#      of waypoints and corridors — Suez approach, Hormuz approach, etc.
+#
+#   3. NetworkX (a graph-algorithms library) holds the resulting graph.
+#      We give each edge two numbers: its physical distance in km, AND
+#      its current risk-weighted cost. The risk cost is multiplied by
+#      live 0-100 chokepoint risk scores fetched from TradeWatch.
+#
+#   4. To find the best route we run Dijkstra's shortest-path algorithm
+#      4 different times, each time using a different cost formula:
+#         - Recommended : distance + linear risk penalty
+#         - Fastest     : pure distance
+#         - Safest      : distance + CUBIC risk penalty (heavily avoids
+#                          dangerous chokepoints)
+#         - Cheapest    : pools k-shortest paths and picks the one whose
+#                          fuel + opex + toll + war-risk surcharge total
+#                          is the lowest in dollars.
+#
+#   5. We return all four results so the user can compare them side by side.
+#
+# Where the idea came from: we adapted the methodology from the MariNav
+# open-source project (github.com/Vaishnav2804/MariNav). Their project
+# uses AIS data + reinforcement learning to learn safe routes; we
+# instead use an explicit hand-built backbone graph with live risk
+# scores — same end-product (Dijkstra over weighted edges), simpler to
+# explain to a class.
+# =============================================================================
 
 from __future__ import annotations
 
@@ -28,6 +56,9 @@ except ImportError:
 H3_RES = 4  # ~220 km hexagons — same resolution concept as MariNav
 
 # ── Major shipping ports ──────────────────────────────────────────────────────
+# Dictionary of every port the user can pick in the dropdown. The key is
+# the human-readable port name, the value is a (latitude, longitude) tuple.
+# These coordinates were taken from publicly-available port location data.
 PORTS: dict[str, tuple[float, float]] = {
     "Rotterdam":         (51.922,   4.479),
     "Antwerp":           (51.221,   4.405),
@@ -104,6 +135,13 @@ CHOKEPOINT_ROUTES = set(CHOKEPOINT_EDGES.keys())
 CHOKEPOINT_ROUTES = set(CHOKEPOINT_NODES.keys())
 
 # ── Global maritime backbone ──────────────────────────────────────────────────
+# This is the hand-built list of waypoints AND the connections between
+# them that defines the network of legal sea routes. Every named entry
+# is a key point on the world ocean (Cape of Good Hope, Strait of
+# Hormuz approach, Suez northern approach, etc.) with a lat/lon. The
+# CORRIDORS list further down then says "you can sail directly from A
+# to B". When we build the graph these become the nodes and edges that
+# Dijkstra walks over.
 # Key ocean waypoints that form the trunk shipping network.
 # Each point represents a major maritime junction or crossing.
 _WP: dict[str, tuple[float, float]] = {
@@ -247,6 +285,10 @@ _EDGES: list[tuple[str, str]] = [
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+# Calculates the great-circle ("crow flies" along the curved Earth)
+# distance in kilometres between two lat/lon points. This is the standard
+# Haversine formula — we use it as the physical "length" of every edge in
+# the graph.
 def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """Great-circle distance in km."""
     # Calculate distance between two map points.
@@ -261,6 +303,13 @@ def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
 
 # ── Graph construction ────────────────────────────────────────────────────────
 
+# Builds the NetworkX graph that the routing algorithm will walk over.
+# Inputs: the live chokepoint risk scores (so we know which chokepoints
+# are "expensive" to cross right now). Output: a NetworkX Graph with
+# every port and waypoint as a node, every legal corridor as an edge,
+# and each edge tagged with both its distance in km AND a risk-weighted
+# cost. This is the single most expensive function in the file — we
+# cache it so we don't rebuild on every page rerun.
 def build_shipping_graph(
     shipping_routes: dict,
     risk_scores: dict | None = None,
@@ -413,6 +462,9 @@ def build_shipping_graph(
 
 # ── Route finding ─────────────────────────────────────────────────────────────
 
+# Takes a list of node names (the path Dijkstra found) and turns it into
+# a friendly summary the UI can show: total distance, list of legs,
+# which chokepoints it goes through, and so on.
 def _summarise_path(path: list[str], G: nx.Graph, origin: str, destination: str,
                     total_weighted: float) -> dict:
     """Shared helper: turn a node-id path into the canonical result dict."""
@@ -462,6 +514,10 @@ def _summarise_path(path: list[str], G: nx.Graph, origin: str, destination: str,
     }
 
 
+# Runs Dijkstra's shortest-path algorithm once on the prepared graph to
+# find the single best path from origin to destination under one
+# objective. Returns the path + a summary. Used by find_route_alternatives
+# below, which calls this 4 times with 4 different cost functions.
 def find_optimal_route(
     origin: str,
     destination: str,
@@ -503,6 +559,10 @@ def find_optimal_route(
 
 # ── Route economics: shared by alternatives + page UI ────────────────────────
 
+# Calculates the total dollar cost of a route: fuel (tonnes × bunker price)
+# + canal toll (from canal_tolls.py) + daily OPEX × number of days +
+# war-risk insurance surcharge for any high-risk chokepoints we cross.
+# Returns one number representing the all-in voyage cost in USD.
 def _route_total_cost_usd(
     result: dict,
     vessel,
@@ -721,6 +781,11 @@ def _composite_score(
     return _z(eta_h, "eta_h") + _z(cost, "cost") + _z(risk, "risk")
 
 
+# The main public entry point of this file. Builds the graph once, then
+# runs Dijkstra (and a k-shortest-paths search for Cheapest) under four
+# different cost functions and returns a list of FOUR route dicts:
+# Recommended / Fastest / Safest / Cheapest. This is what the UI calls
+# when the user clicks "Calculate Route".
 def find_route_alternatives(
     origin: str,
     destination: str,

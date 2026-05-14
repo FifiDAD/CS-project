@@ -1,14 +1,20 @@
-"""Live event feed for the dashboard.
-
-Pulls geocoded events from the live aggregator (GDELT + any other
-streams added in Phase 2). NEVER silently substitutes mock data —
-if the live feed is empty or fails, returns an empty DataFrame so
-the UI can surface "Live event feed unavailable" rather than show
-fabricated events.
-
-Set environment variable DASHBOARD_USE_SAMPLE_DATA=1 to opt into
-the static sample (development / unit tests only).
-"""
+# =============================================================================
+# sample_data.py — THE LIVE-EVENTS ENTRY POINT (with optional fake fallback)
+# =============================================================================
+# Despite its name, this file is what every page actually calls to get
+# the "current events" data. It's named "sample_data" for historical
+# reasons (it used to return hardcoded fake events for development); now
+# it pulls REAL events from our events_aggregator (GDELT-backed).
+#
+# Critically: if the live feed fails or returns no rows, we return an
+# EMPTY DataFrame rather than silently substituting fake events. That
+# way the UI can honestly say "Live event feed unavailable" instead of
+# showing fabricated incidents.
+#
+# Developers can opt in to the static fake-data fallback by setting the
+# environment variable DASHBOARD_USE_SAMPLE_DATA=1 — useful for offline
+# development and unit tests so we don't hammer GDELT every reload.
+# =============================================================================
 
 import logging
 import os

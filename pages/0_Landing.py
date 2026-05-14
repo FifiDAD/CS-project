@@ -1,24 +1,50 @@
-"""TradeWatch — Landing Page (static tutorial / informational)
-
-Pure-static welcome page: no live API fetches, no globe, no interactive
-demos. Renders instantly. While the user reads, a daemon thread warms
-every cache the rest of the dashboard hits, so clicking "Open Main
-Dashboard →" feels instant.
-"""
+# =============================================================================
+# 0_Landing.py — THE WELCOME / TUTORIAL PAGE OF OUR APP
+# =============================================================================
+# This is the very first page a user sees when they open our TradeWatch app.
+# We made it on purpose to be a "static" page, meaning it does NOT call any
+# of the slow external APIs (no live weather, no news fetches, no globe).
+# That way it loads instantly and the user can read about what the project
+# does without staring at a loading spinner.
+#
+# IMPORTANT TRICK: while the user is reading this welcome page, we secretly
+# start warming up all the data the *other* pages will need (see the
+# prefetch_full_dashboard() call further down). So by the time they click
+# "Open Main Dashboard →", everything is already cached and feels instant.
+#
+# Most of this file is just text + CSS styling (colours, fonts, card layouts)
+# because this is the "marketing brochure" page — it explains the mission,
+# the four route options (Recommended / Fastest / Safest / Cheapest), how
+# the app works in 4 steps, etc. The actual logic is tiny: configure the
+# page, warm the caches, draw the HTML.
+# =============================================================================
 
 import sys
 from pathlib import Path
 
-# Add the project root so this Streamlit page can import shared modules.
+# Streamlit runs each "page" file on its own, so Python doesn't automatically
+# know where our other project files (like data_loader.py and ui_helpers.py)
+# live. The two lines below figure out the folder one level up from this
+# file (the main CS-project folder) and add it to Python's search path so
+# the `import` statements below actually find our modules.
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
+# Streamlit is the library we use to build the whole web app — every st.xxx
+# call below is a Streamlit instruction (draw a button, write markdown, etc.)
 import streamlit as st
 
+# These two helpers come from our OWN code, in the main CS-project folder.
+#   - prefetch_full_dashboard: kicks off a background task that secretly
+#     loads all the data the other pages will need, so they open instantly.
+#   - inject_css: applies our shared site-wide styling (colours, fonts).
 from data_loader import prefetch_full_dashboard
 from ui_helpers import inject_css
 
 
 # ── Page config ───────────────────────────────────────────────────────────────
+# Tell Streamlit what to put in the browser tab (title + the little globe
+# icon), use the full browser width ("wide"), and start with the left
+# sidebar closed because the welcome page doesn't need it.
 st.set_page_config(
     page_title="TradeWatch — Welcome",
     page_icon="🌍",
@@ -26,8 +52,16 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
+# Apply our shared CSS (the global look-and-feel we defined in ui_helpers.py)
+# so every page in the app uses the same fonts and colours.
 inject_css()
 
+# Below is a big block of CSS (the language used to style web pages). We
+# pass it to Streamlit through st.markdown so it gets injected into the
+# page. Each rule (.tw-hero, .tw-card, .tw-step, ...) styles one piece
+# of the landing page — the big blue banner, the three info cards, the
+# numbered workflow steps, etc. We don't comment every CSS rule because
+# they're purely visual; the names match the HTML classes below.
 st.markdown("""
 <style>
 .stApp { background: #f2f5fa !important; }
@@ -303,13 +337,20 @@ h1, h2, h3 { color: #0f2744 !important; }
 
 
 # ── Background warm-up ────────────────────────────────────────────────────────
-# Kick off the daemon thread that warms every cache the rest of the dashboard
-# hits. The Landing page itself doesn't await it — by the time the user clicks
-# "Open Main Dashboard →" the slow paths are already cached.
+# This is the "secret trick" we mentioned at the top of the file.
+# prefetch_full_dashboard() starts a separate background thread that quietly
+# downloads + caches all the slow data (events, news, prices, vessel
+# positions) while the user is still reading this welcome page. By the
+# time they click through to the main dashboard, the data is already
+# sitting in memory, so the next page feels instant instead of taking
+# 5-10 seconds to fetch everything from the internet.
 prefetch_full_dashboard()
 
 
 # ── Hero ──────────────────────────────────────────────────────────────────────
+# Draws the big dark-blue banner at the top of the page — the project
+# name "TradeWatch" plus the one-line description of what we built.
+# This is just HTML inside st.markdown so we can use our custom CSS.
 st.markdown("""
 <div class="tw-hero">
   <div class="tw-hero-eyebrow">Shipping Route Intelligence</div>
@@ -325,6 +366,9 @@ st.markdown("""
 
 
 # ── Mission / Vision / Why cards ──────────────────────────────────────────────
+# The three white cards under the banner: Mission, Vision, and "Why this
+# matters". Pure HTML — explains the high-level "why" of the project to
+# anyone landing on the page for the first time.
 st.markdown("""
 <div class="tw-card-row">
   <div class="tw-card">
@@ -362,6 +406,14 @@ st.markdown("""
 
 
 # ── How TradeWatch works (4-step workflow) ────────────────────────────────────
+# The four numbered steps that explain, top-down, what our app actually
+# does in real life:
+#   1. Pull live data from 9 different sources (GDELT, NGA, AIS, weather…)
+#   2. Score each shipping chokepoint (Suez, Hormuz, …) from 0 to 100
+#   3. Feed those scores into our routing algorithm
+#   4. Show 4 ranked route options the user can choose from
+# All of these numbers and source names match what the rest of the app
+# actually does on the other pages.
 st.markdown("""
 <div style="margin-top:40px">
   <div class="tw-section-title">How It Works</div>
@@ -417,6 +469,12 @@ st.markdown("""
 
 
 # ── Feature tour: the 4 pages ─────────────────────────────────────────────────
+# Below this header we draw four big tiles, one for each of the other
+# pages in our app (Main Dashboard, Intel Feed, Market & Costs, MariNav
+# Router). Each tile describes what that page does so the user knows what
+# they'll find before they click into it. The MariNav Router tile is
+# marked "FLAGSHIP" because that's the page where our main algorithm
+# (the route planner) lives.
 st.markdown("""
 <div style="margin-top:40px">
   <div class="tw-section-title">Pages &amp; Features</div>
@@ -498,6 +556,10 @@ st.markdown("""
 
 
 # ── Quick-start: 4 steps to plan your first route ────────────────────────────
+# A short tutorial block telling the user, in 4 numbered steps, how to
+# actually USE the app: open MariNav Router → pick origin + destination
+# → set vessel + speed → click Calculate Route → compare the 4 options.
+# This is here so a first-time visitor isn't lost when they click in.
 st.markdown("""
 <div style="margin-top:40px">
   <div class="tw-section-title">Tutorial</div>
@@ -546,6 +608,11 @@ st.markdown("""
 
 
 # ── Priority profiles — explains the 4 named alternatives ────────────────────
+# This whole section explains the 4 different "objectives" our routing
+# algorithm can optimise for. Same vessel, same ports, but the algorithm
+# can prioritise speed, safety, money, or a balanced default depending on
+# what kind of cargo you're shipping. We made these 4 names match the 4
+# cards that appear on the MariNav Router page after a route is calculated.
 st.markdown("""
 <div style="margin-top:40px">
   <div class="tw-section-title">Route Objectives</div>
@@ -600,6 +667,8 @@ st.markdown("""
 
 
 # ── Bottom CTA ────────────────────────────────────────────────────────────────
+# "CTA" stands for Call-To-Action: the big blue button at the bottom of
+# the page that takes the user into the actual live dashboard.
 st.markdown("<br><br>", unsafe_allow_html=True)
 st.markdown(
     '<div style="text-align:center;font-size:12px;color:#6b8faf;'
@@ -609,9 +678,15 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# st.columns([1, 2, 1]) splits the row into three columns of widths
+# 1 / 2 / 1 — that way the button in the middle column ends up centered
+# on the page with empty space either side.
 col_l, col_btn, col_r = st.columns([1, 2, 1])
 with col_btn:
-    # Send the user from the tutorial page into the live dashboard.
+    # st.button returns True only on the single rerun where it was just
+    # clicked, so this if-block only triggers on the actual click.
+    # st.switch_page jumps the user from this welcome page over to app.py
+    # (our main dashboard file), which is exactly what we want here.
     if st.button("Open Main Dashboard →", use_container_width=True, type="primary"):
         st.switch_page("app.py")
 

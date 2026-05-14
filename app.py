@@ -1,29 +1,41 @@
-"""TradeWatch — Shipping Route Intelligence · Overview page.
+# =============================================================================
+# app.py — THE MAIN DASHBOARD ENTRY POINT
+# =============================================================================
+# This file is the "front door" of our whole project. When you run the
+# command `streamlit run app.py` this is the file Streamlit loads first.
+# It does six things in order, top to bottom:
+#
+#   1. Starts two background services (they each only start once and do
+#      nothing if already running):
+#        - ais_consumer.start_consumer()      = opens a live WebSocket to
+#          aisstream.io so we have a constant stream of vessel positions
+#          coming in, written to our local SQLite database.
+#        - eta_scheduler.start_eta_scheduler() = a daemon thread that
+#          retrains the XGBoost ETA model once a day, automatically, as
+#          long as enough new AIS data has accumulated.
+#   2. Configures the browser tab (title, icon, wide layout).
+#   3. On first visit, sends the user to the Welcome / Landing page.
+#   4. Loads all the heavy data needed for the main dashboard:
+#      events, oil price, freight index, exchange rates, then computes
+#      route-risk and port-congestion tables. Done concurrently with a
+#      ThreadPoolExecutor so the page loads as fast as possible.
+#   5. Computes the small KPI numbers shown in the header bar.
+#   6. Draws the header bar, navigation, then a two-column layout: a 3D
+#      globe on the left, status panels on the right, then four tabs at
+#      the bottom (Shipping & Ports / Analytics / Impact / Fuel Calc).
+#
+# Everything heavy is wrapped in disk_cached(...) so even if Streamlit
+# is restarted from scratch, we don't re-fetch fresh data from the
+# external APIs as long as the cache TTL window is still warm.
+# =============================================================================
 
-This is the Streamlit entry point. Reading top-to-bottom, the file:
+# ── Third-party libraries ───────────────────────────────────────────────────
+import streamlit as st                          # the web app framework
+import pandas as pd                             # tables / data manipulation
+from streamlit_autorefresh import st_autorefresh  # auto-reruns the page periodically
 
-  1. Starts the AIS WebSocket and the ETA-model retraining daemon
-     (both idempotent — calling start_X() twice is a no-op).
-  2. Configures the Streamlit page and injects custom CSS.
-  3. On first visit, redirects to the Landing page.
-  4. Loads the core data (events, oil, shipping index, FX) and computes
-     shipping-status + port-congestion DataFrames concurrently inside
-     an animated loader.
-  5. Pulls KPI numbers and the filter-aware event view.
-  6. Renders header, nav, then a two-column layout: globe on the left,
-     status panels on the right, followed by four tabs (Shipping &
-     Ports, Analytics, Impact, Fuel Calculator).
-
-All heavy work goes through disk_cached(...) so a Streamlit restart
-does not re-fetch from upstream APIs while their TTL window is still
-warm. Every long-running call is non-blocking — the page renders
-something useful even when an upstream is down.
-"""
-
-import streamlit as st
-import pandas as pd
-from streamlit_autorefresh import st_autorefresh
-
+# ThreadPoolExecutor lets us run several slow tasks in parallel threads
+# so the total wait is the longest one, not the sum.
 from concurrent.futures import ThreadPoolExecutor
 
 from analytics import RiskAnalytics
@@ -40,13 +52,22 @@ from ui_helpers import (
 import ais_consumer
 import eta_scheduler
 
-# Start the AIS WebSocket once per process (idempotent — no-op on rerun).
+# Start the live AIS (vessel-position) WebSocket. This runs as a background
+# thread that keeps a long-lived connection open to aisstream.io and writes
+# every position update straight into our local SQLite file
+# (.ais_positions.db). Safe to call on every page rerun — calling
+# start_consumer() a second time inside the same Python process is a no-op.
 ais_consumer.start_consumer()
-# Start the ETA-model retraining scheduler (idempotent; no-op until enough
-# real AIS data accumulates and the 24h cooldown elapses).
+
+# Start the daily ML model retrainer. It checks every few hours: if we have
+# at least ~200 real AIS rows AND the 24h cooldown has elapsed, it retrains
+# the ETA prediction model from scratch and saves the new artifact to
+# models/eta_xgb.joblib. Same idempotency guarantee as above.
 eta_scheduler.start_eta_scheduler()
 
 # ── Page config ───────────────────────────────────────────────────────────────
+# Standard Streamlit setup: title in the browser tab, globe icon, full
+# page width, sidebar closed by default. Same pattern used on every page.
 st.set_page_config(
     page_title="TradeWatch",
     page_icon="🌍",
@@ -140,11 +161,23 @@ render_nav()
 # ══════════════════════════════════════════════════════════════════════════════
 # MAIN LAYOUT — Globe (65%) │ Panels (35%)
 # ══════════════════════════════════════════════════════════════════════════════
+# The main dashboard is split into two columns:
+#   LEFT (map_col)    : the big interactive 3D globe + port congestion list
+#   RIGHT (panels_col): the route status panel + the live events feed
+# Below these two columns we then draw four tabs (Shipping & Ports /
+# Analytics / Impact / Fuel Calculator).
 map_col, panels_col = st.columns([13, 9], gap="small")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # LEFT — Globe
 # ─────────────────────────────────────────────────────────────────────────────
+# Everything inside `with map_col:` is the left column. It contains:
+#   - The 7 layer toggle buttons (Routes / Ports / Events / Vessels /
+#     Piracy / Day-Night / refresh)
+#   - The "events on map" info chip
+#   - The Plotly orthographic globe (drawn by create_dashboard_map in
+#     maps.py — pure visualisation, no API calls)
+#   - The Port Congestion panel below the globe.
 with map_col:
     # Build a {route_name: status_string} dict so maps.py can colour each route
     # line by its live computed status rather than the static traffic level.
@@ -327,6 +360,13 @@ with map_col:
 # ─────────────────────────────────────────────────────────────────────────────
 # RIGHT — Route Status + Live Events
 # ─────────────────────────────────────────────────────────────────────────────
+# The right column has two stacked panels:
+#   1. "Route Status" — one expandable row per shipping route showing the
+#      0-100 risk score, the status label, the expected delay/cost
+#      impact, and a plain-English recommendation.
+#   2. "Live Events" — the 5 most recent events (sorted by date) as small
+#      coloured alert cards. A link at the bottom takes the user to the
+#      full Intel Feed page for the complete list.
 with panels_col:
 
     # ── Route Status ──────────────────────────────────────────────────────────
@@ -500,10 +540,14 @@ with panels_col:
     st.page_link("pages/2_Intel_Feed.py", label="View full Intel Feed →", icon="📡")
 
 # ── Data freshness strip ──────────────────────────────────────────────────────
-# Renders a single horizontal bar at the bottom of the page showing the
-# real-time health of every data source: AIS stream age, latest event date,
-# NGA warnings recency, and the current oil/freight index values. Each source
-# gets a green/amber/red dot so operators can immediately spot a stale feed.
+# This little function draws a "data health check" strip at the bottom of
+# the page. Each pill = one upstream data source, with a coloured dot:
+#   GREEN  = data is fresh (e.g. AIS update less than 5 min ago)
+#   AMBER  = data is getting stale but still useful
+#   RED    = data is broken / offline / archived
+# This lets us spot a broken feed at a glance instead of silently showing
+# wrong numbers. Sources checked: AIS WebSocket, events feed, NGA warnings,
+# WTI oil price, IMF freight index.
 def _freshness_strip():
     import sqlite3, time
     from datetime import datetime, timezone

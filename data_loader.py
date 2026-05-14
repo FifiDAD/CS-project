@@ -1,4 +1,26 @@
-"""Shared cached data loading — used by all TradeWatch pages."""
+# =============================================================================
+# data_loader.py — THE SHARED DATA LOADER (cached, parallelised)
+# =============================================================================
+# Every page in the app needs roughly the same 4 pieces of data:
+#   1. Events DataFrame      (ACLED + GDELT + NGA + multi-source merge)
+#   2. WTI crude oil price   (FRED)
+#   3. IMF freight index     (FRED)
+#   4. Currency exchange rates (ExchangeRate-API)
+#
+# Rather than letting each page call the APIs individually, every page
+# calls our single load_core_data() function here. It does all four
+# calls in PARALLEL (using a small ThreadPoolExecutor), and the result
+# is cached with @st.cache_data so subsequent page visits within the
+# 15-minute TTL get the data instantly.
+#
+# The second function in this file, prefetch_full_dashboard(), is the
+# "secret trick" of the welcome page: it fires off a background daemon
+# thread that warms ALL the slow caches (events, risk computations,
+# news, piracy, etc.) while the user is still reading the welcome page.
+# By the time they click "Open Main Dashboard" everything is already in
+# cache and the next page is instant. A single-flight lock prevents
+# many simultaneous warm-ups from stacking up if the user keeps reloading.
+# =============================================================================
 import threading
 from concurrent.futures import ThreadPoolExecutor
 

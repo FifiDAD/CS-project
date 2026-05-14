@@ -1,10 +1,26 @@
-"""On-disk result cache for slow loading-screen computations.
-
-Sits below `@st.cache_data` and above the API layer. Survives Streamlit
-restarts (which clear `@st.cache_data` per-process). Any IO or pickle
-error transparently falls back to calling the wrapped function — the
-worst case is "no speedup", never a broken page.
-"""
+# =============================================================================
+# disk_cache.py — A SIMPLE ON-DISK RESULT CACHE
+# =============================================================================
+# Streamlit's built-in @st.cache_data only lives in memory: as soon as
+# the Streamlit process is killed (e.g. we restart the server), every
+# cached value is gone and the next page load has to re-fetch from the
+# internet from scratch.
+#
+# This little helper adds a SECOND, persistent cache layer that survives
+# restarts. It saves successful function results to small pickle files
+# under a temp directory, keyed by a hash of the function name + cache
+# tag + a TTL. If the function is called again within the TTL window —
+# even from a fresh Streamlit process — we return the pickle instead of
+# re-running the slow function.
+#
+# Used by app.py for load_core_data and the heaviest dynamic_status
+# computations so a "streamlit run" restart doesn't blow away ~10s of
+# warm-up time.
+#
+# Safety: any pickle / IO error silently falls back to calling the
+# wrapped function. Worst case = "no speedup". The page never breaks
+# because of a cache miss or corrupted cache file.
+# =============================================================================
 from __future__ import annotations
 
 import hashlib

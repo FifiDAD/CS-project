@@ -1,28 +1,73 @@
-"""
-TradeWatch — MariNav Route Calculator
+# =============================================================================
+# 4_MariNav_Router.py — THE "MARINAV ROUTER" PAGE (our flagship feature)
+# =============================================================================
+# This is the most important page in the whole project: the actual route
+# planner. The user picks an origin port, a destination port, a vessel
+# type (tanker / bulker / container / etc.), a speed and a few other
+# settings, then clicks "Calculate Route". We then run our routing
+# algorithm and give back FOUR ranked alternatives:
+#
+#       Recommended  · balanced
+#       Fastest      · shortest distance
+#       Safest       · avoids risky chokepoints (cubic risk penalty)
+#       Cheapest     · lowest total dollars
+#
+# Each alternative is shown as a card with the distance, days, max risk,
+# fuel use, CO2 emissions, ML-predicted ETA, monte-carlo P10/P50/P90
+# fuel & ETA confidence intervals, an automatic "why this route" text,
+# and a per-leg breakdown. All four routes are drawn on a Plotly map.
+#
+# How the routing works (under the hood):
+#   1. marinav_router.build_shipping_graph() builds a graph of the ocean
+#      using the H3 hex grid (Uber's hexagonal Earth tiling) and NetworkX.
+#      Nodes = ocean hexes + ports. Edges = navigable connections with
+#      distance + a risk-weighted cost. The risk part comes from live
+#      TradeWatch data (compute_shipping_status).
+#   2. marinav_router.find_route_alternatives() runs Dijkstra's
+#      shortest-path algorithm four different times under four different
+#      cost weights — one for each objective above.
+#   3. The vessel_physics module turns the chosen path into real numbers
+#      (fuel burn, sea state, CO2, ETA…) using simple naval-architecture
+#      formulas (admiralty coefficient, wave resistance corrections,
+#      hotel load etc.).
+#   4. The eta_model module gives an XGBoost machine-learning ETA on top.
+#   5. monte_carlo_voyage() runs 5,000 randomised "what if weather is
+#      better/worse" simulations to produce 10th/50th/90th percentile
+#      confidence bands on fuel + ETA.
+#
+# This page is mostly UI glue: it gathers user inputs, calls the
+# routing/physics/ML helpers, and draws the result. The heavy maths is
+# in marinav_router.py, vessel_physics.py, and eta_model.py.
+#
+# Source acknowledgement: the H3 + NetworkX graph methodology is based
+# on the MariNav open-source project (github.com/Vaishnav2804/MariNav).
+# =============================================================================
 
-Route optimizer powered by the methodology from:
-  MariNav — https://github.com/Vaishnav2804/MariNav
-  by Vaishnav2804 and contributors
+# ── Third-party libraries ───────────────────────────────────────────────────
+import streamlit as st                  # the web app framework
+import pandas as pd                     # tables / data frames
+import plotly.graph_objects as go       # interactive maps + charts
 
-This page builds a risk-weighted maritime routing graph (H3 + NetworkX,
-as in MariNav) and finds the optimal path between any two major ports,
-penalizing routes that pass through chokepoints currently flagged as
-high-risk by TradeWatch's live data feeds.
-"""
-
-import streamlit as st
-import pandas as pd
-import plotly.graph_objects as go
-
+# ── Our own modules (all live in the main CS-project folder) ────────────────
+# compute_shipping_status: turns events data into 0-100 risk scores per route.
 from dynamic_status import compute_shipping_status
+# load_core_data: cached loader for events + market data.
 from data_loader import load_core_data
+# Shared UI building blocks (CSS, header bar, navigation, footer, colours).
 from ui_helpers import (
     inject_css, render_header, render_nav, render_footer,
     SC, risk_col, lottie_loader,
 )
+# RiskAnalytics: KPI numbers shown in the header bar.
 from analytics import RiskAnalytics
+# filter_events: drops irrelevant / old events.
 from components import filter_events
+# The actual routing engine:
+#   - build_shipping_graph    : builds the H3 + NetworkX ocean graph
+#   - find_route_alternatives : runs 4 different Dijkstra optimisations
+#   - PORTS                   : list of major ports the user can pick
+#   - CHOKEPOINT_ROUTES       : which chokepoints lie on which routes
+#   - H3_AVAILABLE            : True only if the H3 library is installed
 from marinav_router import (
     build_shipping_graph,
     find_route_alternatives,
@@ -30,9 +75,18 @@ from marinav_router import (
     CHOKEPOINT_ROUTES,
     H3_AVAILABLE,
 )
+# Static map data: lat/lon waypoints for the 5 named shipping routes.
 from config import MAJOR_SHIPPING_ROUTES
+# APIClient gives us oil price + freight index etc.
 from api_integrations import APIClient
+# Estimates Suez/Panama canal tolls in USD for a given vessel.
 from canal_tolls import estimate_toll_usd
+# Naval-architecture / fuel-physics functions:
+#   - VESSEL_PROFILES         : pre-defined vessel classes (VLCC, Panamax…)
+#   - voyage_totals           : aggregates fuel + days + emissions
+#   - fuel_for_edge           : fuel burn for a single graph edge
+#   - monte_carlo_voyage      : 5k-sample weather-randomised simulation
+#   - co2_tonnes              : CO2 emissions in tonnes from fuel tonnes
 from vessel_physics import (
     VESSEL_PROFILES,
     voyage_totals as physics_voyage_totals,
@@ -40,22 +94,34 @@ from vessel_physics import (
     monte_carlo_voyage,
     co2_tonnes,
 )
+# Great-circle distance helper (lat/lon -> km).
 from marinav_router import _haversine_km
 import math
 from datetime import datetime, timezone
 
+# Machine-learning ETA model (XGBoost quantile regression):
+#   - predict_total_for_route : predicts p10/p50/p90 ETA in minutes
+#   - load_artifact           : loads the trained model file from disk
+#   - CHOKEPOINT_BBOXES       : bounding boxes used to define chokepoints
+#   - BBOX_DIAGONAL_KM        : helper distance constant
 from eta_model import (
     predict_total_for_route,
     load_artifact as _load_eta_artifact,
     CHOKEPOINT_BBOXES as _ETA_CHOKEPOINT_BBOXES,
     BBOX_DIAGONAL_KM as _ETA_BBOX_DIAGONAL_KM,
 )
+# Live quality tracking for the ML ETA — how well it's been doing recently.
 from eta_quality import compute_confidence_score, compute_quality_metrics
 
 
+# @st.cache_data tells Streamlit to remember the result of this function for
+# 120 seconds (ttl = time-to-live). So if 4 route cards each ask for the
+# quality metrics, we only actually compute them once per 2 minutes.
 @st.cache_data(ttl=120, show_spinner=False)
 def _eta_quality_metrics_cached() -> dict:
     """Cache live-quality metrics for 2 min so each card lookup is cheap."""
+    # Pulls the rolling 30-day quality stats (MAE / coverage / drift)
+    # for our ETA predictor, computed by eta_quality.py.
     try:
         return compute_quality_metrics(window_days=30)
     except Exception:  # noqa: BLE001  never blank cards on a metrics error
@@ -224,6 +290,9 @@ render_nav()
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE INTRO
 # ══════════════════════════════════════════════════════════════════════════════
+# A short banner explaining what this page does and crediting the MariNav
+# open-source project our routing methodology is based on. Purely
+# informational — no logic here, just HTML inside st.markdown.
 st.markdown("""
 <div style="padding:14px 16px;border-bottom:1px solid #1a1a1a;margin-bottom:8px">
   <div style="font-size:13px;font-weight:700;color:#e8e8e8;margin-bottom:4px">
@@ -243,9 +312,15 @@ st.markdown("""
 # ══════════════════════════════════════════════════════════════════════════════
 # ROUTE SELECTOR
 # ══════════════════════════════════════════════════════════════════════════════
+# This is the form the user fills in to plan a voyage. We give them four
+# inputs across the top of the page:
+#   1. Origin port      (e.g. Rotterdam)
+#   2. Destination port (e.g. Singapore)
+#   3. Vessel class     (Panamax / Suezmax / VLCC / ULCV / MR)
+#   4. The "Calculate Route" button that kicks off the algorithm
+# The list of valid ports comes from PORTS, which is a dictionary defined
+# in marinav_router.py — ~30 major world ports with their lat/lon coords.
 port_list = sorted(PORTS.keys())
-
-# Main route form: origin, destination, vessel, and calculate button.
 sel_col1, sel_col2, sel_col3, sel_col4, _ = st.columns([2, 2, 2, 1, 2])
 
 with sel_col1:
@@ -304,11 +379,13 @@ if len(shipping_df) > 0:
 </div>""", unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════════════════════
-# VOYAGE PARAMETERS — speed, OPEX, bunker port and weather routing are all
-# driven by live inputs (vessel profile, FRED bunker prices, Open-Meteo). The
-# session_state.get(...) fallbacks below provide sensible per-vessel defaults
-# so the route always computes with current real-world values.
+# VOYAGE PARAMETERS
 # ══════════════════════════════════════════════════════════════════════════════
+# Once the user picks the vessel class, we use that to set sensible defaults
+# for speed, daily OPEX (operating cost), bunker port (where they refuel),
+# and fuel grade. The user can override any of these in the sidebar. We
+# also fetch the live bunker (marine fuel) price from Ship & Bunker so the
+# dollar cost numbers reflect the real-world fuel price today.
 vessel = VESSEL_PROFILES[vessel_name]
 speed_kn = float(st.session_state.get("mn_speed", vessel.design_speed_kn))
 opex_per_day = int(st.session_state.get(
@@ -337,8 +414,22 @@ if len(bunker_df) > 0:
         bunker = float(match.iloc[0]["price_usd_per_mt"])
 
 # ══════════════════════════════════════════════════════════════════════════════
-# COMPUTE + DISPLAY
+# COMPUTE + DISPLAY  ← this is the heart of the page
 # ══════════════════════════════════════════════════════════════════════════════
+# This whole block only runs when EITHER the user just clicked "Calculate
+# Route" (compute=True) OR a previously-calculated set of alternatives is
+# still sitting in session_state from an earlier click. That way the
+# results stay on screen across reruns instead of disappearing.
+#
+# Inside this block we:
+#   - Build the H3 + NetworkX ocean graph (build_shipping_graph)
+#   - Run Dijkstra 4 times under 4 different objectives
+#     (find_route_alternatives -> Recommended / Fastest / Safest / Cheapest)
+#   - For each alternative: compute fuel, days, CO2, ML ETA, monte-carlo
+#     P10/P50/P90 bands, an automatic "why this route" narrative, and a
+#     per-leg breakdown table.
+#   - Draw the 4 result cards, draw all 4 routes on the globe, and show
+#     the per-leg detail panel.
 if compute or st.session_state.get("mnav_alternatives"):
 
     if compute:
@@ -1055,6 +1146,13 @@ if compute or st.session_state.get("mnav_alternatives"):
     # ══════════════════════════════════════════════════════════════════════════
     # LAYOUT: Globe (60%) │ Route Detail (40%)
     # ══════════════════════════════════════════════════════════════════════════
+    # Below the 4 alternative cards we split the screen 60/40:
+    #   - Left  (map_col)  : a Plotly orthographic globe with ALL FOUR
+    #                        routes drawn on it in different colours, plus
+    #                        port markers and chokepoint markers.
+    #   - Right (info_col) : details for the currently-picked alternative
+    #                        — per-leg breakdown table, "why this route"
+    #                        narrative, monte carlo confidence ranges, etc.
     map_col, info_col = st.columns([3, 2], gap="small")
 
     # ── Great-circle interpolation helper ──────────────────────────────────────

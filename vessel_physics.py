@@ -1,24 +1,43 @@
-"""
-Vessel physics: weather-aware fuel + ETA per edge, with Monte Carlo confidence.
-
-Inspired by WINDMAR (windmar-nav/windmar-demo) but implemented as a small,
-pure-Python alternative — no FastAPI, no Postgres, no Redis. The dashboard
-already has marinav_router for graph topology and Open-Meteo for weather.
-
-Model: admiralty-coefficient calm-water shaft power + simple wind-drag and
-wave-added power. Sufficient for routing-grade estimates (within ~10% of
-trial data for typical commercial speeds), and far better than the flat
-"distance × consumption" the Fuel Calculator was using.
-
-    P_calm   = displacement_t^(2/3) * speed_kn^3 / admiralty_coeff [kW]
-    F_wind   = 0.5 * rho_air * Cd * A_front * v_app^2              [N]
-    F_wave   = k_wave * Hs_m^2 * 1000                              [N]
-    P_extra  = (F_wind + F_wave) * v_ship_ms / 1000                [kW]
-    fuel_h   = (P_calm + P_extra) / propulsive_eff * SFOC / 1e6    [t/h]
-
-`v_app` is the apparent headwind in m/s. `k_wave` is the per-vessel wave-
-resistance coefficient (kN per m^2 of significant wave height squared).
-"""
+# =============================================================================
+# vessel_physics.py — THE FUEL & WEATHER PHYSICS MODULE
+# =============================================================================
+# This file holds the simple naval-architecture formulas that turn a path
+# on the map into real numbers: how many tonnes of fuel will this voyage
+# burn? How many hours will it take? How much extra fuel does bad weather
+# add? It's "physics-lite" — we don't model every detail of a ship's hull,
+# we use the well-known admiralty-coefficient approximation which gets
+# within roughly ±10% of real trial data for typical merchant ships.
+#
+# The big ideas:
+#   - Each vessel class (Panamax / Suezmax / VLCC / ULCV / MR) has a
+#     pre-calibrated VesselProfile here with its displacement, design
+#     speed, hotel load (idle power), admiralty coefficient, and
+#     specific fuel consumption (SFC).
+#   - For each EDGE of the path (e.g. "Suez approach -> Hormuz approach")
+#     we estimate calm-water shaft power, then add corrections for wind
+#     drag (wind speed/direction from Open-Meteo) and wave-added power
+#     (wave height also from Open-Meteo). Adding those up gives us total
+#     shaft power; multiplying by SFC gives fuel rate; integrating over
+#     time gives total fuel for that edge.
+#   - monte_carlo_voyage() runs ~5000 randomised "what-if weather is
+#     better/worse" simulations to give the user a p10/p50/p90 confidence
+#     range on total fuel and ETA (not just one point estimate).
+#   - co2_tonnes() converts fuel tonnes to CO2 tonnes using IMO emission
+#     factors (around 3.114 t CO2 per t HFO).
+#
+# Inspired by the open WINDMAR project, but rewritten as a small
+# pure-Python module so we don't need their FastAPI/Postgres/Redis stack.
+#
+# The core formulas (for the curious):
+#     P_calm   = displacement_t^(2/3) * speed_kn^3 / admiralty_coeff [kW]
+#     F_wind   = 0.5 * rho_air * Cd * A_front * v_app^2              [N]
+#     F_wave   = k_wave * Hs_m^2 * 1000                              [N]
+#     P_extra  = (F_wind + F_wave) * v_ship_ms / 1000                [kW]
+#     fuel_h   = (P_calm + P_extra) / propulsive_eff * SFOC / 1e6    [t/h]
+#
+# v_app  = apparent headwind in m/s
+# k_wave = per-vessel wave resistance coefficient (kN per m^2 of Hs squared)
+# =============================================================================
 
 from __future__ import annotations
 

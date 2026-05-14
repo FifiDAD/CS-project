@@ -1,11 +1,28 @@
-"""Events aggregator — produce a single DataFrame of live, georeferenced
-events from GDELT DOC (curated maritime query) for the rest of the dashboard
-to consume.
-
-Output schema (canonical):
-    event_id, type, location, latitude, longitude, date, impact,
-    description, affected_routes, business_impact, source
-"""
+# =============================================================================
+# events_aggregator.py — TURNING RAW GDELT INTO A CLEAN EVENTS TABLE
+# =============================================================================
+# GDELT (Global Database of Events, Language, and Tone) is a free
+# database of every news story published anywhere in the world,
+# georeferenced to lat/lon. The raw feed is messy — same incident
+# reported many times, free-text categories, inconsistent metadata.
+#
+# This file's job: take the raw GDELT DOC API output for our curated
+# "maritime / shipping / chokepoint" query and produce ONE clean table
+# of events with a canonical schema that the rest of the dashboard
+# expects:
+#
+#   event_id, type, location, latitude, longitude, date, impact,
+#   description, affected_routes, business_impact, source
+#
+# It also:
+#   - Buckets each event into a TradeWatch type (Disruption / Threat /
+#     Weather Hazard / etc.) based on its GDELT category tags + keywords
+#     in the title.
+#   - Assigns an impact level (Critical / High / Medium / Low) from a
+#     simple rule set on event type + recency.
+#   - Tags which shipping routes the event is "near" (within ~250 km of
+#     a chokepoint) so the dashboard can roll up nearby-event counts.
+# =============================================================================
 
 from __future__ import annotations
 

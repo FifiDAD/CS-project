@@ -1,4 +1,24 @@
-"""UI Components — TradeWatch shipping intelligence dashboard"""
+# =============================================================================
+# components.py — REUSABLE UI BUILDING BLOCKS
+# =============================================================================
+# A small library of UI helper functions and shared colour constants used
+# by multiple pages. Pulled into its own file so the page files don't
+# have to repeat the same code over and over.
+#
+# The two most-used helpers are:
+#   - filter_events(events_df, type, impact, search) :
+#         applies the sidebar filters (event type / impact level /
+#         keyword search) to the events DataFrame and returns the
+#         filtered view. Called from every page.
+#   - generate_intel_brief(events, news, shipping) :
+#         turns the live data into the short bulleted "Intelligence
+#         Brief" shown at the top of the Intel Feed page (e.g. "Suez at
+#         HIGH risk · 12 articles in last 24h"). Rule-based — easy to
+#         explain to a non-technical audience.
+#   - render_comparison_table(...) :
+#         draws the big route-vs-route HTML table shown on the Route
+#         Planner page.
+# =============================================================================
 
 import streamlit as st
 import pandas as pd

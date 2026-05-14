@@ -1,9 +1,36 @@
-"""
-dynamic_status.py — Compute shipping/port/regional status from live API data.
-
-All functions accept events_df.to_json() as input (a JSON string) so that
-Streamlit's @st.cache_data can hash them — DataFrames are not hashable.
-"""
+# =============================================================================
+# dynamic_status.py — THE LIVE RISK-SCORING ENGINE
+# =============================================================================
+# This file is where we turn raw events / news / AIS data into the
+# 0-100 risk SCORES you see on the dashboard for each shipping route,
+# each chokepoint, each port, and each region of the world.
+#
+# The four main scoring functions exported from this file:
+#   - compute_shipping_status(events_json)   : 0-100 score per shipping route
+#   - compute_risk_summary(events_json)      : risk grade per world region
+#   - compute_port_congestion(events_json)   : 0-100 score per major port
+#   - get_news_feed()                        : merged news (Guardian + NewsAPI)
+#
+# How the chokepoint risk score is built (see CLAUDE.md for the formula):
+#     score = nga_severity × 45
+#           + min(25, ais_transit_drop)
+#           + critical_events_nearby × 25
+#           + high_events_nearby × 10
+#           + news_clusters_score × 6
+# Each component pulls from a different live data source:
+#   - NGA severity        : official US maritime warnings (nga_warnings.py)
+#   - AIS transit drop    : live AIS data from our local SQLite database
+#                           (today's traffic vs the 30-day baseline)
+#   - Events nearby       : ACLED conflict + GDELT events within ~250 km
+#   - News clusters       : GDELT articles confirmed by ≥2 distinct news
+#                           domains, decayed over time
+#
+# CRITICAL TECHNICAL DETAIL: every function in this file takes its
+# events as a JSON STRING (events_df.to_json()), not as a DataFrame.
+# Reason: Streamlit's @st.cache_data needs a "hashable" input as the
+# cache key, and DataFrames aren't hashable. So upstream callers do
+# events_df.to_json() once, and we reconstruct the DataFrame inside.
+# =============================================================================
 
 import math
 from io import StringIO
@@ -70,6 +97,11 @@ def _classify_topic(title: str) -> str:
 
 # ── Public functions ──────────────────────────────────────────────────────────
 
+# Computes the 0-100 risk score for every monitored shipping chokepoint
+# (Suez, Hormuz, Malacca, Panama, Bosphorus, English Channel). Returns a
+# DataFrame with one row per route — risk score, status label, expected
+# delay, cost impact, nearby event count, news signal count. Result is
+# cached for ~15 minutes (CACHE_TTL_EVENTS).
 @st.cache_data(ttl=CACHE_TTL_EVENTS)
 def compute_shipping_status(events_json: str) -> pd.DataFrame:
     """
@@ -246,6 +278,9 @@ def compute_shipping_status(events_json: str) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+# Groups events by world region (Middle East / SE Asia / Europe / etc.)
+# and assigns each region a risk grade based on how many critical/high
+# events are happening there right now. Returns one row per region.
 @st.cache_data(ttl=CACHE_TTL_EVENTS)
 def compute_risk_summary(events_json: str) -> pd.DataFrame:
     """
@@ -373,6 +408,10 @@ def _ais_anchored_count(
     return int(inside.sum())
 
 
+# Scores each of our 8 monitored ports for congestion 0-100. The formula
+# is roughly: gdelt_articles × 2 + acled_events × 15 + weather_alert × 20.
+# We also check live AIS for anchored vessel counts as a "ground truth"
+# signal. Returns one row per port with the score + a congestion label.
 @st.cache_data(ttl=CACHE_TTL_EVENTS)
 def compute_port_congestion(events_json: str) -> pd.DataFrame:
     """
@@ -536,6 +575,10 @@ def compute_port_congestion(events_json: str) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+# Fetches live news articles from BOTH the Guardian Open Platform API AND
+# the NewsAPI service, merges them, removes duplicates, classifies each
+# article into a topic (conflict / shipping / trade / weather / other),
+# and returns one unified DataFrame. Cached for 5 minutes.
 @st.cache_data(ttl=CACHE_TTL_NEWS)
 def get_news_feed(keywords: str = "shipping port conflict military supply chain trade sanctions") -> pd.DataFrame:
     """
@@ -722,6 +765,10 @@ _REGION_KEYWORDS: list[tuple[str, tuple[str, ...]]] = [
 ]
 
 
+# Looks at each news article and tags it with a maritime region (Suez,
+# Hormuz, Malacca, Panama, Bosphorus, English Channel, or Other) based
+# on the words in its title/body. Returns a dict keyed by region so the
+# Intel Feed page can group articles into collapsible region sections.
 def cluster_news_by_region(news_df: pd.DataFrame) -> dict[str, pd.DataFrame]:
     """Group articles by maritime region based on title keyword matching.
 

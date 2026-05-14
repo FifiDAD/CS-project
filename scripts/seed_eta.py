@@ -1,16 +1,25 @@
-"""Generate a deterministic synthetic dataset of chokepoint transits.
-
-Each row simulates one vessel clearing one chokepoint. Per-chokepoint
-mean transit times are calibrated to public references (canal authority
-disclosures, Marine Traffic averages, IMO chokepoint reports). Queue
-depth and ship type modulate the mean; Gaussian noise gives realistic
-spread without overfitting to any one source.
-
-Usage:
-    python scripts/seed_eta.py
-
-Writes data/eta_seed_transits.csv (~1500 rows).
-"""
+# =============================================================================
+# seed_eta.py — GENERATES A "FAKE" STARTING DATASET FOR THE ETA MODEL
+# =============================================================================
+# When we first set up the project on a new computer, the local SQLite
+# database has zero real AIS data in it — so the ETA model would have
+# nothing to learn from. This little script generates a deterministic
+# synthetic dataset of chokepoint transits so the model has something
+# realistic to train on from day one. Once enough real AIS data
+# accumulates, the trainer naturally phases the synthetic rows out.
+#
+# Each fake row simulates one vessel clearing one chokepoint. The
+# per-chokepoint mean transit times are calibrated against public
+# references (canal authority disclosures, Marine Traffic averages, IMO
+# chokepoint reports). Queue depth and ship type modulate the mean.
+# Gaussian random noise gives realistic spread without overfitting to
+# any one source.
+#
+# Usage:
+#     python scripts/seed_eta.py
+#
+# Output: writes data/eta_seed_transits.csv (~1500 rows).
+# =============================================================================
 
 from __future__ import annotations
 

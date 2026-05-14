@@ -1,11 +1,16 @@
-"""Central secrets loader.
-
-Loads .env at import time. All API keys/credentials are read here so that
-api_config.py and api_integrations.py can stay free of hardcoded secrets.
-
-Missing keys are returned as None — callers must handle that gracefully
-(skip the API and log a warning) rather than silently using stale defaults.
-"""
+# =============================================================================
+# app_secrets.py — WHERE WE LOAD API KEYS FROM (safely, not from git)
+# =============================================================================
+# This file's whole purpose is to read our API keys (NewsAPI key, FRED
+# key, Guardian key, OpenWeather key, AISStream token) at app startup
+# WITHOUT having those secrets hardcoded into a file that gets
+# committed to git. We use python-dotenv to read a local .env file
+# (which is in .gitignore) on import. Other modules then import the
+# constants from here. If a key is missing we return None instead of
+# crashing — the API client functions check for None and just skip
+# that source with a warning, so the dashboard still loads with
+# whatever sources DO have keys.
+# =============================================================================
 
 import os
 from pathlib import Path

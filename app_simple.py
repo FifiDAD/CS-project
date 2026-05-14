@@ -1,4 +1,21 @@
-"""Global Events Dashboard - Simplified Version (No Pandas required for startup)"""
+# =============================================================================
+# app_simple.py — THE "MINIMAL" / FALLBACK ENTRY POINT
+# =============================================================================
+# This file is a much simpler version of app.py. We wrote it for two reasons:
+#
+#   1. As a "smoke test" page: it has zero heavy dependencies (no pandas,
+#      no plotly, no ML libraries), so we can run it on any computer just
+#      to check that Streamlit + the API keys + the basic environment are
+#      all set up correctly. If THIS page won't load, nothing else will.
+#
+#   2. As a friendly "loading" / onboarding page that tells the user which
+#      data sources we use (GDELT, NOAA, World Bank, Exchange Rates,
+#      NewsAPI, FRED, Guardian, OpenWeather) and lists what they'll get
+#      once the full dashboard finishes loading.
+#
+# It is intentionally pure-static: no API calls, no data tables, just
+# Streamlit text and a refresh button. To run it: `streamlit run app_simple.py`
+# =============================================================================
 
 import streamlit as st
 from datetime import datetime

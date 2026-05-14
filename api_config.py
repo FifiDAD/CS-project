@@ -1,4 +1,21 @@
-"""API Configuration — endpoints + monitoring constants. Secrets live in secrets.py."""
+# =============================================================================
+# api_config.py — API ENDPOINTS, CACHE TIMINGS, AND MAP COORDINATES
+# =============================================================================
+# Sister file to config.py — a constants-only file, no logic. The
+# difference is this file holds things specifically related to the
+# OUTSIDE WORLD (URLs, cache TTLs, key regions/ports we monitor).
+#
+# What's in here:
+#   - The API keys are pulled in from app_secrets.py (so the keys can
+#     stay out of git via .env). We re-export them here for backward
+#     compatibility with older imports.
+#   - CACHE_TTL_NEWS / EVENTS / PRICES : how long each kind of data is
+#     considered "fresh" before we re-fetch (5/15/30 minutes).
+#   - STRAIT_COORDINATES   : lat/lon of every chokepoint we score.
+#   - CRITICAL_PORTS       : the 8 major ports we monitor for congestion.
+#   - KEY_REGIONS          : geographic bounding boxes for the regional
+#                            risk summary table.
+# =============================================================================
 
 import os
 

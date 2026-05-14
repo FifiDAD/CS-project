@@ -1,4 +1,23 @@
-"""Configuration and constants for the Global Events Dashboard"""
+# =============================================================================
+# config.py — STATIC CONSTANTS USED ACROSS THE WHOLE APP
+# =============================================================================
+# This file is just a big bag of constants that other files read. There
+# is NO logic here — no functions, no API calls, just dictionaries and
+# lists. Putting all the constants in one place means we change them in
+# exactly one spot.
+#
+# What's in here:
+#   - DEFAULT_MAP_CENTER / DEFAULT_MAP_ZOOM : the starting view of the globe
+#   - EVENT_TYPES        : the event category dictionary used by the
+#                          sidebar dropdown filter (Disruption / Threat
+#                          / Weather / etc.) plus their colours/icons.
+#   - IMPACT_LEVELS      : Critical / High / Medium / Low with colours.
+#   - MAJOR_SHIPPING_ROUTES : the 5 named shipping lanes — each entry
+#                          is the list of (lat, lon) waypoints that
+#                          maps.py uses to draw the line on the globe.
+#   - ROUTE_STATUS_COLORS : which colour to use for each status label
+#                          when colouring the route lines.
+# =============================================================================
 
 # Map settings
 # Default world view used when a page first renders the map.

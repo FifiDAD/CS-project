@@ -1,14 +1,22 @@
-"""Canal toll lookup tables.
-
-Suez and Panama tolls vary by vessel class, transit direction, and laden
-status. Real published rates are buried in PDFs (SCNT for Suez, PC/UMS for
-Panama) and updated yearly. The numbers below are *representative* 2024–2025
-rates in USD per transit, rounded to the nearest $1k. Good enough for a
-route comparison; flag in the UI as "indicative — call agent for booking".
-
-If you wire in a real toll API later (Leth Agencies / Inchcape), replace
-`estimate_toll_usd()` here.
-"""
+# =============================================================================
+# canal_tolls.py — ESTIMATED SUEZ + PANAMA CANAL TOLLS
+# =============================================================================
+# Crossing the Suez Canal or the Panama Canal isn't free — vessels pay a
+# toll to the authority that runs each canal, and these tolls can be
+# tens or hundreds of thousands of US dollars per transit. To make our
+# "Cheapest route" objective realistic, we need to add these tolls to
+# the total cost of any route that goes through a canal.
+#
+# The real toll formulas (Suez Canal Net Tonnage / Panama Canal/Universal
+# Measurement System) are complicated and live in PDFs that get updated
+# yearly. We use a simplified lookup table of REPRESENTATIVE 2024-2025
+# tolls per vessel class, rounded to the nearest $1k. That's accurate
+# enough for picking between routing alternatives. The UI labels these
+# numbers as "indicative — call agent for actual booking".
+#
+# Public function:
+#   estimate_toll_usd(canal_name, vessel_class) -> int
+# =============================================================================
 
 from __future__ import annotations
 

@@ -1,4 +1,32 @@
-"""TradeWatch — Market & Costs"""
+# =============================================================================
+# 3_Market_Costs.py — THE "MARKET & COSTS" PAGE (the money page)
+# =============================================================================
+# This is the page that answers the question "how much does today's
+# situation actually COST a shipping company?". It shows:
+#
+#   1. A row of 7 "market overview" cards: WTI crude oil price, the IMF
+#      freight index, 4 currency pairs (EUR/GBP/JPY/CNY vs USD), and the
+#      Singapore VLSFO marine fuel price. Each card shows green/red arrows
+#      based on whether the number is up or down vs a baseline.
+#
+#   2. A live bunker (marine fuel) price table — we scrape this from the
+#      public Ship & Bunker website (see api_integrations.APIClient.
+#      get_bunker_prices). It updates roughly every 30 minutes.
+#
+#   3. A "Financial Impact Fleet" panel that estimates the daily and
+#      monthly extra cost a typical fleet is paying RIGHT NOW because of
+#      higher oil prices and active events. The maths is in
+#      analytics.RiskAnalytics.calculate_cost_impact().
+#
+#   4. A delays-and-costs table grouped by chokepoint (Suez, Hormuz, …)
+#      sorted with the most expensive/risky one at the top.
+#
+# Where the data comes from:
+#   - WTI oil & freight index : FRED API (St. Louis Fed, free)
+#   - Exchange rates          : ExchangeRate-API (free, no key)
+#   - Bunker prices           : Ship & Bunker website (live scrape)
+#   - Event-driven multipliers: our own analytics on the events data
+# =============================================================================
 
 import streamlit as st
 import pandas as pd

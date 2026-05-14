@@ -1,22 +1,40 @@
-"""API Integration Module — fetch real data from external services.
-
-This module is the dashboard's single point of contact with the
-outside world. Everything live (oil price, news, weather, conflict
-events, NGA warnings, FX, shipping index, vessel tracks) flows
-through `APIClient` static methods declared below.
-
-Three layered defences against upstream flakiness:
-
-1. **Shared session** (`_SESSION`) — connection re-use, fewer TLS
-   handshakes, faster cold loads when we hit many services.
-2. **Persistent on-disk HTTP cache** (`requests_cache`) — survives
-   process restarts, so a dev reload doesn't burn API quota.
-3. **Streamlit `@st.cache_data` TTL** on every public method —
-   memoises within one user session for the configured TTL.
-
-GDELT is the only upstream that throttles aggressively, so it gets
-its own retry helper (`_gdelt_get`) with growing back-off.
-"""
+# =============================================================================
+# api_integrations.py — THE "EVERY EXTERNAL API" FILE
+# =============================================================================
+# This is the single file where we talk to the outside world. Every
+# external API our project uses is wrapped here behind a tidy static
+# method on the APIClient class. Other files NEVER import requests
+# directly — they all call APIClient.something().
+#
+# The data sources wrapped here (and why we use each one):
+#   - FRED (St. Louis Fed)  : free, no-key. Used for WTI crude oil price
+#                              and IMF freight index.
+#   - ExchangeRate-API      : free, no-key. Live USD/EUR/GBP/JPY/CNY rates.
+#   - ACLED                 : conflict event database (armed conflicts,
+#                              protests, riots). Free with optional key.
+#   - GDELT                 : open global news event database. Free.
+#   - NGA                   : official US maritime safety warnings (used
+#                              indirectly via nga_warnings.py).
+#   - NewsAPI               : ~free news aggregator (needs key).
+#   - Guardian Open API     : Guardian newspaper articles (needs key).
+#   - OpenWeather           : weather warnings (needs key).
+#   - Ship & Bunker         : we scrape this public website's HTML for
+#                              live marine fuel (bunker) prices.
+#   - aisstream.io          : free live AIS vessel position WebSocket
+#                              (handled in ais_consumer.py, not here).
+#
+# Why this is so defensive (3 layers of caching):
+#   1. SHARED HTTP SESSION (_SESSION): we re-use a single TCP connection
+#      across all calls so we don't pay TLS-handshake overhead repeatedly.
+#   2. ON-DISK HTTP CACHE (requests_cache): saves successful responses to
+#      a SQLite file under /tmp so even restarting the app doesn't blow
+#      our daily API quota for the same data.
+#   3. STREAMLIT @st.cache_data: memoises the function-level result for
+#      the page session so re-renders are instant.
+#
+# GDELT is the flakiest of the bunch and rate-limits aggressively, so it
+# has its own retry helper (_gdelt_get) with exponential back-off.
+# =============================================================================
 
 import os
 from pathlib import Path

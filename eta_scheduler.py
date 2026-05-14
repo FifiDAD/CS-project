@@ -1,15 +1,27 @@
-"""Background scheduler for the ETA Predictor.
-
-Runs a daemon thread that wakes up every 24h and retrains the model
-when (a) at least 24h have elapsed since the last training, AND (b) the
-live AIS sightings table contains enough real transits to support a
-retrain. Idempotent — `start_eta_scheduler()` only spawns the thread
-the first time it is called per process.
-
-Hook this from `app.py` alongside `start_consumer()` so the model
-gradually phases over from synthetic seed to real data without manual
-intervention.
-"""
+# =============================================================================
+# eta_scheduler.py — AUTOMATIC DAILY RETRAINING DAEMON
+# =============================================================================
+# This file's only job is to keep the ETA model fresh over time. When
+# the main app starts, app.py calls start_eta_scheduler() once and that
+# kicks off a background daemon thread which sleeps in the background
+# and wakes up periodically to check:
+#
+#       Has it been at least 24 hours since the last training?
+#       AND do we now have at least ~200 real AIS transits in the
+#       database to train on?
+#
+# If BOTH conditions are true, it calls into train_eta_model.py to
+# retrain the model from scratch on the latest data, saves the new
+# .joblib file to models/eta_xgb.joblib, and updates the metadata file.
+# The dashboard automatically picks up the new model on the next page
+# rerun. The user never has to do anything.
+#
+# It's safe to call start_eta_scheduler() many times — only the FIRST
+# call actually spawns the thread (we use a module-level flag).
+#
+# The "Retrain now" button on page 5 (ETA Quality) bypasses the cooldown
+# by calling retrain_now() directly.
+# =============================================================================
 
 from __future__ import annotations
 

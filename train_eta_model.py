@@ -1,17 +1,38 @@
-"""Train the Chokepoint ETA Predictor (XGBoost quantile regression).
-
-Reads labeled transits from the live AIS sightings table (`.ais_positions.db`)
-and/or the bundled synthetic seed CSV, runs 5-fold time-series cross-
-validation + hyperparameter sweep, trains three quantile XGBoost regressors
-(p10, p50, p90) on the best configuration, and persists the bundle to
-models/eta_xgb.joblib alongside SHAP backing data and a calibration plot.
-
-Usage:
-    python train_eta_model.py                  # real AIS data; refuses if <200 rows
-    python train_eta_model.py --seed           # add bundled synthetic rows
-    python train_eta_model.py --no-cv          # skip CV+hyperparam sweep (fast iteration)
-    python train_eta_model.py --db custom.db   # alternate AIS DB path
-"""
+# =============================================================================
+# train_eta_model.py — TRAINING THE ETA PREDICTION MODEL
+# =============================================================================
+# This is the script that actually TRAINS the XGBoost ETA model. We can
+# run it manually from the terminal (e.g. `python train_eta_model.py
+# --seed`) OR it's invoked automatically by eta_scheduler.py once a day.
+# Either way, the steps are the same:
+#
+#   1. Pull every "completed transit" out of the local SQLite database
+#      via eta_model.extract_transits(). A transit = vessel entered the
+#      bbox of a chokepoint and later left it.
+#   2. Optionally add the bundled "synthetic seed" rows (--seed flag) so
+#      a fresh install has something to learn from even before any real
+#      AIS data has accumulated.
+#   3. Build the (X, y) feature matrix via eta_model.build_feature_matrix().
+#   4. Run 5-fold TIME-SERIES cross-validation (we order by date so we
+#      never train on the future and test on the past).
+#   5. Sweep through 27 different hyperparameter combinations (learning
+#      rate, max depth, n_estimators) — pick the best by CV MAE.
+#   6. Re-train THREE final XGBoost regressors on the full data using the
+#      best hyperparameters, one each at alpha=0.1, 0.5, 0.9 to get the
+#      p10/p50/p90 quantile predictions.
+#   7. Compute SHAP values for explainability + a calibration plot, then
+#      save everything to models/eta_xgb.joblib plus a metadata JSON file
+#      that eta_quality.py reads later.
+#
+# CLI flags:
+#     --seed         add bundled synthetic transits to the training set
+#     --no-cv        skip the CV + hyperparam sweep (fast iteration)
+#     --db PATH      use a non-default AIS database file
+#
+# This file is NOT imported anywhere in the running app — only invoked
+# as a script. The trained .joblib file it produces is what the live
+# dashboard actually uses for predictions.
+# =============================================================================
 
 from __future__ import annotations
 

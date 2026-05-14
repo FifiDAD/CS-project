@@ -1,12 +1,31 @@
-"""AISStream.io WebSocket consumer.
-
-Spawns a single background thread per process. Subscribes to bounding boxes
-around the major chokepoints + critical ports, persists the latest position
-per MMSI to a SQLite file, and exposes `latest_positions()` for Streamlit.
-
-Streamlit reruns import this module repeatedly — `start_consumer()` is
-idempotent (only the first call actually opens the WebSocket).
-"""
+# =============================================================================
+# ais_consumer.py — LIVE VESSEL POSITION FEED
+# =============================================================================
+# AIS = Automatic Identification System. Every commercial ship in the
+# world is required to broadcast its position, speed, heading, etc. over
+# AIS. The free aisstream.io service relays this firehose over a single
+# WebSocket connection. This file is the small client that:
+#
+#   - Opens ONE WebSocket per Python process (start_consumer is
+#     idempotent — calling it again does nothing).
+#   - Subscribes only to bounding boxes around the major chokepoints
+#     and critical ports we care about (so we're not flooded with the
+#     entire global fleet).
+#   - Writes every message into the local SQLite database
+#     (.ais_positions.db) into two tables:
+#         positions  — the LATEST known position per ship
+#         sightings  — every historical position (used by eta_model
+#                       to extract training transits)
+#   - Exposes simple helper functions:
+#         latest_positions(max_age_sec)  — vessels seen recently
+#         transits_24h(bbox)             — count of distinct ships
+#         transits_baseline(bbox)        — same, averaged over 30 days
+#
+# Why a background thread instead of inline calls? Because the WebSocket
+# has to stay open and read messages constantly — we can't block the
+# Streamlit UI on it. The SQLite database acts as the bridge between the
+# always-running consumer thread and the on-demand Streamlit pages.
+# =============================================================================
 
 from __future__ import annotations
 
