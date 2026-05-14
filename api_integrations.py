@@ -10,8 +10,6 @@
 #   - FRED (St. Louis Fed)  : free, no-key. Used for WTI crude oil price
 #                              and IMF freight index.
 #   - ExchangeRate-API      : free, no-key. Live USD/EUR/GBP/JPY/CNY rates.
-#   - ACLED                 : conflict event database (armed conflicts,
-#                              protests, riots). Free with optional key.
 #   - GDELT                 : open global news event database. Free.
 #   - NGA                   : official US maritime safety warnings (used
 #                              indirectly via nga_warnings.py).

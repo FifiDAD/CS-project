@@ -21,7 +21,7 @@
 #   - NGA severity        : official US maritime warnings (nga_warnings.py)
 #   - AIS transit drop    : live AIS data from our local SQLite database
 #                           (today's traffic vs the 30-day baseline)
-#   - Events nearby       : ACLED conflict + GDELT events within ~250 km
+#   - Events nearby       : GDELT events within ~250 km
 #   - News clusters       : GDELT articles confirmed by ≥2 distinct news
 #                           domains, decayed over time
 #
@@ -408,10 +408,14 @@ def _ais_anchored_count(
     return int(inside.sum())
 
 
-# Scores each of our 8 monitored ports for congestion 0-100. The formula
-# is roughly: gdelt_articles × 2 + acled_events × 15 + weather_alert × 20.
-# We also check live AIS for anchored vessel counts as a "ground truth"
-# signal. Returns one row per port with the score + a congestion label.
+# Scores each of our 8 monitored ports for congestion 0-100. The real
+# signal here is the live AIS at-anchor queue (vessels with speed < 0.5 kn
+# inside the port anchorage), combined with Open-Meteo marine weather
+# (wave height + wind) and a batched GDELT news check for congestion
+# keywords near each port. Score is derived from expected delay
+# (queue / berths × baseline_turnaround × weather_multiplier), not a
+# hand-tuned weight sum. Returns one row per port with the score + a
+# congestion label.
 @st.cache_data(ttl=CACHE_TTL_EVENTS)
 def compute_port_congestion(events_json: str) -> pd.DataFrame:
     """

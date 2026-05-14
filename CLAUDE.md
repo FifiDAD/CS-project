@@ -76,15 +76,15 @@ Streamlit-based shipping risk dashboard aggregating 9 external APIs. The goal is
 ```
 app.py
   └── _load_core_data() [cached 15min]
-        ├── sample_data.get_events_data()        → calls APIClient.get_acled_events() with fallback
+        ├── sample_data.get_events_data()        → events_aggregator (GDELT-backed live feed)
         ├── APIClient.get_oil_price()            → FRED API
         ├── APIClient.get_shipping_index()       → FRED API
         └── APIClient.get_exchange_rates()       → ExchangeRate-API
 
   └── dynamic_status.py [each function cached separately]
-        ├── compute_shipping_status(events_json) → ACLED proximity + GDELT news → route risk scores
-        ├── compute_risk_summary(events_json)    → ACLED proximity → regional risk table
-        ├── compute_port_congestion(events_json) → GDELT + ACLED + OpenWeather → port scores
+        ├── compute_shipping_status(events_json) → GDELT events + NGA severity + AIS transit drop → route risk scores
+        ├── compute_risk_summary(events_json)    → GDELT event proximity → regional risk table
+        ├── compute_port_congestion(events_json) → live AIS queue + GDELT news + Open-Meteo marine → port scores
         └── get_news_feed()                      → Guardian API + NewsAPI → unified feed
 
   └── analytics.RiskAnalytics [pure computation, no API calls]
@@ -108,7 +108,7 @@ All `dynamic_status.py` functions accept `events_df.to_json()` (a JSON string) r
 | `config.py` | `MAJOR_SHIPPING_ROUTES` (waypoint coords), `EVENT_TYPES`, `IMPACT_LEVELS`, `ROUTE_STATUS_COLORS` |
 | `api_config.py` | API keys, cache TTLs, `STRAIT_COORDINATES`, `CRITICAL_PORTS`, `KEY_REGIONS` — **do not modify** |
 | `api_integrations.py` | `APIClient` static methods for every external API — **do not modify** |
-| `sample_data.py` | Fallback events returned when ACLED fails; always produces valid DataFrame schema |
+| `sample_data.py` | Live events entry point: pulls from the GDELT-backed `events_aggregator`. Returns an empty DataFrame (not fake rows) if the live feed is unavailable. Set `DASHBOARD_USE_SAMPLE_DATA=1` to opt into the bundled static sample for offline dev/tests. |
 | `eta_model.py` | Chokepoint ETA Predictor — XGBoost quantile regression. Extracts labeled transits from `sightings`, exposes `predict_transit_minutes()` / `predict_total_for_route()` (with `force_heuristic` kwarg) / `explain_prediction()` (SHAP top-K contributions in minutes). Lazy-imports xgboost+joblib+shap so `app_simple.py` stays importable without ML libs. |
 | `train_eta_model.py` | Offline trainer with 5-fold time-series CV + 27-cell hyperparam sweep + SHAP backend + calibration plot. Saves `models/eta_xgb.joblib`, `eta_meta.json`, `eta_feature_importance.png`, `eta_calibration.png`, `eta_shap_values.npy`. CLI: `--db`, `--seed`, `--no-cv`, `--cv-splits`. |
 | `eta_scheduler.py` | Background daemon (`start_eta_scheduler()`, idempotent like `start_consumer()`) that retrains the ETA model once daily when ≥200 real AIS rows have accumulated. Exposes `retrain_now()` for the "Retrain now" UI button. |
@@ -121,12 +121,12 @@ All `dynamic_status.py` functions accept `events_df.to_json()` (a JSON string) r
 ### Risk Score Formula (`dynamic_status.py`)
 
 - **Chokepoint (0–100):** `nga_sev × 45 + min(25, ais_drop_points) + critical_nearby × 25 + high_nearby × 10 + news_clusters_score × 6` — see `dynamic_status.py:183-190`. `news_clusters_score` is multi-source (≥2 distinct domains) and decays 0.5× after 24h; the per-chokepoint GDELT lookup uses a 7-day window.
-- **Port congestion (0–100):** `gdelt_articles × 2 + acled_events × 15 + weather_alert × 20`
+- **Port congestion (0–100):** delay-derived from `(queue / berths) × baseline_turnaround_days × weather_multiplier`, where `queue` is the live AIS at-anchor count (vessels with SOG < 0.5 kn inside the port anchorage), `weather_multiplier` comes from Open-Meteo marine (wave height + wind), and a batched GDELT news check provides a secondary congestion signal where AIS coverage is sparse. Score scales from the resulting expected-delay value.
 - **Regional (score):** `critical × 3 + high × 2 + other × 1` → thresholds at 2/4/6
 
 ### APIs & Keys
 
-Keys are stored in `api_config.py` with `os.getenv()` fallbacks — set environment variables to override hardcoded defaults. APIs without keys: ACLED, GDELT, NOAA, World Bank, Exchange Rates. APIs with keys: NewsAPI, FRED, Guardian, OpenWeather.
+Keys are stored in `api_config.py` with `os.getenv()` fallbacks — set environment variables to override hardcoded defaults. APIs without keys: GDELT, NOAA, World Bank, Exchange Rates. APIs with keys: NewsAPI, FRED, Guardian, OpenWeather, AISStream.
 
 NOAA (`get_weather_hazards()`) and World Bank data are configured but not currently called in `app.py`.
 

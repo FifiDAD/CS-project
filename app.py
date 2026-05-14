@@ -300,7 +300,7 @@ with map_col:
             cc    = CONG_COL.get(p["Congestion"], "#666")
             score = int(p["Score"])
             conf  = p.get("Confidence", "Live AIS")
-            # "News-only" means the score is derived from GDELT/ACLED signals alone;
+            # "News-only" means the score is derived from GDELT signals alone;
             # no live AIS queue data has confirmed it yet, so we flag it visually.
             low_conf = conf == "News-only"
             name_color = "#888" if low_conf else "#e8e8e8"

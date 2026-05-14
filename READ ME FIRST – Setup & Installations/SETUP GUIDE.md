@@ -87,7 +87,7 @@ python -c "import shap; print(shap.__version__)"
 
 ### 3.4 requests-cache — API Response Caching
 
-Needed for: caching external API responses (GDELT, ACLED, FRED, etc.) so the
+Needed for: caching external API responses (GDELT, FRED, NewsAPI, etc.) so the
 app does not hammer rate-limited APIs on every refresh.
 
 ```bash
@@ -205,11 +205,11 @@ Where to get each key (all free tiers):
 "WE INCLUDED OUR API KEYS IN THE PROJECT SUBMISSION COMMENT SO YOU CAN SUCCSESFULLY HOST LOCALLY"
 
 APIs that need **no key** and work immediately:
-- ACLED (conflict events)
-- GDELT (global event intelligence)
+- GDELT (global event intelligence, including armed-conflict reporting)
 - NOAA (weather alerts)
 - World Bank (trade data)
 - Exchange Rates API
+- NGA (official maritime safety broadcast warnings)
 
 ---
 

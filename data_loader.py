@@ -2,7 +2,7 @@
 # data_loader.py — THE SHARED DATA LOADER (cached, parallelised)
 # =============================================================================
 # Every page in the app needs roughly the same 4 pieces of data:
-#   1. Events DataFrame      (ACLED + GDELT + NGA + multi-source merge)
+#   1. Events DataFrame      (GDELT + NGA, multi-source verified)
 #   2. WTI crude oil price   (FRED)
 #   3. IMF freight index     (FRED)
 #   4. Currency exchange rates (ExchangeRate-API)

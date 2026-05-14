@@ -32,7 +32,7 @@ All APIs are completely FREE with these providers:
 
 #### 🔑 **Option B: Skip Keys (Start with Sample Data)**
 - Dashboard will work with ZERO keys
-- Uses free APIs (ACLED, GDELT, NOAA, World Bank)
+- Uses free APIs (GDELT, NOAA, World Bank, Exchange Rates)
 - Add keys later anytime
 
 ### Step 3: Configure API Keys
@@ -68,26 +68,28 @@ Opens at: **http://localhost:8501**
 5. **💰 Financial Impact** - Cost projections
 
 ### Real Data Sources:
-- ✅ **ACLED** - Armed conflict data (FREE)
-- ✅ **GDELT** - Global events (FREE)
+- ✅ **GDELT** - Global events + armed conflict reporting (FREE)
 - ✅ **NewsAPI** - Breaking news (FREE tier)
 - ✅ **FRED** - Oil prices, shipping index (FREE)
 - ✅ **NOAA** - Weather/storms (FREE)
 - ✅ **World Bank** - Trade statistics (FREE)
 - ✅ **Guardian** - News articles (FREE)
+- ✅ **NGA** - Official maritime safety warnings (FREE)
+- ✅ **AISStream** - Live vessel positions over WebSocket (FREE)
 
 ---
 
 ## 🆓 Total Cost: $0/Month (Free Tier)
 
 All included APIs have free tiers with:
-- **ACLED**: Unlimited
-- **GDELT**: Unlimited  
+- **GDELT**: Unlimited
 - **NOAA**: Unlimited
 - **World Bank**: Unlimited
 - **NewsAPI**: 500 requests/day
 - **FRED**: Unlimited
 - **Guardian**: Unlimited
+- **NGA**: Unlimited (public maritime broadcast warnings)
+- **AISStream**: Unlimited (free WebSocket token)
 
 ---
 
@@ -95,11 +97,11 @@ All included APIs have free tiers with:
 
 These don't need keys:
 ```
-✅ ACLED - Conflict events
-✅ GDELT - Global events  
+✅ GDELT - Global events + conflict reporting
 ✅ NOAA - Weather alerts
 ✅ World Bank - Trade data
 ✅ Exchange Rates - Currency data
+✅ NGA - Maritime safety warnings
 ```
 
 Dashboard works RIGHT NOW with just these!

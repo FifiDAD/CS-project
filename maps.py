@@ -17,7 +17,7 @@
 #                            (config.MAJOR_SHIPPING_ROUTES + config.ROUTE_STATUS_COLORS)
 #   - Ports                : 8 markers coloured by live congestion score
 #                            (api_config.CRITICAL_PORTS)
-#   - Event markers        : ACLED + GDELT events, sized by impact level
+#   - Event markers        : GDELT-sourced events, sized by impact level
 #   - AIS vessels          : live vessel positions from our SQLite cache
 #   - Piracy incidents     : recent piracy from the IMB feed
 #   - Day/night terminator : grey overlay showing where it's night right now
