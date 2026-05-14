@@ -3,11 +3,11 @@
 This file serves two purposes:
 
 1. **AI Use Declaration** (top section) — a transparent record of how we used
-   Anthropic's Claude AI assistant during this project, intended for our
-   professors as part of our submission.
+   Anthropic's Claude AI assistant during this project
+
 2. **Architecture / dev reference** (bottom section) — a detailed map of the
-   codebase, the data flow, and the key formulas. Useful for the professor
-   as a project overview, and also serves as context for any future Claude
+   codebase, the data flow, and the key formulas. Useful for the a
+    project overview, and also serves as context for any future Claude
    sessions on the codebase.
 
 ---
@@ -20,8 +20,7 @@ We used Claude (Anthropic's AI assistant) to help build, document, and
 verify this project. We want to be upfront about exactly how the AI was
 involved so our work can be evaluated fairly.
 
-This section lists what Claude *did*, what Claude *did not do*, and how
-we kept the human team in the driver's seat throughout.
+This section lists what Claude *did*, what Claude *did not do*.
 
 ### How Claude was used
 
@@ -29,25 +28,27 @@ we kept the human team in the driver's seat throughout.
 Claude helped us turn vague goals ("build a shipping dashboard") into
 concrete week-by-week task lists, scope decisions (e.g. drop ACLED
 integration as too complex; lean on GDELT alone), and design trade-offs
-(e.g. XGBoost quantile regression vs deep learning — we chose XGBoost
-specifically because it is faster, more interpretable, and easier to
-explain in a class presentation).
+(e.g. XGBoost quantile regression vs open source ML) — we chose XGBoost
+specifically because it is faster, more interpretable, and fit the project goals
+much better than any off the shelf model could. 
+Furthermore you will notice that the design of the project is very different to what
+a traditional streamlit dashboard would allow. This is because our group was not satisfied
+with the design limitations of streamlit and decided to look for solutions. 
+We discovered that a common fix for this was to inject custom CSS via Streamlit's markdown component.
+This allowed us to leverage design power and flexinility of CSS while still adhearing
+to the requirements of the project being compiled entirely in python and streamlit.
+Naturally as we have not covered CSS in class we required assistance with design code from Claude.
+
 
 **2. Code commenting.**
-We did a final pass over every meaningful Python file in the project to
-add plain-English, student-voice comments explaining what each block does
-and why we chose to do it that way. Claude wrote those comments under our
-direction so a non-technical reader (such as a professor) could read any
-function and understand its intent. The comments describe code we already
-had — they do not add new functionality.
+We used Claude do reformat the comments in a way that they were organised, 
+easy to understand, and interprable by anyone that didnt spend weeks on this project.
 
 **3. Documentation cleanup.**
-After we dropped the legacy ACLED integration, stale references to it
-lingered in comments and the setup docs. Claude helped sweep those out
-and rewrote the setup folder (this `READ ME FIRST – Setup & Installations/`
-directory) into the four-file structure you see now (README, SETUP GUIDE,
-QUICKSTART, this file) so a fresh reader has a single canonical place to
-start.
+We also used Claude to assist us with project structure. specifically with making sure 
+files were seperated correctly and according to best practices. As you will be able to tell
+in the code itself, there are plenty of lines for fallback scenarios.
+This ensures that even if something fails, the dashboard can still be used and interacted with.
 
 **4. ML pipeline assistance.**
 The XGBoost chokepoint ETA predictor — including the quantile regression
@@ -62,16 +63,15 @@ the numerical tradeoffs.
 
 **5. Smoke-testing before submission.**
 Before handing the project in, Claude helped launch the dashboard,
-import-test each page module, surface a couple of bugs introduced by
-the comment pass (orphan docstring fragments that would not have been
-caught by a static syntax check), and confirm everything works end-to-end.
+import-test each page module, tested for bugs, and confirm everything works end-to-end.
+Additionally, it helped with organising everything in a zip file. This was done to make sure that
+the professors would not have any missing files, or dependencies when installing the project
 
 **6. Routine code questions.**
 Throughout development we asked Claude to explain unfamiliar libraries
 (Plotly's `add_trace` API, NetworkX's k-shortest-paths variants, H3's
 hexagonal grid resolution levels, Streamlit caching semantics) and to
-suggest idiomatic ways to express things in Python. These are the kind
-of questions we would otherwise look up on Stack Overflow.
+suggest idiomatic ways to express things in Python.
 
 ### How Claude was NOT used
 
@@ -91,6 +91,13 @@ of questions we would otherwise look up on Stack Overflow.
 
 In all cases the team reviewed and accepted (or rejected) Claude's
 suggestions before they made it into the repository.
+
+Additionally, we believe it important to mention that although the code itself
+was written with Claudes help, this was NOT a project that can be done with a couple
+of prompts (as our commit history can show). The team spent weeks exploring new ideas, features, and correcting previous mistakes.
+Every time Claude made an edit we would check the code, understand its logic, and push back on claudes approach.
+This was done to ensure the project matched the groups vision as closley as possible, while contemporarily,
+ensuring that the whole team knows exactly how the code works. This ensured a group-wide comprehnsions of the programs why and how's.
 
 ### What Claude is
 

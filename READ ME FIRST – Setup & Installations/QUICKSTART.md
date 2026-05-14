@@ -1,6 +1,6 @@
 # QUICKSTART — TradeWatch dashboard
 
-For the impatient. Full guide is in `SETUP GUIDE.md`.
+Quickstart guide — Full guide is in `SETUP GUIDE.md`. (please visit this if you encountered any issues during Quickstart installation process)
 
 ---
 
