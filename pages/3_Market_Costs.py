@@ -60,7 +60,7 @@ events_json = events_df.to_json() if len(events_df) > 0 else pd.DataFrame().to_j
 
 with st.spinner(""):
     # Compute live risk scores for each shipping chokepoint and each major port,
-    # combining GDELT news volume, geocoded events, and live weather alerts.
+    # combining ACLED conflict data, GDELT news volume, and weather alerts.
     shipping_df  = compute_shipping_status(events_json)
     port_cong_df = compute_port_congestion(events_json)
 

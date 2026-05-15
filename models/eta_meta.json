@@ -1,15 +1,15 @@
 {
   "model_version": "1.0",
-  "trained_at": 1778668250.508099,
-  "n_train": 1491,
-  "n_test": 373,
-  "mae_minutes": 157.84,
-  "r2": -0.6378,
+  "trained_at": 1778833668.064136,
+  "n_train": 1480,
+  "n_test": 370,
+  "mae_minutes": 173.01,
+  "r2": -0.3315,
   "per_chokepoint_mae": {
-    "Bosphorus": 30.0,
-    "English Channel": 160.3,
-    "Singapore Strait": 320.6,
-    "Suez Canal": 112.4
+    "Bosphorus": 34.9,
+    "English Channel": 205.8,
+    "Singapore Strait": 84.9,
+    "Suez Canal": 109.3
   },
   "feature_names": [
     "chokepoint_id_Bab el-Mandeb",
@@ -34,8 +34,8 @@
     "recent_throughput_24h",
     "bbox_diagonal_km"
   ],
-  "real_rows": 674,
-  "synthetic_rows": 1190,
+  "real_rows": 830,
+  "synthetic_rows": 1020,
   "best_hp": {
     "max_depth": 4,
     "n_estimators": 80,
@@ -44,11 +44,11 @@
   "hp_search_top5": [],
   "cv_summary": null,
   "vessel_mix": {
-    "unknown": 642,
-    "container": 447,
-    "tanker": 287,
-    "other": 259,
-    "bulker": 229
+    "unknown": 777,
+    "container": 396,
+    "tanker": 253,
+    "other": 224,
+    "bulker": 200
   },
   "sample_weight_schedule": {
     "container": 1.0,
