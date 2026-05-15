@@ -1,15 +1,15 @@
 {
   "model_version": "1.0",
-  "trained_at": 1778833668.064136,
+  "trained_at": 1778835545.9594188,
   "n_train": 1480,
   "n_test": 370,
-  "mae_minutes": 173.01,
-  "r2": -0.3315,
+  "mae_minutes": 163.61,
+  "r2": -0.2089,
   "per_chokepoint_mae": {
-    "Bosphorus": 34.9,
-    "English Channel": 205.8,
-    "Singapore Strait": 84.9,
-    "Suez Canal": 109.3
+    "Bosphorus": 34.5,
+    "English Channel": 192.5,
+    "Singapore Strait": 86.7,
+    "Suez Canal": 110.8
   },
   "feature_names": [
     "chokepoint_id_Bab el-Mandeb",
@@ -37,9 +37,9 @@
   "real_rows": 830,
   "synthetic_rows": 1020,
   "best_hp": {
-    "max_depth": 4,
-    "n_estimators": 80,
-    "learning_rate": 0.15
+    "max_depth": 5,
+    "n_estimators": 300,
+    "learning_rate": 0.08
   },
   "hp_search_top5": [],
   "cv_summary": null,
